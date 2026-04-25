@@ -9,3 +9,7 @@ src/config.h
 
 # Claude Code local settings
 .claude/
+
+# Misc files— bloat to repo
+.Datasheets/
+.Stored Data/

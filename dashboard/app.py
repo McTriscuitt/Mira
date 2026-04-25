@@ -181,6 +181,7 @@ def latest_status():
     snap = StatusSnapshot.query.order_by(StatusSnapshot.timestamp.desc()).first()
     if not snap:
         return jsonify(None)
+    pending = Command.query.filter_by(status='pending').order_by(Command.created_at).first()
     return jsonify({
         'state': snap.state,
         'lux': snap.lux,
@@ -192,6 +193,7 @@ def latest_status():
         'wake_step': snap.wake_step,
         'wake_total': snap.wake_total,
         'soft_pause_remaining_s': snap.soft_pause_remaining_s,
+        'pending_command_id': pending.id if pending else None,
     })
 
 

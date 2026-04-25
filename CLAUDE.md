@@ -14,6 +14,13 @@ Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (
 - issue with the wake sequence instantly turning on the overheads.
   - probably because ambient lux is 1800, triggering that they *should* be on even when they havent reached the correct brightness *to* turn on yet
 - depricate day types. unnecessary
+-  another bug- when you deselect a state before a push, it does not reset back to the current state
+- and when the push does come through, it resets the state to the pushed state instead of keeping the state that   
+  just got sent back to the board. some interesting logic to work there.
+- **_need to have claude update all files_**
+  - hit rate limit and couldnt update
+  - gitignore, templates/, main, firmware.md, dashboard.md, etc. 
+    - basically, the **_whole project_** needs a thorough update
 
 ## Build & Flash (PlatformIO)
 

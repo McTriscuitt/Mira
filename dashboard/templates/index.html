@@ -45,7 +45,7 @@
       text-decoration: none;
       letter-spacing: 0.05em;
     }
-    .logout:hover { color: #888; }
+    @media (hover: hover) { .logout:hover { color: #888; } }
 
     /* --- Stat grid --- */
     .status-grid {
@@ -126,7 +126,9 @@
       transition: background 0.15s;
     }
 
-    input[type="range"]::-webkit-slider-thumb:hover { background: #e0e0e0; }
+    @media (hover: hover) {
+      input[type="range"]::-webkit-slider-thumb:hover { background: #e0e0e0; }
+    }
     input[type="range"]::-moz-range-thumb {
       width: 12px; height: 12px; border-radius: 50%;
       background: #666; border: none; cursor: pointer;
@@ -150,7 +152,9 @@
       cursor: pointer;
       transition: border-color 0.15s, color 0.15s;
     }
-    .finish-btn:hover { border-color: #666; color: #e0e0e0; }
+    @media (hover: hover) {
+      .finish-btn:hover { border-color: #666; color: #e0e0e0; }
+    }
 
     /* --- Controls --- */
     .controls {
@@ -173,7 +177,9 @@
       transition: border-color 0.15s, color 0.15s, background 0.15s;
       min-height: 40px;
     }
-    .btn:hover { border-color: #555; color: #e0e0e0; }
+    @media (hover: hover) {
+      .btn:hover { border-color: #555; color: #e0e0e0; }
+    }
     .btn:active { background: #1a1a1a; }
     .btn.btn-active { border-color: #777; color: #e0e0e0; background: #1e1e1e; }
 
@@ -298,7 +304,9 @@
       document.getElementById('val-ct').textContent = sentinel ? '—' : data.ct;
       document.getElementById('val-overhead').textContent = sentinel ? '—' : (data.overhead_on ? 'on' : 'off');
       document.getElementById('val-ts').textContent = new Date(data.timestamp).toLocaleTimeString();
-      _pendingCommand = null;
+      if (_pendingCommand && data.pending_command_id !== _pendingCommand.id) {
+        _pendingCommand = null;
+      }
       _updateButtonStates();
       renderProgress(data);
     }
