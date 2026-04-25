@@ -306,8 +306,44 @@
     // States with a seekable slider: WIND_DOWN, WAKE
     // States with detail text only: SOFT_PAUSE
     // States with just a label: NORMAL, LOCKED_OUT, HARD_OFF
-    function renderProgress(data) {
 
+
+    function renderProgress(data) {
+      const nameEl     = document.getElementById('progress-state-name');
+      const sliderWrap = document.getElementById('progress-slider-wrap');
+      const slider     = document.getElementById('progress-slider');
+      const text       = document.getElementById('progress-text');
+      const detail     = document.getElementById('progress-detail');
+
+      // Reset to hidden slider and no detail text each call
+      sliderWrap.classList.add('hidden');
+      detail.textContent = '';
+
+      if (data.state === 'WIND_DOWN') {
+        nameEl.textContent = 'Wind-down';
+        slider.max   = 120;
+        slider.value = data.wind_down_step;
+        text.textContent = `${Math.round(data.wind_down_step / 2)} / 60 min`;
+        sliderWrap.classList.remove('hidden');
+
+      } else if (data.state === 'WAKE') {
+        nameEl.textContent = 'Waking up';
+        slider.max   = data.wake_total;
+        slider.value = data.wake_step;
+        text.textContent = `${data.wake_step} / ${data.wake_total} steps`;
+        sliderWrap.classList.remove('hidden');
+
+      } else if (data.state === 'SOFT_PAUSE') {
+        nameEl.textContent = 'Paused';
+        detail.textContent = `${Math.round(data.soft_pause_remaining_s / 60)} min remaining`;
+
+      } else if (data.state === 'NORMAL') {
+        nameEl.textContent = 'Normal';
+      } else if (data.state === 'LOCKED_OUT') {
+        nameEl.textContent = 'Locked out';
+      } else if (data.state === 'HARD_OFF') {
+        nameEl.textContent = 'Hard off';
+      }
     }
 
     // Slider seek — fires when user releases the slider
