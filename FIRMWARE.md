@@ -57,8 +57,8 @@ All hardware has arrived as of April 2026. The VEML7700 sensor, Nano ESP32-S3, a
 
 | Signal | ESP32 Pin | Stemma QT wire color |
 |---|---|---|
-| SDA | A4 (GPIO21) | Blue |
-| SCL | A5 (GPIO22) | Yellow |
+| SDA | A4 (GPIO11) | Blue |
+| SCL | A5 (GPIO12) | Yellow |
 | VIN | 3.3V | Red |
 | GND | GND | Black |
 
@@ -111,7 +111,6 @@ Both active LOW, internal pull-up.
 - Polls VEML7700 every 30 s via `readLux(VEML_LUX_AUTO)`
 - Each lux reading maps to a `LightTarget {uint8_t bri, uint16_t ct}` via `luxToTarget()` in `src/lightcurve.h`
 - Curve is a 4-segment piecewise function — see `LIGHTCURVE.md` for shape, constants, and tuning guide
-- `invertLux(bri)` analytically inverts each segment; used by `triggerWake()` to seed the wake ramp from saved bedside bri
 - Only sends Hue API update if change exceeds `STATE_TOLERANCE` (default: ±3 units)
 - All updates use `transitiontime` for smooth fading
 
@@ -130,13 +129,13 @@ Both active LOW, internal pull-up.
 - `state = LOCKED_OUT` at boot — suppresses all auto-on
 - `checkBedsideState(lux)` runs every tick in LOCKED_OUT (and NORMAL, WIND_DOWN)
 - Rising-edge detection: `!lastBedsideOn && bedside.on` in LOCKED_OUT → `triggerWake(lux)`
-- Re-arms when all 4 lights confirmed off AND `hour >= LOCKOUT_RESET_HOUR` (11 PM); resets `stableLuxCount`, `windDownStep`
+- Re-arms when all 4 lights confirmed off AND `hour >= LOCKOUT_RESET_HOUR` (9 PM); resets `stableLuxCount`, `windDownStep`
 - Falling-edge detection uses 3 extra GETs (desk, ceil1, ceil2) only on the tick bedside turns off — not every tick
 
 #### Wake Sequence *(implemented)*
-- `triggerWake(lux)` loads saved bedside bri from `Preferences`, calls `invertLux(bri)` to find starting lux, seeds `wakeStartLux` / `wakeEndLux` / `wakeLux`; sets `state = WAKE`
-- `tickWakeRamp(lux)` advances `wakeLux` by `(wakeEndLux - wakeStartLux) / ticks` per 30 s tick
-- Sequential turn-on: bedside (always), desk (wakeLux ≥ S4_LUX_HI = 10 lux), overheads (wakeLux ≥ S3_LUX_HI = 300 lux)
+- `triggerWake(lux)` calls `getLightState(LIGHT_BEDSIDE)` to read the actual bedside bri/ct at trigger time; seeds `wakeStartTarget` from that reading (or floor values if bulb is off); `wakeEndTarget = luxToTarget(ambientLux)`; sets `state = WAKE`
+- `tickWakeRamp(lux)` linearly interpolates bri and ct from `wakeStartTarget` → `wakeEndTarget` per tick; sets all active bulbs each step
+- Sequential turn-on: bedside + desk (every tick), overheads only if `lux >= S3_LUX_HI = 300 lux`
 - `transitiontime = 300` (30 s) — matches poll interval exactly for a seamless continuous gradient
 - **WORK** = `WAKE_RAMP_TICKS_WORK = 40` ticks (20 min); **RELAXED** = `WAKE_RAMP_TICKS_RELAXED = 120` ticks (60 min)
 - Ramp ends when `wakeLux >= ambient lux`; sets `state = NORMAL`
@@ -197,7 +196,7 @@ Short press only. Advances `(int)state + 1) % 6` through the state enum order an
 |---|---|
 | LOCKED_OUT | Resets `stableLuxCount = 0`, `windDownStep = 0` |
 | NORMAL | Resets `lastTarget` sentinel, sets `skipOverrideCheck = true` |
-| WAKE | Calls `triggerWake(lastLux)` (reads NVS savedBri, seeds ramp) |
+| WAKE | Calls `triggerWake(lastLux)` (reads actual bedside state via `getLightState`, seeds ramp) |
 | WIND_DOWN | Seeds `windDownStartBri` from `lastTarget` (or `luxToTarget(lastLux)` if sentinel), resets `windDownStep = 0` |
 | SOFT_PAUSE | Sets `softPauseStart = millis()` |
 | HARD_OFF | Sets state only |
@@ -206,9 +205,9 @@ Discord is logged for all transitions except WAKE (`triggerWake` already logs it
 
 ---
 
-## Web Dashboard *(planned)*
+## Web Dashboard *(live)*
 
-Flask + HTML/CSS/JS frontend hosted on Railway. Replaces Discord webhook for monitoring and adds remote control. To be built after firmware is stable.
+Flask + HTML/CSS/JS frontend hosted on Railway (Hobby plan, PostgreSQL). Live at the URL in `config.h` (`DASHBOARD_BASE_URL`). Firmware posts status and polls commands on every tick via `sendDashboardStatus()` and `pollDashboardCommand()`. Logging dual-posts to Discord and the dashboard via `sendLog()`.
 
 See `DASHBOARD.md` for full feature specs, design system, and implementation notes.
 
@@ -305,15 +304,15 @@ lib_deps =
 
 ## Remote Logging
 
-System events are sent to a Discord channel via webhook HTTP POST (`sendDiscord()` in `main.cpp`).
+`sendLog()` in `main.cpp` dual-posts every event to both Discord (webhook) and the Railway dashboard (`/api/log`). `sendDiscord()` and `sendDashboardLog()` are the two underlying helpers.
 
 Currently logged:
 - Startup
 - Bulb updates (when `shouldUpdate` fires in NORMAL)
-- Wind-down trigger and completion
+- Wake sequence: start, 25/50/75% milestones, completion
+- Wind-down: trigger, 15/30/45 min milestones, completion
 - Soft pause trigger and auto-resume
-
-**Future:** Discord webhook will be replaced by a Railway-hosted personal dashboard once built.
+- State transitions via buttons or dashboard commands
 
 ---
 
