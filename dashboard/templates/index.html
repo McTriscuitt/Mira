@@ -292,11 +292,12 @@
       const data = await response.json();
       if (!data) return;
       _lastData = data;
+      const sentinel = data.ct === 0;
       document.getElementById('val-state').textContent = STATE_LABELS[data.state] || data.state;
       document.getElementById('val-lux').textContent = Math.round(data.lux);
-      document.getElementById('val-bri').textContent = `${data.bri} · ${Math.round(data.bri / 254 * 100)}%`;
-      document.getElementById('val-ct').textContent = data.ct;
-      document.getElementById('val-overhead').textContent = data.overhead_on ? 'on' : 'off';
+      document.getElementById('val-bri').textContent = sentinel ? '—' : `${data.bri} · ${Math.round(data.bri / 254 * 100)}%`;
+      document.getElementById('val-ct').textContent = sentinel ? '—' : data.ct;
+      document.getElementById('val-overhead').textContent = sentinel ? '—' : (data.overhead_on ? 'on' : 'off');
       document.getElementById('val-ts').textContent = new Date(data.timestamp).toLocaleTimeString();
       renderProgress(data);
       _pendingCommand = null;
@@ -376,6 +377,17 @@
         sendCommand('SET_WIND_DOWN_STEP', val);
       } else if (_lastData.state === 'WAKE') {
         sendCommand('SET_WAKE_STEP', val);
+      }
+    });
+
+    // Live text update while dragging
+    document.getElementById('progress-slider').addEventListener('input', function () {
+      if (!_lastData) return;
+      const val = parseInt(this.value);
+      if (_lastData.state === 'WIND_DOWN') {
+        document.getElementById('progress-text').textContent = `${Math.round(val / 2)} / 60 min`;
+      } else if (_lastData.state === 'WAKE') {
+        document.getElementById('progress-text').textContent = `${val} / ${_lastData.wake_total} steps`;
       }
     });
 
