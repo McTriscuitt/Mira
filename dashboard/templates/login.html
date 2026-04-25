@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mira</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0d0d0d;
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .wordmark {
+      font-size: 48px;
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      color: #f0f0f0;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 260px;
+    }
+
+    input[type="password"] {
+      background: #1a1a1a;
+      border: none;
+      border-bottom: 1px solid #333;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 15px;
+      padding: 10px 4px;
+      outline: none;
+      text-align: center;
+      letter-spacing: 0.1em;
+    }
+
+    input[type="password"]:focus {
+      border-bottom-color: #888;
+    }
+
+    button {
+      background: none;
+      border: 1px solid #333;
+      color: #aaa;
+      font-family: inherit;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      padding: 9px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    button:hover {
+      border-color: #888;
+      color: #e0e0e0;
+    }
+
+    .error {
+      font-size: 12px;
+      color: #c0392b;
+      text-align: center;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="wordmark">Mira</div>
+    <form method="POST">
+      <input type="password" name="password" placeholder="password" autofocus autocomplete="current-password">
+      {% if error %}<span class="error">incorrect password</span>{% endif %}
+      <button type="submit">enter</button>
+    </form>
+  </div>
+</body>
+</html>
