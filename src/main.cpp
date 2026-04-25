@@ -576,7 +576,7 @@ void forceState(State next) {
             state = State::HARD_OFF;
             break;
     }
-    Serial.println("Cycle button → " + String(stateName()));
+    Serial.println("forceState → " + String(stateName()));
 }
 
 void handleCycleButton() {
