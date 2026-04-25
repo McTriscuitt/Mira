@@ -228,6 +228,13 @@ void sendDashboardStatus(float lux) {
     doc["bri"]         = sentTarget.bri;
     doc["ct"]          = sentTarget.ct;
     doc["overhead_on"] = overheadsOn;
+    doc["wind_down_step"] = windDownStep;
+    doc["wake_step"]      = wakeStep;
+    int totalWakeTicks = DAY_TYPES[timeClient.getDay()] == 0 ? WAKE_RAMP_TICKS_WORK : WAKE_RAMP_TICKS_RELAXED;
+    doc["wake_total"]     = totalWakeTicks;
+    long pauseRemaining = (state == State::SOFT_PAUSE) ?
+        max(0L, ((long)SOFT_PAUSE_MS - (long)(millis() - softPauseStart)) / 1000L) : 0L;
+    doc["soft_pause_remaining_s"] = pauseRemaining;
     String body;
     serializeJson(doc, body);
     int code = http.POST(body);
@@ -247,16 +254,25 @@ void pollDashboardCommand() {
     http.end();
 
     if (doc["command"].isNull()) return;
-    String cmd = doc["command"].as<String>();
-    int cmdId  = doc["id"] | -1;
+    String cmd    = doc["command"].as<String>();
+    int cmdId     = doc["id"]    | -1;
+    int cmdValue  = doc["value"] | -1;
 
-    Serial.println("Dashboard command: " + cmd);
+    Serial.println("Dashboard command: " + cmd + (cmdValue >= 0 ? " value=" + String(cmdValue) : ""));
     if      (cmd == "NORMAL")     forceState(State::NORMAL);
     else if (cmd == "SOFT_PAUSE") forceState(State::SOFT_PAUSE);
     else if (cmd == "WIND_DOWN")  forceState(State::WIND_DOWN);
     else if (cmd == "WAKE")       forceState(State::WAKE);
     else if (cmd == "HARD_OFF")   forceState(State::HARD_OFF);
     else if (cmd == "LOCKED_OUT") forceState(State::LOCKED_OUT);
+    else if (cmd == "SET_WIND_DOWN_STEP" && state == State::WIND_DOWN && cmdValue >= 0) {
+        windDownStep = min(cmdValue, 119);
+        Serial.println("Wind-down seek → step " + String(windDownStep));
+    }
+    else if (cmd == "SET_WAKE_STEP" && state == State::WAKE && cmdValue >= 0) {
+        wakeStep = cmdValue;
+        Serial.println("Wake seek → step " + String(wakeStep));
+    }
 
     if (cmdId >= 0) {
         HTTPClient ack;
@@ -293,6 +309,10 @@ void tickWakeRamp(float lux) {
         overheadsOn = true;
     }
 
+    if (wakeStep == totalTicks / 4 || wakeStep == totalTicks / 2 || wakeStep == (3 * totalTicks / 4)) {
+        sendLog("[Mira] Wake " + String(wakeStep * 100 / totalTicks) + "% — bri=" + String(rampBri) + " — " + getTimeString());
+    }
+
     if (t >= 1.0f) {
         state             = State::NORMAL;
         skipOverrideCheck = true;
@@ -314,6 +334,9 @@ void tickWindDown() {
     int wdCt  = (int)CT_WARM;
 
     Serial.println("Wind-down " + String(windDownStep * 0.5f, 1) + "/60.0 min — bri=" + String(wdBri));
+    if (windDownStep == 30 || windDownStep == 60 || windDownStep == 90) {
+        sendLog("[Mira] Wind-down " + String(windDownStep / 2) + "/60 min — bri=" + String(wdBri) + " — " + getTimeString());
+    }
 
     setLight(LIGHT_BEDSIDE, true, wdBri, wdCt, 300);
     if (windDownStep < 120) {

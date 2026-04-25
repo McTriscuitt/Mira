@@ -1,7 +1,8 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, session, redirect, render_template, url_for
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 
 app = Flask(__name__)
 app.secret_key = os.environ['SECRET_KEY']
@@ -11,6 +12,7 @@ if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=90)
 
 db = SQLAlchemy(app)
 
@@ -29,6 +31,10 @@ class StatusSnapshot(db.Model):
     bri = db.Column(db.Integer)
     ct = db.Column(db.Integer)
     overhead_on = db.Column(db.Boolean)
+    wind_down_step = db.Column(db.Integer)
+    wake_step = db.Column(db.Integer)
+    wake_total = db.Column(db.Integer)
+    soft_pause_remaining_s = db.Column(db.Integer)
 
 
 class Command(db.Model):
@@ -36,6 +42,7 @@ class Command(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     action = db.Column(db.String(50), nullable=False)
+    value = db.Column(db.Integer, nullable=True)
     executed_at = db.Column(db.DateTime, nullable=True)
     status = db.Column(db.String(20), default='pending')
 
@@ -49,6 +56,18 @@ class EventLog(db.Model):
 
 with app.app_context():
     db.create_all()
+    with db.engine.connect() as conn:
+        for table, col, coltype in [
+            ('status_snapshots', 'wind_down_step',        'INTEGER'),
+            ('status_snapshots', 'wake_step',             'INTEGER'),
+            ('status_snapshots', 'wake_total',            'INTEGER'),
+            ('status_snapshots', 'soft_pause_remaining_s','INTEGER'),
+            ('commands',         'value',                 'INTEGER'),
+        ]:
+            conn.execute(text(
+                f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {coltype}'
+            ))
+        conn.commit()
 
 
 # --- Auth helpers ---
@@ -73,7 +92,11 @@ def ingest_status():
         lux=d.get('lux'),
         bri=d.get('bri'),
         ct=d.get('ct'),
-        overhead_on=d.get('overhead_on', False)
+        overhead_on=d.get('overhead_on', False),
+        wind_down_step=d.get('wind_down_step'),
+        wake_step=d.get('wake_step'),
+        wake_total=d.get('wake_total'),
+        soft_pause_remaining_s=d.get('soft_pause_remaining_s'),
     ))
     db.session.commit()
     return jsonify({'ok': True})
@@ -95,7 +118,7 @@ def poll_command():
     cmd = Command.query.filter_by(status='pending').order_by(Command.created_at).first()
     if not cmd:
         return jsonify({'command': None})
-    return jsonify({'command': cmd.action, 'id': cmd.id})
+    return jsonify({'command': cmd.action, 'id': cmd.id, 'value': cmd.value})
 
 
 @app.route('/api/command/<int:cmd_id>/ack', methods=['POST'])
@@ -117,6 +140,7 @@ def ack_command(cmd_id):
 def login():
     if request.method == 'POST':
         if request.form.get('password') == DASHBOARD_PASSWORD:
+            session.permanent = True
             session['logged_in'] = True
             return redirect(url_for('index'))
         return render_template('login.html', error=True)
@@ -151,7 +175,11 @@ def latest_status():
         'bri': snap.bri,
         'ct': snap.ct,
         'overhead_on': snap.overhead_on,
-        'timestamp': snap.timestamp.isoformat()
+        'timestamp': snap.timestamp.isoformat(),
+        'wind_down_step': snap.wind_down_step,
+        'wake_step': snap.wake_step,
+        'wake_total': snap.wake_total,
+        'soft_pause_remaining_s': snap.soft_pause_remaining_s,
     })
 
 
@@ -167,7 +195,8 @@ def recent_log():
 def send_command():
     if not _dashboard_authed():
         return jsonify({'error': 'unauthorized'}), 401
-    cmd = Command(action=request.json['action'])
+    data = request.json
+    cmd = Command(action=data['action'], value=data.get('value'))
     db.session.add(cmd)
     db.session.commit()
     return jsonify({'ok': True, 'id': cmd.id})

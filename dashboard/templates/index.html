@@ -7,12 +7,19 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    html::-webkit-scrollbar { display: none; }
+
     body {
       font-family: system-ui, sans-serif;
       background: #0d0d0d;
       color: #e0e0e0;
       min-height: 100vh;
       padding: 40px 32px;
+      overflow-x: hidden;
     }
 
     header {
@@ -35,19 +42,20 @@
       text-decoration: none;
       letter-spacing: 0.05em;
     }
-
     .logout:hover { color: #888; }
 
+    /* --- Stat grid --- */
     .status-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: 2px;
-      margin-bottom: 48px;
+      margin-bottom: 2px;
     }
 
     .stat {
       background: #141414;
       padding: 20px 18px;
+      min-width: 0;
     }
 
     .stat-label {
@@ -62,15 +70,92 @@
       font-size: 26px;
       font-weight: 300;
       color: #e0e0e0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .stat-value.state { font-size: 18px; letter-spacing: 0.05em; }
+    .stat-value.state { font-size: 16px; letter-spacing: 0.05em; }
 
+    /* --- Progress block --- */
+    .progress-block {
+      background: #141414;
+      padding: 28px 24px;
+      margin-bottom: 48px;
+      text-align: center;
+    }
+
+    .progress-state-name {
+      font-size: 18px;
+      font-weight: 300;
+      color: #e0e0e0;
+      letter-spacing: 0.1em;
+      margin-bottom: 14px;
+    }
+
+    .progress-slider-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+
+    .progress-slider-wrap.hidden { display: none; }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 260px;
+      height: 2px;
+      background: #2a2a2a;
+      outline: none;
+      cursor: pointer;
+      border-radius: 1px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #666;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover { background: #e0e0e0; }
+    input[type="range"]::-moz-range-thumb {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #666; border: none; cursor: pointer;
+    }
+
+    .progress-text {
+      font-size: 12px;
+      color: #555;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .finish-btn {
+      background: none;
+      border: 1px solid #2a2a2a;
+      color: #555;
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .finish-btn:hover { border-color: #666; color: #e0e0e0; }
+
+    /* --- Controls --- */
     .controls {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       margin-bottom: 48px;
+      justify-content: center;
     }
 
     .btn {
@@ -80,16 +165,15 @@
       font-family: inherit;
       font-size: 12px;
       letter-spacing: 0.08em;
-      padding: 9px 18px;
+      padding: 10px 20px;
       cursor: pointer;
       transition: border-color 0.15s, color 0.15s;
+      min-height: 40px;
     }
-
     .btn:hover { border-color: #555; color: #e0e0e0; }
     .btn:active { background: #1a1a1a; }
 
-    .log-section { }
-
+    /* --- Log --- */
     .log-label {
       font-size: 10px;
       letter-spacing: 0.12em;
@@ -115,7 +199,13 @@
 
     .log-time { color: #444; white-space: nowrap; flex-shrink: 0; }
 
-    .stale { color: #3a3a3a; }
+    /* --- Mobile --- */
+    @media (max-width: 600px) {
+      body { padding: 24px 16px; }
+      .wordmark { font-size: 22px; }
+      .btn { padding: 12px 16px; }
+      input[type="range"] { width: 180px; }
+    }
   </style>
 </head>
 <body>
@@ -151,6 +241,16 @@
     </div>
   </div>
 
+  <div class="progress-block">
+    <div class="progress-state-name" id="progress-state-name">—</div>
+    <div class="progress-slider-wrap hidden" id="progress-slider-wrap">
+      <input type="range" id="progress-slider" min="0" max="100" value="0">
+      <span class="progress-text" id="progress-text">—</span>
+      <button class="finish-btn" id="finish-btn">finish</button>
+    </div>
+    <div class="progress-text" id="progress-detail"></div>
+  </div>
+
   <div class="controls">
     <button class="btn" onclick="sendCommand('NORMAL')">Normal</button>
     <button class="btn" onclick="sendCommand('SOFT_PAUSE')">Soft pause</button>
@@ -165,16 +265,20 @@
   </div>
 
   <script>
+    let _lastData = null;
+
     async function fetchStatus() {
       const response = await fetch('/api/status/latest');
       const data = await response.json();
       if (!data) return;
+      _lastData = data;
       document.getElementById('val-state').textContent = data.state;
       document.getElementById('val-lux').textContent = Math.round(data.lux);
-      document.getElementById('val-bri').textContent = data.bri
-      document.getElementById('val-ct').textContent = data.ct
+      document.getElementById('val-bri').textContent = data.bri;
+      document.getElementById('val-ct').textContent = data.ct;
       document.getElementById('val-overhead').textContent = data.overhead_on ? 'on' : 'off';
       document.getElementById('val-ts').textContent = new Date(data.timestamp).toLocaleTimeString();
+      renderProgress(data);
     }
 
     async function fetchLog() {
@@ -182,22 +286,58 @@
       const data = await response.json();
       if (!data) return;
       document.getElementById('log-list').innerHTML = '';
-
-      data.forEach(entry=> {
+      data.forEach(entry => {
         const el = document.createElement('div');
         el.className = 'log-entry';
-        el.innerHTML = `<span class="log-time">${entry.timestamp}</span><span>${entry.message}</span>`;
+        el.innerHTML = `<span class="log-time">${new Date(entry.timestamp).toLocaleTimeString()}</span><span>${entry.message}</span>`;
         document.getElementById('log-list').appendChild(el);
       });
     }
 
-    async function sendCommand(action) {
+    // TODO(human): implement renderProgress(data)
+    // data fields: state, wind_down_step (0–120, 30s/step = 60 min total),
+    //              wake_step, wake_total, soft_pause_remaining_s
+    // Elements to update:
+    //   #progress-state-name — the main label (e.g. "Wind-down", "Waking up")
+    //   #progress-text — step detail shown beside the slider (e.g. "15 / 60 min")
+    //   #progress-detail — shown when no slider (e.g. "42 min remaining")
+    //   #progress-slider-wrap — add/remove class "hidden" to show/hide slider
+    //   #progress-slider — set .max and .value to position the slider
+    // States with a seekable slider: WIND_DOWN, WAKE
+    // States with detail text only: SOFT_PAUSE
+    // States with just a label: NORMAL, LOCKED_OUT, HARD_OFF
+    function renderProgress(data) {
+
+    }
+
+    // Slider seek — fires when user releases the slider
+    document.getElementById('progress-slider').addEventListener('change', function () {
+      if (!_lastData) return;
+      const val = parseInt(this.value);
+      if (_lastData.state === 'WIND_DOWN') {
+        sendCommand('SET_WIND_DOWN_STEP', val);
+      } else if (_lastData.state === 'WAKE') {
+        sendCommand('SET_WAKE_STEP', val);
+      }
+    });
+
+    // Finish button — jumps to end of current sequence
+    document.getElementById('finish-btn').addEventListener('click', function () {
+      if (!_lastData) return;
+      if (_lastData.state === 'WIND_DOWN') sendCommand('SET_WIND_DOWN_STEP', 119);
+      else if (_lastData.state === 'WAKE') sendCommand('SET_WAKE_STEP', _lastData.wake_total - 1);
+    });
+
+    async function sendCommand(action, value = null) {
+      const body = { action };
+      if (value !== null) body.value = value;
       await fetch('/api/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
+        body: JSON.stringify(body)
       });
     }
+
     fetchStatus();
     fetchLog();
     setInterval(fetchStatus, 30000);
