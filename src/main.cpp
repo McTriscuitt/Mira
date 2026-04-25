@@ -261,8 +261,14 @@ void pollDashboardCommand() {
     Serial.println("Dashboard command: " + cmd + (cmdValue >= 0 ? " value=" + String(cmdValue) : ""));
     if      (cmd == "NORMAL")     forceState(State::NORMAL);
     else if (cmd == "SOFT_PAUSE") forceState(State::SOFT_PAUSE);
-    else if (cmd == "WIND_DOWN")  forceState(State::WIND_DOWN);
-    else if (cmd == "WAKE")       forceState(State::WAKE);
+    else if (cmd == "WIND_DOWN") {
+        forceState(State::WIND_DOWN);
+        if (cmdValue >= 0) windDownStep = min(cmdValue, 119);
+    }
+    else if (cmd == "WAKE") {
+        forceState(State::WAKE);
+        if (cmdValue >= 0) wakeStep = cmdValue;
+    }
     else if (cmd == "HARD_OFF")   forceState(State::HARD_OFF);
     else if (cmd == "LOCKED_OUT") forceState(State::LOCKED_OUT);
     else if (cmd == "SET_WIND_DOWN_STEP" && state == State::WIND_DOWN && cmdValue >= 0) {

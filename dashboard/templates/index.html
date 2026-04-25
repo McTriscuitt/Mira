@@ -35,11 +35,8 @@
     }
 
     .logout-footer {
-      position: fixed;
-      bottom: 24px;
-      left: 0;
-      right: 0;
       text-align: center;
+      padding: 48px 0 32px;
     }
 
     .logout {
@@ -173,12 +170,12 @@
       letter-spacing: 0.08em;
       padding: 10px 20px;
       cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
       min-height: 40px;
     }
     .btn:hover { border-color: #555; color: #e0e0e0; }
     .btn:active { background: #1a1a1a; }
-    .btn.btn-active { border-color: #888; color: #e0e0e0; }
+    .btn.btn-active { border-color: #777; color: #e0e0e0; background: #1e1e1e; }
 
     /* --- Log --- */
     .log-label {
@@ -219,10 +216,6 @@
   <header>
     <div class="wordmark">Mira</div>
   </header>
-
-  <div class="logout-footer">
-    <a href="/logout" class="logout">logout</a>
-  </div>
 
   <div class="status-grid">
     <div class="stat">
@@ -274,6 +267,10 @@
     <div class="log-list" id="log-list"></div>
   </div>
 
+  <div class="logout-footer">
+    <a href="/logout" class="logout">logout</a>
+  </div>
+
   <script>
     let _lastData = null;
     let _pendingCommand = null;
@@ -287,6 +284,8 @@
       HARD_OFF:   'Hard Off',
     };
 
+    const STATE_CMDS = new Set(['NORMAL', 'WAKE', 'WIND_DOWN', 'SOFT_PAUSE', 'HARD_OFF']);
+
     async function fetchStatus() {
       const response = await fetch('/api/status/latest');
       const data = await response.json();
@@ -299,9 +298,9 @@
       document.getElementById('val-ct').textContent = sentinel ? '—' : data.ct;
       document.getElementById('val-overhead').textContent = sentinel ? '—' : (data.overhead_on ? 'on' : 'off');
       document.getElementById('val-ts').textContent = new Date(data.timestamp).toLocaleTimeString();
-      renderProgress(data);
       _pendingCommand = null;
       _updateButtonStates();
+      renderProgress(data);
     }
 
     async function fetchLog() {
@@ -317,101 +316,118 @@
       });
     }
 
-    // TODO(human): implement renderProgress(data)
-    // data fields: state, wind_down_step (0–120, 30s/step = 60 min total),
-    //              wake_step, wake_total, soft_pause_remaining_s
-    // Elements to update:
-    //   #progress-state-name — the main label (e.g. "Wind-down", "Waking up")
-    //   #progress-text — step detail shown beside the slider (e.g. "15 / 60 min")
-    //   #progress-detail — shown when no slider (e.g. "42 min remaining")
-    //   #progress-slider-wrap — add/remove class "hidden" to show/hide slider
-    //   #progress-slider — set .max and .value to position the slider
-    // States with a seekable slider: WIND_DOWN, WAKE
-    // States with detail text only: SOFT_PAUSE
-    // States with just a label: NORMAL, LOCKED_OUT, HARD_OFF
-
-
     function renderProgress(data) {
+      if (!data) return;
       const nameEl     = document.getElementById('progress-state-name');
       const sliderWrap = document.getElementById('progress-slider-wrap');
       const slider     = document.getElementById('progress-slider');
       const text       = document.getElementById('progress-text');
       const detail     = document.getElementById('progress-detail');
 
-      // Reset to hidden slider and no detail text each call
       sliderWrap.classList.add('hidden');
       detail.textContent = '';
 
-      if (data.state === 'WIND_DOWN') {
+      const isPending = _pendingCommand && STATE_CMDS.has(_pendingCommand.action);
+      const displayState = isPending ? _pendingCommand.action : data.state;
+
+      if (displayState === 'WIND_DOWN') {
         nameEl.textContent = 'Wind-down';
+        const step = isPending ? (_pendingCommand.value ?? 0) : data.wind_down_step;
         slider.max   = 120;
-        slider.value = data.wind_down_step;
-        text.textContent = `${Math.round(data.wind_down_step / 2)} / 60 min`;
+        slider.value = step;
+        text.textContent = `${Math.round(step / 2)} / 60 min`;
         sliderWrap.classList.remove('hidden');
+        if (isPending) detail.textContent = 'pending';
 
-      } else if (data.state === 'WAKE') {
+      } else if (displayState === 'WAKE') {
         nameEl.textContent = 'Waking up';
-        slider.max   = data.wake_total;
-        slider.value = data.wake_step;
-        text.textContent = `${data.wake_step} / ${data.wake_total} steps`;
+        const total = data.wake_total || 40;
+        const step  = isPending ? (_pendingCommand.value ?? 0) : data.wake_step;
+        slider.max   = total;
+        slider.value = step;
+        text.textContent = `${step} / ${total} steps`;
         sliderWrap.classList.remove('hidden');
+        if (isPending) detail.textContent = 'pending';
 
-      } else if (data.state === 'SOFT_PAUSE') {
+      } else if (displayState === 'SOFT_PAUSE') {
         nameEl.textContent = 'Paused';
-        detail.textContent = `${Math.round(data.soft_pause_remaining_s / 60)} min remaining`;
+        detail.textContent = isPending
+          ? 'pending'
+          : `${Math.round(data.soft_pause_remaining_s / 60)} min remaining`;
 
-      } else if (data.state === 'NORMAL') {
+      } else if (displayState === 'NORMAL') {
         nameEl.textContent = 'Normal';
-      } else if (data.state === 'LOCKED_OUT') {
+        if (isPending) detail.textContent = 'pending';
+      } else if (displayState === 'LOCKED_OUT') {
         nameEl.textContent = 'Locked out';
-      } else if (data.state === 'HARD_OFF') {
+      } else if (displayState === 'HARD_OFF') {
         nameEl.textContent = 'Hard off';
+        if (isPending) detail.textContent = 'pending';
       }
     }
 
-    // Slider seek — fires when user releases the slider
     document.getElementById('progress-slider').addEventListener('change', function () {
       if (!_lastData) return;
       const val = parseInt(this.value);
-      if (_lastData.state === 'WIND_DOWN') {
+      const previewAction = _pendingCommand && STATE_CMDS.has(_pendingCommand.action) ? _pendingCommand.action : null;
+      if (previewAction === 'WIND_DOWN') {
+        sendCommand('WIND_DOWN', val);
+      } else if (previewAction === 'WAKE') {
+        sendCommand('WAKE', val);
+      } else if (_lastData.state === 'WIND_DOWN') {
         sendCommand('SET_WIND_DOWN_STEP', val);
       } else if (_lastData.state === 'WAKE') {
         sendCommand('SET_WAKE_STEP', val);
       }
     });
 
-    // Live text update while dragging
     document.getElementById('progress-slider').addEventListener('input', function () {
       if (!_lastData) return;
       const val = parseInt(this.value);
-      if (_lastData.state === 'WIND_DOWN') {
+      const previewAction = _pendingCommand && STATE_CMDS.has(_pendingCommand.action) ? _pendingCommand.action : null;
+      const activeState = previewAction || _lastData.state;
+      if (activeState === 'WIND_DOWN') {
         document.getElementById('progress-text').textContent = `${Math.round(val / 2)} / 60 min`;
-      } else if (_lastData.state === 'WAKE') {
-        document.getElementById('progress-text').textContent = `${val} / ${_lastData.wake_total} steps`;
+      } else if (activeState === 'WAKE') {
+        document.getElementById('progress-text').textContent = `${val} / ${_lastData.wake_total || 40} steps`;
       }
     });
 
-    // Finish button — jumps to end of current sequence
     document.getElementById('finish-btn').addEventListener('click', function () {
       if (!_lastData) return;
-      if (_lastData.state === 'WIND_DOWN') sendCommand('SET_WIND_DOWN_STEP', 119);
-      else if (_lastData.state === 'WAKE') sendCommand('SET_WAKE_STEP', _lastData.wake_total - 1);
+      const previewAction = _pendingCommand && STATE_CMDS.has(_pendingCommand.action) ? _pendingCommand.action : null;
+      const activeState = previewAction || _lastData.state;
+      if (activeState === 'WIND_DOWN') {
+        sendCommand(previewAction || 'SET_WIND_DOWN_STEP', 119);
+      } else if (activeState === 'WAKE') {
+        sendCommand(previewAction || 'SET_WAKE_STEP', (_lastData.wake_total || 40) - 1);
+      }
     });
 
     function _updateButtonStates() {
       document.querySelectorAll('.btn[data-action]').forEach(btn => {
-        const active = _pendingCommand && btn.dataset.action === _pendingCommand.action;
+        const active = _pendingCommand && STATE_CMDS.has(_pendingCommand.action)
+          && btn.dataset.action === _pendingCommand.action;
         btn.classList.toggle('btn-active', active);
       });
     }
 
     async function sendCommand(action, value = null) {
-      if (_pendingCommand && _pendingCommand.action === action) {
+      const isSameAction = _pendingCommand && _pendingCommand.action === action;
+
+      if (isSameAction && value === null) {
         await fetch(`/api/command/${_pendingCommand.id}/cancel`, { method: 'POST' });
         _pendingCommand = null;
         _updateButtonStates();
+        renderProgress(_lastData);
         return;
       }
+
+      if (_pendingCommand) {
+        await fetch(`/api/command/${_pendingCommand.id}/cancel`, { method: 'POST' });
+        _pendingCommand = null;
+      }
+
       const body = { action };
       if (value !== null) body.value = value;
       const res = await fetch('/api/command', {
@@ -419,9 +435,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      const data = await res.json();
-      _pendingCommand = { action, id: data.id };
+      const cmd = await res.json();
+      _pendingCommand = { action, id: cmd.id, value };
       _updateButtonStates();
+      renderProgress(_lastData);
     }
 
     fetchStatus();
