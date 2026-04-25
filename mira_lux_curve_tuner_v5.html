@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mira — Lux Curve Tuner v5</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #fff; color: #111; padding: 24px; scrollbar-width: none; -ms-overflow-style: none; }
+  body::-webkit-scrollbar { display: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  @media (prefers-color-scheme: dark) { body { background: #1a1a1a; color: #eee; } }
+
+  .knob-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .knob-label { font-size:12px; color:#666; min-width:148px; }
+  @media (prefers-color-scheme: dark) { .knob-label { color:#aaa; } }
+  .knob-val { font-size:12px; font-weight:500; min-width:44px; text-align:right; }
+  .seg-panel { background:#f5f5f3; border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+  @media (prefers-color-scheme: dark) { .seg-panel { background:#2a2a2a; } }
+  .seg-title { font-size:12px; font-weight:500; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .seg-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .stat { display:flex; flex-direction:column; align-items:center; background:#f5f5f3; border-radius:8px; padding:8px 10px; flex:1; }
+  @media (prefers-color-scheme: dark) { .stat { background:#2a2a2a; } }
+  .stat-label { font-size:10px; color:#888; margin-bottom:2px; text-align:center; }
+  .stat-val { font-size:14px; font-weight:500; }
+  .disc-note { font-size:11px; color:#e24b4a; margin-top:6px; padding:6px 8px; background:#fcebeb; border-radius:6px; }
+  @media (prefers-color-scheme: dark) { .disc-note { background:#3a1f1f; color:#f09595; } }
+
+  input[type=range] { width:100%; accent-color:#3478f6; cursor:pointer; }
+  button {
+    margin-top:14px; width:100%; padding:8px 16px;
+    background:transparent; border:0.5px solid #ccc; border-radius:8px;
+    font-size:13px; cursor:pointer; color:inherit;
+  }
+  button:hover { background:#f0f0f0; }
+  @media (prefers-color-scheme: dark) { button:hover { background:#2a2a2a; } }
+
+  .layout { display:grid; grid-template-columns:1fr 300px; gap:20px; }
+  @media (max-width: 700px) { .layout { grid-template-columns:1fr; } }
+
+  .legend { display:flex; gap:12px; margin-top:8px; justify-content:center; font-size:12px; color:#888; flex-wrap:wrap; }
+  .legend span { display:flex; align-items:center; gap:4px; }
+  .legend-line { width:14px; height:3px; border-radius:2px; display:inline-block; }
+  .stats-row { display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+  pre { margin-top:12px; font-size:11px; line-height:1.6; display:none; white-space:pre-wrap;
+        background:#f5f5f3; border-radius:8px; padding:12px; }
+  @media (prefers-color-scheme: dark) { pre { background:#2a2a2a; } }
+</style>
+</head>
+<body>
+
+<h1 style="font-size:16px; font-weight:500; margin-bottom:4px;">Mira — lux curve tuner v5</h1>
+<p style="font-size:12px; color:#888; margin-bottom:20px;">Above 300 lux: all 4 bulbs. Below 300 lux: overheads off, bedside + desk only.</p>
+
+<div class="layout">
+  <div>
+    <div style="position:relative; width:100%; height:320px;">
+      <canvas id="curveChart" role="img" aria-label="Four-segment lux to brightness curve with intentional discontinuity at 300 lux overhead cutoff">
+        Four-segment lux-to-brightness curve. Intentional discontinuity at 300 lux where overhead lights turn off.
+      </canvas>
+    </div>
+    <div class="legend">
+      <span><span class="legend-line" style="background:#3478f6;"></span>brightness (bri)</span>
+      <span><span class="legend-line" style="background:#f6a034;"></span>color temp (ct)</span>
+      <span><span class="legend-line" style="background:#e24b4a; border-top:2px dashed #e24b4a;"></span>overhead cutoff</span>
+    </div>
+    <div class="stats-row">
+      <div class="stat"><span class="stat-label">floor bri</span><span class="stat-val" id="stat-floor">—</span></div>
+      <div class="stat"><span class="stat-label">seg4 top</span><span class="stat-val" id="stat-s4">—</span></div>
+      <div class="stat"><span class="stat-label">seg3 top</span><span class="stat-val" id="stat-s3">—</span></div>
+      <div class="stat"><span class="stat-label">↕ gap</span><span class="stat-val" id="stat-gap" style="color:#e24b4a;">—</span></div>
+      <div class="stat"><span class="stat-label">seg2 btm</span><span class="stat-val" id="stat-s2lo">—</span></div>
+      <div class="stat"><span class="stat-label">peak bri</span><span class="stat-val" id="stat-peak">—</span></div>
+    </div>
+    <button onclick="exportValues()">export curve constants</button>
+    <pre id="export-out"></pre>
+  </div>
+
+  <div style="overflow-y:auto; max-height:720px; padding-right:4px; scrollbar-width:none; -ms-overflow-style:none;" class="no-scrollbar">
+
+    <div class="seg-panel">
+      <div class="seg-title"><span class="seg-dot" style="background:#e24b4a;"></span>segment 4 — night log rise (0 → s4 lux) — bedside + desk</div>
+      <div class="knob-row"><span class="knob-label">upper boundary (lux)</span><input type="range" min="5" max="100" step="5" value="10" id="s4hi"><span class="knob-val" id="s4hi-v">10</span></div>
+      <div class="knob-row"><span class="knob-label">log steepness</span><input type="range" min="1.5" max="20" step="0.5" value="20" id="s4log"><span class="knob-val" id="s4log-v">20</span></div>
+      <div class="knob-row"><span class="knob-label">floor bri (0 lux)</span><input type="range" min="0" max="100" step="1" value="50" id="s4floor"><span class="knob-val" id="s4floor-v">50</span></div>
+      <div class="knob-row"><span class="knob-label">bri at seg4 top</span><input type="range" min="20" max="200" step="1" value="150" id="s4briHi"><span class="knob-val" id="s4briHi-v">150</span></div>
+    </div>
+
+    <div class="seg-panel">
+      <div class="seg-title"><span class="seg-dot" style="background:#9b5cf6;"></span>segment 3 — plateau crawl (s4 → 300 lux) — bedside + desk</div>
+      <div class="knob-row"><span class="knob-label">upper boundary (lux)</span><input type="range" min="80" max="500" step="10" value="300" id="s3hi"><span class="knob-val" id="s3hi-v">300</span></div>
+      <div class="knob-row"><span class="knob-label">curvature (flatness)</span><input type="range" min="0.05" max="1.5" step="0.05" value="0.5" id="s3pow"><span class="knob-val" id="s3pow-v">0.5</span></div>
+      <div class="knob-row"><span class="knob-label">bri at seg3 top</span><input type="range" min="40" max="240" step="1" value="200" id="s3briHi"><span class="knob-val" id="s3briHi-v">200</span></div>
+      <div class="disc-note" id="disc-note">discontinuity at 300 lux: seg3 ends at 200, seg2 starts at 160 (gap: 40 bri)</div>
+    </div>
+
+    <div class="seg-panel">
+      <div class="seg-title"><span class="seg-dot" style="background:#1d9e75;"></span>segment 2 — parabolic rise (300 → s2 lux) — all 4 bulbs</div>
+      <div class="knob-row"><span class="knob-label">upper boundary (lux)</span><input type="range" min="250" max="900" step="10" value="600" id="s2hi"><span class="knob-val" id="s2hi-v">600</span></div>
+      <div class="knob-row"><span class="knob-label">parabola power</span><input type="range" min="1.2" max="5" step="0.1" value="5" id="s2pow"><span class="knob-val" id="s2pow-v">5</span></div>
+      <div class="knob-row"><span class="knob-label">bri at seg2 bottom</span><input type="range" min="20" max="220" step="1" value="160" id="s2briLo"><span class="knob-val" id="s2briLo-v">160</span></div>
+      <div class="knob-row"><span class="knob-label">bri at seg2 top</span><input type="range" min="80" max="240" step="1" value="200" id="s2briHi"><span class="knob-val" id="s2briHi-v">200</span></div>
+    </div>
+
+    <div class="seg-panel">
+      <div class="seg-title"><span class="seg-dot" style="background:#3478f6;"></span>segment 1 — daytime log rise (s2 → max lux) — all 4 bulbs</div>
+      <div class="knob-row"><span class="knob-label">max lux (x-axis end)</span><input type="range" min="500" max="5000" step="50" value="3000" id="s1hi"><span class="knob-val" id="s1hi-v">3000</span></div>
+      <div class="knob-row"><span class="knob-label">log steepness</span><input type="range" min="1.5" max="20" step="0.5" value="4.5" id="s1log"><span class="knob-val" id="s1log-v">4.5</span></div>
+      <div class="knob-row"><span class="knob-label">peak bri (at max lux)</span><input type="range" min="100" max="254" step="1" value="254" id="s1briHi"><span class="knob-val" id="s1briHi-v">254</span></div>
+    </div>
+
+    <div class="seg-panel">
+      <div class="seg-title" style="margin-bottom:8px;">color temp (global)</div>
+      <div class="knob-row"><span class="knob-label">cool ct (high bri)</span><input type="range" min="153" max="350" step="1" value="280" id="ctCool"><span class="knob-val" id="ctCool-v">280</span></div>
+      <div class="knob-row"><span class="knob-label">warm ct (night)</span><input type="range" min="300" max="447" step="1" value="400" id="ctWarm"><span class="knob-val" id="ctWarm-v">400</span></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+var chart;
+function g(id) { return parseFloat(document.getElementById(id).value); }
+
+function logMap(t, base) {
+  if (base <= 1) base = 1.01;
+  return Math.log(1 + t * (base - 1)) / Math.log(base);
+}
+function hyperCrawl(t, power) {
+  var k = Math.pow(8, power);
+  var val = 1 - 1 / (1 + t * k);
+  var norm = 1 - 1 / (1 + k);
+  return norm > 0 ? val / norm : 0;
+}
+function parabolaMap(t, power) { return Math.pow(t, power); }
+
+function computeCurve() {
+  var s4hi = g('s4hi'), s4log = g('s4log'), s4floor = g('s4floor'), s4briHi = g('s4briHi');
+  var s3hi = g('s3hi'), s3pow = g('s3pow'), s3briHi = g('s3briHi');
+  var s2hi = g('s2hi'), s2pow = g('s2pow'), s2briLo = g('s2briLo'), s2briHi = g('s2briHi');
+  var s1hi = g('s1hi'), s1log = g('s1log'), s1briHi = g('s1briHi');
+  var ctCool = g('ctCool'), ctWarm = g('ctWarm');
+
+  var s3briLo = s4briHi;
+  var s1briLo = s2briHi;
+  var N = 400, labels = [], briData = [], ctData = [];
+
+  for (var i = 0; i <= N; i++) {
+    var lux = (i / N) * s1hi;
+    labels.push(Math.round(lux));
+    var bri, t;
+
+    if (lux <= s4hi) {
+      t = lux / s4hi;
+      bri = s4floor + (s4briHi - s4floor) * logMap(t, s4log);
+    } else if (lux <= s3hi) {
+      t = (lux - s4hi) / (s3hi - s4hi);
+      bri = s3briLo + (s3briHi - s3briLo) * hyperCrawl(t, s3pow);
+    } else if (lux <= s2hi) {
+      t = (lux - s3hi) / (s2hi - s3hi);
+      bri = s2briLo + (s2briHi - s2briLo) * parabolaMap(t, s2pow);
+    } else {
+      t = (lux - s2hi) / (s1hi - s2hi);
+      bri = s1briLo + (s1briHi - s1briLo) * logMap(t, s1log);
+    }
+
+    bri = Math.round(Math.max(s4floor, Math.min(254, bri)));
+    briData.push(bri);
+    var briNorm = Math.max(0, Math.min(1, (bri - s4floor) / (s1briHi - s4floor)));
+    ctData.push(Math.round(ctWarm - (ctWarm - ctCool) * briNorm));
+  }
+
+  return { labels, briData, ctData, s4hi, s3hi, s2hi, s1hi, s4floor, s4briHi, s3briHi, s2briLo, s2briHi, s1briHi };
+}
+
+function drawChart(d) {
+  var isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  var gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+  var tickColor = isDark ? '#888' : '#999';
+  var step = Math.ceil(d.labels.length / 8);
+  var sparseLabels = d.labels.map(function(l, i) { return i % step === 0 ? l : ''; });
+
+  var i4 = d.labels.findIndex(function(l) { return l >= d.s4hi; });
+  var i3 = d.labels.findIndex(function(l) { return l >= d.s3hi; });
+  var i2 = d.labels.findIndex(function(l) { return l >= d.s2hi; });
+
+  var c1 = isDark ? 'rgba(52,120,246,0.14)' : 'rgba(52,120,246,0.08)';
+  var c2 = isDark ? 'rgba(29,158,117,0.14)' : 'rgba(29,158,117,0.08)';
+  var c3 = isDark ? 'rgba(155,92,246,0.14)' : 'rgba(155,92,246,0.08)';
+  var c4 = isDark ? 'rgba(226,75,74,0.14)' : 'rgba(226,75,74,0.08)';
+
+  var bg1 = d.briData.map(function(_, i) { return i >= i2 ? 254 : null; });
+  var bg2 = d.briData.map(function(_, i) { return (i >= i3 && i < i2) ? 254 : null; });
+  var bg3 = d.briData.map(function(_, i) { return (i >= i4 && i < i3) ? 254 : null; });
+  var bg4 = d.briData.map(function(_, i) { return i < i4 ? 254 : null; });
+  var discLine = d.briData.map(function(_, i) { return i === i3 ? 254 : null; });
+
+  if (chart) {
+    chart.data.labels = sparseLabels;
+    [bg1,bg2,bg3,bg4].forEach(function(bg, i) { chart.data.datasets[i].data = bg; });
+    chart.data.datasets[4].data = d.briData;
+    chart.data.datasets[5].data = d.ctData;
+    chart.data.datasets[6].data = discLine;
+    [c1,c2,c3,c4].forEach(function(c, i) { chart.data.datasets[i].backgroundColor = c; });
+    chart.update('none');
+    return;
+  }
+
+  chart = new Chart(document.getElementById('curveChart'), {
+    type: 'line',
+    data: {
+      labels: sparseLabels,
+      datasets: [
+        { data: bg1, backgroundColor: c1, borderWidth:0, pointRadius:0, fill:true, yAxisID:'yBri', spanGaps:false, tension:0 },
+        { data: bg2, backgroundColor: c2, borderWidth:0, pointRadius:0, fill:true, yAxisID:'yBri', spanGaps:false, tension:0 },
+        { data: bg3, backgroundColor: c3, borderWidth:0, pointRadius:0, fill:true, yAxisID:'yBri', spanGaps:false, tension:0 },
+        { data: bg4, backgroundColor: c4, borderWidth:0, pointRadius:0, fill:true, yAxisID:'yBri', spanGaps:false, tension:0 },
+        { label:'brightness', data: d.briData, borderColor:'#3478f6', borderWidth:2.5, pointRadius:0, tension:0.3, yAxisID:'yBri', fill:false },
+        { label:'color temp', data: d.ctData, borderColor:'#f6a034', borderWidth:2, borderDash:[5,4], pointRadius:0, tension:0.3, yAxisID:'yCt', fill:false },
+        { label:'overhead cutoff', data: discLine, borderColor:'#e24b4a', borderWidth:1.5, borderDash:[4,3], pointRadius:0, tension:0, yAxisID:'yBri', fill:false, spanGaps:false }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{ legend:{ display:false }, tooltip:{
+        filter: function(item) { return item.datasetIndex >= 4 && item.datasetIndex <= 5; },
+        callbacks:{
+          title: function(items) { return items[0].label + ' lux'; },
+          label: function(item) { return item.dataset.label + ': ' + Math.round(item.raw); }
+        }
+      }},
+      scales:{
+        x:{ title:{ display:true, text:'lux (input \u2192)', color:tickColor, font:{size:12} }, grid:{ color:gridColor }, ticks:{ color:tickColor, font:{size:11}, maxRotation:0, autoSkip:false } },
+        yBri:{ position:'left', title:{ display:true, text:'brightness (bri)', color:'#3478f6', font:{size:12} }, min:0, max:254, grid:{ color:gridColor }, ticks:{ color:'#3478f6', font:{size:11} } },
+        yCt:{ position:'right', title:{ display:true, text:'color temp (ct)', color:'#f6a034', font:{size:12} }, min:100, max:500, grid:{ display:false }, ticks:{ color:'#f6a034', font:{size:11} } }
+      }
+    }
+  });
+}
+
+function refresh() {
+  var ids = ['s4hi','s4log','s4floor','s4briHi','s3hi','s3pow','s3briHi','s2hi','s2pow','s2briLo','s2briHi','s1hi','s1log','s1briHi','ctCool','ctWarm'];
+  ids.forEach(function(id) {
+    var out = document.getElementById(id + '-v');
+    if (out) out.textContent = document.getElementById(id).value;
+  });
+  var d = computeCurve();
+  drawChart(d);
+
+  var gap = Math.round(d.s3briHi - d.s2briLo);
+  document.getElementById('stat-floor').textContent = 'bri ' + d.s4floor;
+  document.getElementById('stat-s4').textContent = 'bri ' + d.s4briHi;
+  document.getElementById('stat-s3').textContent = 'bri ' + d.s3briHi;
+  document.getElementById('stat-gap').textContent = (gap > 0 ? '+' : '') + gap;
+  document.getElementById('stat-s2lo').textContent = 'bri ' + d.s2briLo;
+  document.getElementById('stat-peak').textContent = 'bri ' + d.s1briHi;
+
+  var note = document.getElementById('disc-note');
+  note.textContent = 'discontinuity at ' + Math.round(d.s3hi) + ' lux: seg3 ends at ' + Math.round(d.s3briHi) + ', seg2 starts at ' + Math.round(d.s2briLo) + ' (gap: ' + gap + ' bri)';
+}
+
+function exportValues() {
+  var out = document.getElementById('export-out');
+  var gap = Math.round(g('s3briHi') - g('s2briLo'));
+  var text =
+    'Seg 4 (night log, 0\u2192' + g('s4hi') + ' lux):\n' +
+    '  S4_LUX_HI    = ' + g('s4hi') + '\n' +
+    '  S4_LOG_BASE  = ' + g('s4log') + '\n' +
+    '  S4_FLOOR_BRI = ' + g('s4floor') + '\n' +
+    '  S4_BRI_HI    = ' + g('s4briHi') + '\n\n' +
+    'Seg 3 (plateau, ' + g('s4hi') + '\u2192' + g('s3hi') + ' lux) \u2014 bedside + desk only:\n' +
+    '  S3_LUX_HI      = ' + g('s3hi') + '  <- overheads off above this threshold\n' +
+    '  S3_CRAWL_POWER = ' + g('s3pow') + '\n' +
+    '  S3_BRI_HI      = ' + g('s3briHi') + '\n\n' +
+    '  ** discontinuity at ' + g('s3hi') + ' lux: seg3=' + g('s3briHi') + ' bri, seg2=' + g('s2briLo') + ' bri (gap: ' + gap + ') **\n\n' +
+    'Seg 2 (parabolic, ' + g('s3hi') + '\u2192' + g('s2hi') + ' lux) \u2014 all 4 bulbs:\n' +
+    '  S2_LUX_HI     = ' + g('s2hi') + '\n' +
+    '  S2_PARA_POWER = ' + g('s2pow') + '\n' +
+    '  S2_BRI_LO     = ' + g('s2briLo') + '\n' +
+    '  S2_BRI_HI     = ' + g('s2briHi') + '\n\n' +
+    'Seg 1 (daytime log, ' + g('s2hi') + '\u2192' + g('s1hi') + ' lux) \u2014 all 4 bulbs:\n' +
+    '  S1_LUX_HI   = ' + g('s1hi') + '\n' +
+    '  S1_LOG_BASE = ' + g('s1log') + '\n' +
+    '  S1_BRI_HI   = ' + g('s1briHi') + '\n\n' +
+    'Color temp:\n' +
+    '  CT_COOL = ' + g('ctCool') + '\n' +
+    '  CT_WARM = ' + g('ctWarm');
+  out.textContent = text;
+  out.style.display = 'block';
+}
+
+document.querySelectorAll('input[type=range]').forEach(function(el) {
+  el.addEventListener('input', refresh);
+});
+refresh();
+</script>
+</body>
+</html>

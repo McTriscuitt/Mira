@@ -1,0 +1,11 @@
+# PlatformIO build output and downloaded libraries
+.pio/
+
+# Credentials — WiFi SSID/password and Hue API token
+src/config.h
+
+# CLion IDE files
+.idea/
+
+# Claude Code local settings
+.claude/
