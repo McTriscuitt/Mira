@@ -198,6 +198,75 @@ void sendDiscord(const String& message) {
     http.end();
 }
 
+void sendDashboardLog(const String& message) {
+    HTTPClient http;
+    http.begin(String(DASHBOARD_BASE_URL) + "/api/log");
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("Authorization", "Bearer " + String(ESP32_API_KEY));
+    JsonDocument doc;
+    doc["message"] = message;
+    String body;
+    serializeJson(doc, body);
+    int code = http.POST(body);
+    if (code != 200) Serial.println("Dashboard log POST → HTTP " + String(code));
+    http.end();
+}
+
+void sendLog(const String& message) {
+    sendDiscord(message);
+    sendDashboardLog(message);
+}
+
+void sendDashboardStatus(float lux) {
+    HTTPClient http;
+    http.begin(String(DASHBOARD_BASE_URL) + "/api/status");
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("Authorization", "Bearer " + String(ESP32_API_KEY));
+    JsonDocument doc;
+    doc["state"]       = stateName();
+    doc["lux"]         = lux;
+    doc["bri"]         = sentTarget.bri;
+    doc["ct"]          = sentTarget.ct;
+    doc["overhead_on"] = overheadsOn;
+    String body;
+    serializeJson(doc, body);
+    int code = http.POST(body);
+    if (code != 200) Serial.println("Dashboard status POST → HTTP " + String(code));
+    http.end();
+}
+
+void forceState(State next); // defined later — forward declaration for pollDashboardCommand
+
+void pollDashboardCommand() {
+    HTTPClient http;
+    http.begin(String(DASHBOARD_BASE_URL) + "/api/command");
+    http.addHeader("Authorization", "Bearer " + String(ESP32_API_KEY));
+    if (http.GET() != 200) { http.end(); return; }
+    JsonDocument doc;
+    deserializeJson(doc, http.getString());
+    http.end();
+
+    if (doc["command"].isNull()) return;
+    String cmd = doc["command"].as<String>();
+    int cmdId  = doc["id"] | -1;
+
+    Serial.println("Dashboard command: " + cmd);
+    if      (cmd == "NORMAL")     forceState(State::NORMAL);
+    else if (cmd == "SOFT_PAUSE") forceState(State::SOFT_PAUSE);
+    else if (cmd == "WIND_DOWN")  forceState(State::WIND_DOWN);
+    else if (cmd == "WAKE")       forceState(State::WAKE);
+    else if (cmd == "HARD_OFF")   forceState(State::HARD_OFF);
+    else if (cmd == "LOCKED_OUT") forceState(State::LOCKED_OUT);
+
+    if (cmdId >= 0) {
+        HTTPClient ack;
+        ack.begin(String(DASHBOARD_BASE_URL) + "/api/command/" + String(cmdId) + "/ack");
+        ack.addHeader("Authorization", "Bearer " + String(ESP32_API_KEY));
+        ack.POST("");
+        ack.end();
+    }
+}
+
 void saveLastState(uint8_t bri, uint16_t ct) {
     prefs.begin("mira", false);
     prefs.putUChar("savedBri", bri);
@@ -228,7 +297,7 @@ void tickWakeRamp(float lux) {
         state             = State::NORMAL;
         skipOverrideCheck = true;
         Serial.println("Wake complete — handing off to normal.");
-        sendDiscord("[Mira] Wake complete — " + getTimeString());
+        sendLog("[Mira] Wake complete — " + getTimeString());
     }
     sentTarget = {(uint8_t)rampBri, (uint16_t)rampCt};
 
@@ -254,7 +323,7 @@ void tickWindDown() {
         state = State::LOCKED_OUT;
         saveLastState((uint8_t)S4_FLOOR_BRI, (uint16_t)CT_WARM);
         Serial.println("Wind-down complete. Desk off, bedside at floor.");
-        sendDiscord("[Mira] Wind-down complete — " + getTimeString());
+        sendLog("[Mira] Wind-down complete — " + getTimeString());
     }
     sentTarget = {(uint8_t)wdBri, (uint16_t)wdCt};
 }
@@ -303,7 +372,7 @@ void checkOverride() {
         softPauseStart     = millis();
         pauseResumeActive  = false;
         Serial.println("Manual override detected — soft pause.");
-        sendDiscord("[Mira] Manual override — soft pause — " + getTimeString());
+        sendLog("[Mira] Manual override — soft pause — " + getTimeString());
     }
 }
 
@@ -358,7 +427,7 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
         state            = State::WIND_DOWN;
         windDownStep     = 0;
         windDownStartBri = sentTarget.bri;
-        sendDiscord("[Mira] Wind-down starting — " + getTimeString());
+        sendLog("[Mira] Wind-down starting — " + getTimeString());
         return;
     }
 
@@ -373,7 +442,7 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
         sentTarget = target;
         saveLastState(target.bri, target.ct);
         Serial.println("Bulbs updated.");
-        sendDiscord("[Mira] " + getTimeString() +
+        sendLog("[Mira] " + getTimeString() +
                     " | Lux: " + String(lux, 1) +
                     " → bri=" + String(target.bri) + " (" + String(target.bri * 100 / 254) + "%)" +
                     ", ct=" + String(target.ct) +
@@ -391,7 +460,7 @@ void tickSoftPause() {
         state                  = State::NORMAL;
         skipOverrideCheck      = true;
         Serial.println("Soft pause expired — beginning 10-min resume ramp.");
-        sendDiscord("[Mira] Soft pause expired — resuming — " + getTimeString());
+        sendLog("[Mira] Soft pause expired — resuming — " + getTimeString());
     }
 }
 
@@ -405,7 +474,7 @@ void triggerWake(float ambientLux) {
     state              = State::WAKE;
     Serial.println("Wake triggered — bri " + String(startBri) + " → " + String(wakeEndTarget.bri) +
                    ", ct " + String(startCt) + " → " + String(wakeEndTarget.ct));
-    sendDiscord("[Mira] Wake sequence started — " + getTimeString());
+    sendLog("[Mira] Wake sequence started — " + getTimeString());
 }
 
 void checkBedsideState(float lux) {
@@ -493,7 +562,7 @@ void handleCycleButton() {
         State next = (State)(((int)state + 1) % 6);
         forceState(next);
         if (next != State::WAKE) { // triggerWake already sends discord
-            sendDiscord("[Mira] Cycle button → " + String(stateName()) + " — " + getTimeString());
+            sendLog("[Mira] Cycle button → " + String(stateName()) + " — " + getTimeString());
         }
     }
 }
@@ -505,11 +574,11 @@ void handleButtonEvents() {
         if (state != State::HARD_OFF) {
             state = State::HARD_OFF;
             Serial.println("Button long press — hard off.");
-            sendDiscord("[Mira] Hard off — " + getTimeString());
+            sendLog("[Mira] Hard off — " + getTimeString());
         } else {
             state = State::LOCKED_OUT;
             Serial.println("Button long press — hard off cleared.");
-            sendDiscord("[Mira] Hard off cleared — " + getTimeString());
+            sendLog("[Mira] Hard off cleared — " + getTimeString());
         }
     }
 
@@ -522,14 +591,14 @@ void handleButtonEvents() {
             state = State::SOFT_PAUSE;
             softPauseStart = millis();
             Serial.println("Button short press — soft pause.");
-            sendDiscord("[Mira] Soft pause (button) — " + getTimeString());
+            sendLog("[Mira] Soft pause (button) — " + getTimeString());
         } else {
             String prev = stateName();
             state             = State::NORMAL;
             sentTarget        = {255, 0};
             skipOverrideCheck = true;
             Serial.println("Button short press — NORMAL (was " + prev + ").");
-            sendDiscord("[Mira] Returned to NORMAL by button — " + getTimeString());
+            sendLog("[Mira] Returned to NORMAL by button — " + getTimeString());
         }
     }
 }
@@ -568,7 +637,7 @@ void setup() {
 
     lastBedsideOn = getLightState(LIGHT_BEDSIDE).on; // seed edge detection — prevents false wake trigger on first tick
 
-    sendDiscord("[Mira] Online — " + getTimeString());
+    sendLog("[Mira] Online — " + getTimeString());
 }
 
 void loop() {
@@ -584,6 +653,8 @@ void loop() {
     Serial.print(", ct="); Serial.println(target.ct);
 
     bool shouldUpdate = abs(target.bri - sentTarget.bri) > STATE_TOLERANCE || abs(target.ct - sentTarget.ct) > STATE_TOLERANCE;
+
+    pollDashboardCommand();
 
     switch (state) {
         case State::LOCKED_OUT:
@@ -612,6 +683,8 @@ void loop() {
             break;
 
     }
+
+    sendDashboardStatus(lux);
 
     unsigned long tickStart = millis();
     while (millis() - tickStart < 30000UL) {
