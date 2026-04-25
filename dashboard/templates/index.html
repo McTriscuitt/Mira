@@ -23,9 +23,7 @@
     }
 
     header {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
+      text-align: center;
       margin-bottom: 48px;
     }
 
@@ -34,6 +32,14 @@
       font-weight: 300;
       letter-spacing: 0.15em;
       color: #f0f0f0;
+    }
+
+    .logout-footer {
+      position: fixed;
+      bottom: 24px;
+      left: 0;
+      right: 0;
+      text-align: center;
     }
 
     .logout {
@@ -172,6 +178,7 @@
     }
     .btn:hover { border-color: #555; color: #e0e0e0; }
     .btn:active { background: #1a1a1a; }
+    .btn.btn-active { border-color: #888; color: #e0e0e0; }
 
     /* --- Log --- */
     .log-label {
@@ -211,8 +218,11 @@
 <body>
   <header>
     <div class="wordmark">Mira</div>
-    <a href="/logout" class="logout">logout</a>
   </header>
+
+  <div class="logout-footer">
+    <a href="/logout" class="logout">logout</a>
+  </div>
 
   <div class="status-grid">
     <div class="stat">
@@ -252,11 +262,11 @@
   </div>
 
   <div class="controls">
-    <button class="btn" onclick="sendCommand('NORMAL')">Normal</button>
-    <button class="btn" onclick="sendCommand('SOFT_PAUSE')">Soft pause</button>
-    <button class="btn" onclick="sendCommand('WIND_DOWN')">Wind down</button>
-    <button class="btn" onclick="sendCommand('WAKE')">Wake</button>
-    <button class="btn" onclick="sendCommand('HARD_OFF')">Hard off</button>
+    <button class="btn" data-action="NORMAL"     onclick="sendCommand('NORMAL')">Normal</button>
+    <button class="btn" data-action="SOFT_PAUSE" onclick="sendCommand('SOFT_PAUSE')">Soft pause</button>
+    <button class="btn" data-action="WIND_DOWN"  onclick="sendCommand('WIND_DOWN')">Wind down</button>
+    <button class="btn" data-action="WAKE"       onclick="sendCommand('WAKE')">Wake</button>
+    <button class="btn" data-action="HARD_OFF"   onclick="sendCommand('HARD_OFF')">Hard off</button>
   </div>
 
   <div class="log-section">
@@ -266,19 +276,31 @@
 
   <script>
     let _lastData = null;
+    let _pendingCommand = null;
+
+    const STATE_LABELS = {
+      NORMAL:     'Normal',
+      WAKE:       'Wake',
+      WIND_DOWN:  'Wind Down',
+      SOFT_PAUSE: 'Soft Pause',
+      LOCKED_OUT: 'Locked Out',
+      HARD_OFF:   'Hard Off',
+    };
 
     async function fetchStatus() {
       const response = await fetch('/api/status/latest');
       const data = await response.json();
       if (!data) return;
       _lastData = data;
-      document.getElementById('val-state').textContent = data.state;
+      document.getElementById('val-state').textContent = STATE_LABELS[data.state] || data.state;
       document.getElementById('val-lux').textContent = Math.round(data.lux);
-      document.getElementById('val-bri').textContent = data.bri;
+      document.getElementById('val-bri').textContent = `${data.bri} · ${Math.round(data.bri / 254 * 100)}%`;
       document.getElementById('val-ct').textContent = data.ct;
       document.getElementById('val-overhead').textContent = data.overhead_on ? 'on' : 'off';
       document.getElementById('val-ts').textContent = new Date(data.timestamp).toLocaleTimeString();
       renderProgress(data);
+      _pendingCommand = null;
+      _updateButtonStates();
     }
 
     async function fetchLog() {
@@ -364,14 +386,30 @@
       else if (_lastData.state === 'WAKE') sendCommand('SET_WAKE_STEP', _lastData.wake_total - 1);
     });
 
+    function _updateButtonStates() {
+      document.querySelectorAll('.btn[data-action]').forEach(btn => {
+        const active = _pendingCommand && btn.dataset.action === _pendingCommand.action;
+        btn.classList.toggle('btn-active', active);
+      });
+    }
+
     async function sendCommand(action, value = null) {
+      if (_pendingCommand && _pendingCommand.action === action) {
+        await fetch(`/api/command/${_pendingCommand.id}/cancel`, { method: 'POST' });
+        _pendingCommand = null;
+        _updateButtonStates();
+        return;
+      }
       const body = { action };
       if (value !== null) body.value = value;
-      await fetch('/api/command', {
+      const res = await fetch('/api/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
+      const data = await res.json();
+      _pendingCommand = { action, id: data.id };
+      _updateButtonStates();
     }
 
     fetchStatus();

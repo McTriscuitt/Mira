@@ -121,6 +121,18 @@ def poll_command():
     return jsonify({'command': cmd.action, 'id': cmd.id, 'value': cmd.value})
 
 
+@app.route('/api/command/<int:cmd_id>/cancel', methods=['POST'])
+def cancel_command(cmd_id):
+    if not _dashboard_authed():
+        return jsonify({'error': 'unauthorized'}), 401
+    cmd = db.session.get(Command, cmd_id)
+    if not cmd or cmd.status != 'pending':
+        return jsonify({'error': 'not found or already executed'}), 404
+    cmd.status = 'cancelled'
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
 @app.route('/api/command/<int:cmd_id>/ack', methods=['POST'])
 def ack_command(cmd_id):
     if not _esp32_authed():
@@ -175,7 +187,7 @@ def latest_status():
         'bri': snap.bri,
         'ct': snap.ct,
         'overhead_on': snap.overhead_on,
-        'timestamp': snap.timestamp.isoformat(),
+        'timestamp': snap.timestamp.isoformat() + 'Z',
         'wind_down_step': snap.wind_down_step,
         'wake_step': snap.wake_step,
         'wake_total': snap.wake_total,
@@ -188,7 +200,7 @@ def recent_log():
     if not _dashboard_authed():
         return jsonify({'error': 'unauthorized'}), 401
     entries = EventLog.query.order_by(EventLog.timestamp.desc()).limit(50).all()
-    return jsonify([{'timestamp': e.timestamp.isoformat(), 'message': e.message} for e in entries])
+    return jsonify([{'timestamp': e.timestamp.isoformat() + 'Z', 'message': e.message} for e in entries])
 
 
 @app.route('/api/command', methods=['POST'])

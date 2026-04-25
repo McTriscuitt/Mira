@@ -27,7 +27,7 @@ Adafruit_VEML7700 veml;
 Preferences prefs;
 LightTarget sentTarget = {255, 0}; // sentinel: forces first update to always send (255/0 are outside valid ranges)
 LightTarget prevSentTarget = {255, 0}; // sentTarget before the most recent PUT — lets checkOverride ignore slow-applying bulbs
-bool overheadsOn = true;
+bool overheadsOn = false;
 
 struct ButtonState {
     bool debounced       = false;
@@ -342,7 +342,7 @@ void tickWindDown() {
     if (windDownStep < 120) {
         setLight(LIGHT_DESK, true, wdBri, wdCt, 300);
     } else {
-        setLight(LIGHT_DESK, false, 0, 0, 100);
+        setLight(LIGHT_DESK, false, wdBri, wdCt, 100);
         state = State::LOCKED_OUT;
         saveLastState((uint8_t)S4_FLOOR_BRI, (uint16_t)CT_WARM);
         Serial.println("Wind-down complete. Desk off, bedside at floor.");
@@ -659,6 +659,7 @@ void setup() {
     setLight(LIGHT_BEDSIDE, saved.on, saved.bri, saved.ct, 10); // restore over 1s
 
     lastBedsideOn = getLightState(LIGHT_BEDSIDE).on; // seed edge detection — prevents false wake trigger on first tick
+    overheadsOn   = getLightState(LIGHT_CEIL_1).on;  // seed from actual state — prevents false override and bad dashboard reporting
 
     sendLog("[Mira] Online — " + getTimeString());
 }
