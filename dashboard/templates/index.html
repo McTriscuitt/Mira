@@ -16,22 +16,43 @@
     body {
       font-family: system-ui, sans-serif;
       background: #0d0d0d;
+      background-image: radial-gradient(ellipse 80% 38% at 50% 0%, rgba(255, 235, 175, 0.09) 0%, transparent 65%);
       color: #e0e0e0;
       min-height: 100vh;
-      padding: 40px 32px;
+      padding: 56px 32px 40px;
       overflow-x: hidden;
     }
 
-    header {
-      text-align: center;
-      margin-bottom: 48px;
+    /* --- Background letter layer --- */
+    .bg-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
     }
 
-    .wordmark {
-      font-size: 28px;
-      font-weight: 300;
-      letter-spacing: 0.15em;
-      color: #f0f0f0;
+    .bg-letter {
+      position: absolute;
+      font-size: clamp(160px, 28vw, 340px);
+      font-weight: 100;
+      color: #ffffff;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      opacity: 0.05;
+      transition: opacity 2s ease;
+      user-select: none;
+    }
+
+    .letter-m { top: -0.12em;    left:  -0.06em; }
+    .letter-i { top: -0.12em;    right: -0.04em; }
+    .letter-r { bottom: -0.12em; left:  -0.06em; }
+    .letter-a { bottom: -0.12em; right: -0.06em; }
+
+    /* --- Content layer --- */
+    main {
+      position: relative;
+      z-index: 1;
     }
 
     .logout-footer {
@@ -211,71 +232,75 @@
 
     /* --- Mobile --- */
     @media (max-width: 600px) {
-      body { padding: 24px 16px; }
-      .wordmark { font-size: 22px; }
+      body { padding: 40px 16px; }
       .btn { padding: 12px 16px; }
       input[type="range"] { width: 180px; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="wordmark">Mira</div>
-  </header>
-
-  <div class="status-grid">
-    <div class="stat">
-      <div class="stat-label">State</div>
-      <div class="stat-value state" id="val-state">—</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Lux</div>
-      <div class="stat-value" id="val-lux">—</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Bri</div>
-      <div class="stat-value" id="val-bri">—</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">CT</div>
-      <div class="stat-value" id="val-ct">—</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Overhead</div>
-      <div class="stat-value" id="val-overhead">—</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Last seen</div>
-      <div class="stat-value" id="val-ts" style="font-size:14px; padding-top:4px;">—</div>
-    </div>
+  <div class="bg-layer" aria-hidden="true">
+    <span class="bg-letter letter-m">M</span>
+    <span class="bg-letter letter-i">I</span>
+    <span class="bg-letter letter-r">R</span>
+    <span class="bg-letter letter-a">A</span>
   </div>
 
-  <div class="progress-block">
-    <div class="progress-state-name" id="progress-state-name">—</div>
-    <div class="progress-slider-wrap hidden" id="progress-slider-wrap">
-      <input type="range" id="progress-slider" min="0" max="100" value="0">
-      <span class="progress-text" id="progress-text">—</span>
-      <button class="finish-btn" id="finish-btn">finish</button>
+  <main>
+    <div class="status-grid">
+      <div class="stat">
+        <div class="stat-label">State</div>
+        <div class="stat-value state" id="val-state">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Lux</div>
+        <div class="stat-value" id="val-lux">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Bri</div>
+        <div class="stat-value" id="val-bri">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">CT</div>
+        <div class="stat-value" id="val-ct">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Overhead</div>
+        <div class="stat-value" id="val-overhead">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Last seen</div>
+        <div class="stat-value" id="val-ts" style="font-size:14px; padding-top:4px;">—</div>
+      </div>
     </div>
-    <div class="progress-text" id="progress-detail"></div>
-  </div>
 
-  <div class="controls">
-    <button class="btn" data-action="NORMAL"     onclick="sendCommand('NORMAL')">Normal</button>
-    <button class="btn" data-action="SOFT_PAUSE" onclick="sendCommand('SOFT_PAUSE')">Soft pause</button>
-    <button class="btn" data-action="WIND_DOWN"  onclick="sendCommand('WIND_DOWN')">Wind down</button>
-    <button class="btn" data-action="WAKE"       onclick="sendCommand('WAKE')">Wake</button>
-    <button class="btn" data-action="HARD_OFF"   onclick="sendCommand('HARD_OFF')">Hard off</button>
-  </div>
+    <div class="progress-block">
+      <div class="progress-state-name" id="progress-state-name">—</div>
+      <div class="progress-slider-wrap hidden" id="progress-slider-wrap">
+        <input type="range" id="progress-slider" min="0" max="100" value="0">
+        <span class="progress-text" id="progress-text">—</span>
+        <button class="finish-btn" id="finish-btn">finish</button>
+      </div>
+      <div class="progress-text" id="progress-detail"></div>
+    </div>
 
-  <div class="log-section">
-    <div class="log-label">Event log</div>
-    <div class="log-list" id="log-list"></div>
-  </div>
+    <div class="controls">
+      <button class="btn" data-action="NORMAL"     onclick="sendCommand('NORMAL')">Normal</button>
+      <button class="btn" data-action="SOFT_PAUSE" onclick="sendCommand('SOFT_PAUSE')">Soft pause</button>
+      <button class="btn" data-action="WIND_DOWN"  onclick="sendCommand('WIND_DOWN')">Wind down</button>
+      <button class="btn" data-action="WAKE"       onclick="sendCommand('WAKE')">Wake</button>
+      <button class="btn" data-action="HARD_OFF"   onclick="sendCommand('HARD_OFF')">Hard off</button>
+    </div>
 
-  <div class="logout-footer">
-    <a href="/logout" class="logout">logout</a>
-  </div>
+    <div class="log-section">
+      <div class="log-label">Event log</div>
+      <div class="log-list" id="log-list"></div>
+    </div>
+
+    <div class="logout-footer">
+      <a href="/logout" class="logout">logout</a>
+    </div>
+  </main>
 
   <script>
     let _lastData = null;
@@ -291,6 +316,16 @@
     };
 
     const STATE_CMDS = new Set(['NORMAL', 'WAKE', 'WIND_DOWN', 'SOFT_PAUSE', 'HARD_OFF']);
+
+    function updateLetterOpacity(letters, lux) {
+      const minLux = 0;
+      const maxLux = 2000;
+      const minOpacity = 0.03;
+      const maxOpacity = 0.14;
+      const t = Math.min(1, Math.max(0, (lux - minLux) / (maxLux - minLux)));
+      const opacity = minOpacity + t * (maxOpacity - minOpacity);
+      letters.forEach(el => el.style.opacity = opacity);
+    }
 
     async function fetchStatus() {
       const response = await fetch('/api/status/latest');
@@ -309,6 +344,7 @@
       }
       _updateButtonStates();
       renderProgress(data);
+      updateLetterOpacity(document.querySelectorAll('.bg-letter'), data.lux);
     }
 
     async function fetchLog() {
