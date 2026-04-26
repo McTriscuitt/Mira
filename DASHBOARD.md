@@ -38,12 +38,13 @@ Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `
 | Feature | Notes |
 |---------|-------|
 | User auth / login | Session-based, 90-day cookie, password from env |
-| Live status display | State, lux, bri (+ %), ct, overhead on/off, last seen — polls `/api/status/latest` every 30 s |
-| State control buttons | Normal, Soft Pause, Wind Down, Wake, Hard Off — send pending commands; active button stays highlighted until server confirms command gone |
+| Live status display | Lux, bri (+ %), ct, overhead on/off, last seen — polls `/api/status/latest` every 30 s |
+| State control buttons | Normal, Soft Pause, Wind Down, Wake, Hard Off — send pending commands; active button stays highlighted until server confirms command gone; button text/border darkens dynamically as ambient lux increases past 1000 to maintain contrast against the light cone |
 | Pending command tracking | `pending_command_id` in status response lets client preserve pending state across polls without false clears |
-| Progress block | Shows state name + detail; slider for Wake/Wind-down with seek; finish button jumps ramp to end |
+| Progress block | Shows current state name + detail; slider for Wake/Wind-down with seek; finish button jumps ramp to end |
 | Live slider preview | Dragging the slider updates text live before committing |
-| Event log | Last 50 entries from `/api/log/recent`, refreshed every 30 s |
+| Event log (index) | Last 10 entries shown inline; "Event log" label is a clickable link to `/logs`; refreshed every 30 s |
+| Event log page | Full paginated log at `/logs`; date separators; "load more" hides when DB is exhausted; filter buttons: all / normal / wake / wind down / soft pause / hard off — normal uses exclusion filter (strips state-transition events, shows routine operation logs) |
 | Command queue | `commands` table; firmware GETs oldest pending, ACKs after execution; dashboard can cancel before pickup |
 | Mobile hover fix | All `:hover` rules wrapped in `@media (hover: hover)` — no sticky-tap on touch devices |
 
@@ -88,7 +89,7 @@ Dashboard-only (session auth):
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/status/latest` | Latest snapshot + `pending_command_id` |
-| GET | `/api/log/recent` | Last 50 log entries |
+| GET | `/api/log/recent` | Log entries — `?limit=N&search=<term>&exclude=<term1,term2>` |
 | POST | `/api/command` | Queue new command |
 | POST | `/api/command/<id>/cancel` | Cancel pending command |
 

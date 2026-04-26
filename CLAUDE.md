@@ -7,22 +7,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (ABX00083)**. It reads ambient lux via a VEML7700 sensor and adjusts 4 Philips Hue bulbs through the local Hue Bridge HTTP REST API.
 
 ## User Notes
-
+Behaviors
 - all .md's for error parsing and rectifying are in \Mira\Stored Data\
+- on /recap, update documentation
+
+
 - change wind down timer to just do 1/60, 1.5/60, 2/60. keep number minimalistic, no decimals if not necessary.
 - Set check override to false on any button click (forgot why i made a note of this)
 - issue with the wake sequence instantly turning on the overheads.
   - probably because ambient lux is 1800, triggering that they *should* be on even when they havent reached the correct brightness *to* turn on yet
 - depricate day types. unnecessary
-# dashboard 
-- get rid of top left state in favor of the middle bottom that is already implemented
-- make button on the event log words
-- query/search options
-  - serach for state, day, bri, ct, etc. use buttons to filter? 
-- load more should disappear when reaching the end of database
-- as the light cone brightens, the buttons for states need to darkem/contrast against it. they become really hard to after 1000 on the following command (which i think represents lux):
-  - updateLetterOpacity(document.querySelectorAll('.bg-letter'), 1000)
-## Build & Flash (PlatformIO)
+
+## Build & F!lash (PlatformIO)
 
 ```bash
 # Build
@@ -93,12 +89,12 @@ Two PUT helpers exist in `main.cpp`:
 ## Implemented
 
 - **VEML7700 sensor** — `veml.begin()` in setup, `readLux(VEML_LUX_AUTO)` in loop
-- **`src/lightcurve.h`** — 4-segment piecewise lux→bri/ct curve with intentional discontinuity at 300 lux; `LightTarget` struct (`uint8_t bri`, `uint16_t ct`); `luxToTarget(float lux)` entry point. See `LIGHTCURVE.md` for curve math and tuning.
+- **`src/lightcurve.h`** — 4-segment piecewise lux→bri/ct curve with intentional discontinuity at 250 lux; `LightTarget` struct (`uint8_t bri`, `uint16_t ct`); `luxToTarget(float lux)` entry point. See `LIGHTCURVE.md` for curve math and tuning.
 - **State machine** — `enum class State` with 6 states; switch dispatch in `loop()`; dedicated tick functions per state
 - **Polling loop** — reads lux every 30 s, sends to active bulbs when `shouldUpdate` (change > `STATE_TOLERANCE`)
 - **Discord webhook logging** — `sendDiscord()` in `main.cpp`; logs startup, bulb updates, wind-down trigger/completion, wake start/completion, soft pause trigger/resume
 - **`getTimeString()`** — shared time-formatting helper used by `printStatus()` and Discord messages
-- **Overhead off** — edge-detection crossing of `S3_LUX_HI` (300 lux); CEIL_1+2 turn off descending, turn on ascending; bedside+desk update forced on crossing
+- **Overhead off** — edge-detection crossing of `S3_LUX_HI` (250 lux); CEIL_1+2 turn off descending, turn on ascending; bedside+desk update forced on crossing
 - **Wind-down** — stable lux counter (lux ≤ 10, hour ≥ 21, 60 readings); 60-min linear dim on bedside+desk to bri=50/ct=400; desk off at end; `transitiontime=300` matches poll interval for seamless gradient; `tickWindDown()` in `main.cpp`
 - **Wake sequence** — `triggerWake(lux)` reads actual bedside state via `getLightState()` at trigger time to seed `wakeStartTarget`; `wakeEndTarget = luxToTarget(ambientLux)`; `tickWakeRamp()` linearly interpolates bri and ct over `wakeStep / totalTicks`; bedside and desk turn on every tick, overheads only if `lux >= S3_LUX_HI`; `transitiontime=300` matches poll interval for seamless gradient; WORK = 40 ticks (20 min), RELAXED = 120 ticks (60 min); Discord logged on start and completion
 - **Morning lockout** — `state = LOCKED_OUT` at boot; `checkBedsideState()` polls bedside each tick; rising-edge detection triggers `triggerWake()`; re-arms when all 4 lights confirmed off after `LOCKOUT_RESET_HOUR`; resets `stableLuxCount` and `windDownStep` on re-arm
