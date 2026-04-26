@@ -232,15 +232,9 @@
       letter-spacing: 0.12em;
       color: #555;
       text-transform: uppercase;
-    }
-
-    .log-view-all {
-      font-size: 11px;
-      color: #444;
       text-decoration: none;
-      letter-spacing: 0.05em;
     }
-    @media (hover: hover) { .log-view-all:hover { color: #888; } }
+    @media (hover: hover) { .log-label:hover { color: #888; } }
 
     .log-list {
       display: flex;
@@ -317,8 +311,7 @@
 
     <div class="log-section">
       <div class="log-header">
-        <div class="log-label">Event log</div>
-        <a href="/logs" class="log-view-all">view all</a>
+        <a href="/logs" class="log-label">Event log</a>
       </div>
       <div class="log-list" id="log-list"></div>
     </div>
