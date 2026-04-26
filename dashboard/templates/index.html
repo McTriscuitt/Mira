@@ -16,7 +16,7 @@
     body {
       font-family: system-ui, sans-serif;
       background: #0d0d0d;
-      background-image: radial-gradient(ellipse 80% 38% at 50% 0%, rgba(255, 235, 175, 0.09) 0%, transparent 65%);
+      background: #0d0d0d;
       color: #e0e0e0;
       min-height: 100vh;
       padding: 56px 32px 40px;
@@ -32,22 +32,31 @@
       overflow: hidden;
     }
 
+    .bg-cone {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 55% 100% at 50% 0%, rgba(255, 235, 175, 1.0) 0%, rgba(255, 235, 175, 0.65) 35%, rgba(255, 235, 175, 0.3) 65%, rgba(255, 235, 175, 0.08) 100%);
+      clip-path: polygon(40% 0%, 60% 0%, 70% 56%, 30% 56%);
+      opacity: 0;
+      transition: opacity 2s ease;
+    }
+
     .bg-letter {
       position: absolute;
-      font-size: clamp(160px, 28vw, 340px);
+      left: 50%;
+      top: 48%;
+      transform: translateX(-50%);
+      font-size: clamp(28px, 4.5vw, 64px);
       font-weight: 100;
       color: #ffffff;
+      letter-spacing: 0.6em;
+      padding-left: 0.7em;
+      white-space: nowrap;
       line-height: 1;
-      letter-spacing: -0.02em;
-      opacity: 0.05;
+      opacity: 0;
       transition: opacity 2s ease;
       user-select: none;
     }
-
-    .letter-m { top: -0.12em;    left:  -0.06em; }
-    .letter-i { top: -0.12em;    right: -0.04em; }
-    .letter-r { bottom: -0.12em; left:  -0.06em; }
-    .letter-a { bottom: -0.12em; right: -0.06em; }
 
     /* --- Content layer --- */
     main {
@@ -240,10 +249,8 @@
 </head>
 <body>
   <div class="bg-layer" aria-hidden="true">
-    <span class="bg-letter letter-m">M</span>
-    <span class="bg-letter letter-i">I</span>
-    <span class="bg-letter letter-r">R</span>
-    <span class="bg-letter letter-a">A</span>
+    <div class="bg-cone"></div>
+    <span class="bg-letter">MIRA</span>
   </div>
 
   <main>
@@ -318,13 +325,12 @@
     const STATE_CMDS = new Set(['NORMAL', 'WAKE', 'WIND_DOWN', 'SOFT_PAUSE', 'HARD_OFF']);
 
     function updateLetterOpacity(letters, lux) {
-      const minLux = 0;
       const maxLux = 2000;
-      const minOpacity = 0.03;
-      const maxOpacity = 0.14;
-      const t = Math.min(1, Math.max(0, (lux - minLux) / (maxLux - minLux)));
-      const opacity = minOpacity + t * (maxOpacity - minOpacity);
-      letters.forEach(el => el.style.opacity = opacity);
+      const t = Math.min(1, Math.max(0, lux / maxLux));
+      const letterOpacity = t * 0.14;
+      const coneOpacity = Math.min(1, lux / 1000) * 0.85;
+      letters.forEach(el => el.style.opacity = letterOpacity);
+      document.querySelector('.bg-cone').style.opacity = coneOpacity;
     }
 
     async function fetchStatus() {
