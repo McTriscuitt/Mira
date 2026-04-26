@@ -62,11 +62,15 @@
     main {
       position: relative;
       z-index: 1;
+      min-height: calc(100vh - 96px);
+      display: flex;
+      flex-direction: column;
     }
 
     .logout-footer {
       text-align: center;
       padding: 48px 0 32px;
+      margin-top: auto;
     }
 
     .logout {
@@ -214,13 +218,31 @@
     .btn.btn-active { border-color: #777; color: #e0e0e0; background: #1e1e1e; }
 
     /* --- Log --- */
+    .log-section {
+      margin-top: max(24px, calc(52vh - 340px));
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+
     .log-label {
       font-size: 10px;
       letter-spacing: 0.12em;
       color: #555;
       text-transform: uppercase;
-      margin-bottom: 12px;
     }
+
+    .log-view-all {
+      font-size: 11px;
+      color: #444;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+    }
+    @media (hover: hover) { .log-view-all:hover { color: #888; } }
 
     .log-list {
       display: flex;
@@ -300,7 +322,10 @@
     </div>
 
     <div class="log-section">
-      <div class="log-label">Event log</div>
+      <div class="log-header">
+        <div class="log-label">Event log</div>
+        <a href="/logs" class="log-view-all">view all</a>
+      </div>
       <div class="log-list" id="log-list"></div>
     </div>
 
@@ -354,7 +379,7 @@
     }
 
     async function fetchLog() {
-      const response = await fetch('/api/log/recent');
+      const response = await fetch('/api/log/recent?limit=10');
       const data = await response.json();
       if (!data) return;
       document.getElementById('log-list').innerHTML = '';

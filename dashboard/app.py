@@ -201,8 +201,16 @@ def latest_status():
 def recent_log():
     if not _dashboard_authed():
         return jsonify({'error': 'unauthorized'}), 401
-    entries = EventLog.query.order_by(EventLog.timestamp.desc()).limit(50).all()
+    limit = request.args.get('limit', 10, type=int)
+    entries = EventLog.query.order_by(EventLog.timestamp.desc()).limit(min(limit, 500)).all()
     return jsonify([{'timestamp': e.timestamp.isoformat() + 'Z', 'message': e.message} for e in entries])
+
+
+@app.route('/logs')
+def logs():
+    if not _dashboard_authed():
+        return redirect(url_for('login'))
+    return render_template('logs.html')
 
 
 @app.route('/api/command', methods=['POST'])

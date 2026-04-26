@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mira — Event Log</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar { display: none; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0d0d0d;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 56px 32px 40px;
+      overflow-x: hidden;
+    }
+
+    main {
+      min-height: calc(100vh - 96px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+
+    .page-title {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: #555;
+      text-transform: uppercase;
+    }
+
+    .back-link {
+      font-size: 11px;
+      color: #444;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+    }
+    @media (hover: hover) { .back-link:hover { color: #888; } }
+
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .log-entry {
+      background: #141414;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #888;
+      display: flex;
+      gap: 16px;
+    }
+
+    .log-time {
+      color: #444;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 160px;
+    }
+
+    .log-date-sep {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: #333;
+      text-transform: uppercase;
+      padding: 20px 0 8px;
+    }
+
+    .load-more {
+      background: none;
+      border: 1px solid #2a2a2a;
+      color: #555;
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      padding: 10px 24px;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    @media (hover: hover) { .load-more:hover { border-color: #555; color: #e0e0e0; } }
+    .load-more:disabled { opacity: 0.3; cursor: default; }
+
+    .controls-row {
+      display: flex;
+      justify-content: center;
+      padding: 24px 0 0;
+    }
+
+    .logout-footer {
+      text-align: center;
+      padding: 48px 0 32px;
+      margin-top: auto;
+    }
+
+    .logout {
+      font-size: 12px;
+      color: #555;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+    }
+    @media (hover: hover) { .logout:hover { color: #888; } }
+
+    @media (max-width: 600px) {
+      body { padding: 40px 16px; }
+      .log-time { min-width: 90px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="page-header">
+      <div class="page-title">Event log</div>
+      <a href="/" class="back-link">← back</a>
+    </div>
+
+    <div class="log-list" id="log-list"></div>
+
+    <div class="controls-row">
+      <button class="load-more" id="load-more-btn">load more</button>
+    </div>
+
+    <div class="logout-footer">
+      <a href="/logout" class="logout">logout</a>
+    </div>
+  </main>
+
+  <script>
+    let _offset = 0;
+    const PAGE = 50;
+
+    function formatTimestamp(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        + ' · '
+        + d.toLocaleTimeString();
+    }
+
+    function dateKey(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+
+    async function loadEntries() {
+      const btn = document.getElementById('load-more-btn');
+      btn.disabled = true;
+
+      const res = await fetch(`/api/log/recent?limit=${PAGE + _offset}`);
+      const data = await res.json();
+      if (!data) return;
+
+      const list = document.getElementById('log-list');
+      list.innerHTML = '';
+      let lastDate = null;
+
+      data.forEach(entry => {
+        const key = dateKey(entry.timestamp);
+        if (key !== lastDate) {
+          const sep = document.createElement('div');
+          sep.className = 'log-date-sep';
+          sep.textContent = key;
+          list.appendChild(sep);
+          lastDate = key;
+        }
+        const el = document.createElement('div');
+        el.className = 'log-entry';
+        el.innerHTML = `<span class="log-time">${formatTimestamp(entry.timestamp)}</span><span>${entry.message}</span>`;
+        list.appendChild(el);
+      });
+
+      _offset += PAGE;
+      btn.disabled = data.length < _offset;
+    }
+
+    document.getElementById('load-more-btn').addEventListener('click', loadEntries);
+
+    loadEntries();
+  </script>
+</body>
+</html>
