@@ -150,7 +150,7 @@
 
     <div class="filter-row">
       <button class="filter-btn filter-active" data-search="">all</button>
-      <button class="filter-btn" data-search="normal">normal</button>
+      <button class="filter-btn" data-search="" data-exclude="wake,wind,pause,hard,locked">normal</button>
       <button class="filter-btn" data-search="wake">wake</button>
       <button class="filter-btn" data-search="wind">wind down</button>
       <button class="filter-btn" data-search="pause">soft pause</button>
@@ -171,6 +171,7 @@
   <script>
     let _offset = 0;
     let _filter = '';
+    let _exclude = '';
     const PAGE = 50;
 
     function formatTimestamp(iso) {
@@ -191,6 +192,7 @@
 
       const params = new URLSearchParams({ limit: PAGE + _offset });
       if (_filter) params.set('search', _filter);
+      if (_exclude) params.set('exclude', _exclude);
       const res = await fetch(`/api/log/recent?${params}`);
       const data = await res.json();
       if (!data) return;
@@ -224,7 +226,8 @@
 
     document.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        _filter = btn.dataset.search;
+        _filter = btn.dataset.search || '';
+        _exclude = btn.dataset.exclude || '';
         _offset = 0;
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('filter-active'));
         btn.classList.add('filter-active');

@@ -203,9 +203,12 @@ def recent_log():
         return jsonify({'error': 'unauthorized'}), 401
     limit = request.args.get('limit', 10, type=int)
     search = request.args.get('search', '', type=str).strip()
+    exclude = request.args.get('exclude', '', type=str).strip()
     q = EventLog.query
     if search:
         q = q.filter(EventLog.message.ilike(f'%{search}%'))
+    for term in (t.strip() for t in exclude.split(',') if t.strip()):
+        q = q.filter(~EventLog.message.ilike(f'%{term}%'))
     entries = q.order_by(EventLog.timestamp.desc()).limit(min(limit, 500)).all()
     return jsonify([{'timestamp': e.timestamp.isoformat() + 'Z', 'message': e.message} for e in entries])
 
