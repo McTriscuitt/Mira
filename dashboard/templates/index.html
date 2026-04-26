@@ -112,8 +112,6 @@
       text-overflow: ellipsis;
     }
 
-    .stat-value.state { font-size: 16px; letter-spacing: 0.05em; }
-
     /* --- Progress block --- */
     .progress-block {
       background: #141414;
@@ -201,8 +199,8 @@
 
     .btn {
       background: none;
-      border: 1px solid #2a2a2a;
-      color: #888;
+      border: 1px solid var(--btn-border, #2a2a2a);
+      color: var(--btn-text, #888);
       font-family: inherit;
       font-size: 12px;
       letter-spacing: 0.08em;
@@ -278,10 +276,6 @@
   <main>
     <div class="status-grid">
       <div class="stat">
-        <div class="stat-label">State</div>
-        <div class="stat-value state" id="val-state">—</div>
-      </div>
-      <div class="stat">
         <div class="stat-label">Lux</div>
         <div class="stat-value" id="val-lux">—</div>
       </div>
@@ -356,6 +350,11 @@
       const coneOpacity = Math.min(1, lux / 1000) * 0.85;
       letters.forEach(el => el.style.opacity = letterOpacity);
       document.querySelector('.bg-cone').style.opacity = coneOpacity;
+      const ct = Math.min(1, lux / 1000);
+      const textV   = Math.round(136 * (1 - ct) + 40 * ct);  // #888 → #282828
+      const borderV = Math.round(42  * (1 - ct) + 80 * ct);  // #2a2a2a → #505050
+      document.documentElement.style.setProperty('--btn-text',   `rgb(${textV},${textV},${textV})`);
+      document.documentElement.style.setProperty('--btn-border',`rgb(${borderV},${borderV},${borderV})`);
     }
 
     async function fetchStatus() {
@@ -364,7 +363,6 @@
       if (!data) return;
       _lastData = data;
       const sentinel = data.ct === 0;
-      document.getElementById('val-state').textContent = STATE_LABELS[data.state] || data.state;
       document.getElementById('val-lux').textContent = Math.round(data.lux);
       document.getElementById('val-bri').textContent = sentinel ? '—' : `${data.bri} · ${Math.round(data.bri / 254 * 100)}%`;
       document.getElementById('val-ct').textContent = sentinel ? '—' : data.ct;

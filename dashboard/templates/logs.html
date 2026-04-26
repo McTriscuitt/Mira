@@ -77,19 +77,42 @@
       padding: 20px 0 8px;
     }
 
-    .load-more {
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      margin-bottom: 24px;
+    }
+
+    .filter-btn {
       background: none;
-      border: 1px solid #2a2a2a;
-      color: #555;
+      border: none;
+      color: #444;
       font-family: inherit;
       font-size: 11px;
       letter-spacing: 0.08em;
-      padding: 10px 24px;
+      padding: 4px 0;
+      margin-right: 20px;
       cursor: pointer;
-      margin-top: 16px;
-      transition: border-color 0.15s, color 0.15s;
+      transition: color 0.15s;
+      border-bottom: 1px solid transparent;
     }
-    @media (hover: hover) { .load-more:hover { border-color: #555; color: #e0e0e0; } }
+    @media (hover: hover) { .filter-btn:hover { color: #888; } }
+    .filter-btn.filter-active { color: #888; border-bottom-color: #333; }
+
+    .load-more {
+      background: none;
+      border: none;
+      color: #444;
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      padding: 10px 0;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: color 0.15s;
+    }
+    @media (hover: hover) { .load-more:hover { color: #888; } }
     .load-more:disabled { opacity: 0.3; cursor: default; }
 
     .controls-row {
@@ -125,6 +148,15 @@
       <a href="/" class="back-link">← back</a>
     </div>
 
+    <div class="filter-row">
+      <button class="filter-btn filter-active" data-search="">all</button>
+      <button class="filter-btn" data-search="normal">normal</button>
+      <button class="filter-btn" data-search="wake">wake</button>
+      <button class="filter-btn" data-search="wind">wind down</button>
+      <button class="filter-btn" data-search="pause">soft pause</button>
+      <button class="filter-btn" data-search="hard off">hard off</button>
+    </div>
+
     <div class="log-list" id="log-list"></div>
 
     <div class="controls-row">
@@ -138,6 +170,7 @@
 
   <script>
     let _offset = 0;
+    let _filter = '';
     const PAGE = 50;
 
     function formatTimestamp(iso) {
@@ -156,7 +189,9 @@
       const btn = document.getElementById('load-more-btn');
       btn.disabled = true;
 
-      const res = await fetch(`/api/log/recent?limit=${PAGE + _offset}`);
+      const params = new URLSearchParams({ limit: PAGE + _offset });
+      if (_filter) params.set('search', _filter);
+      const res = await fetch(`/api/log/recent?${params}`);
       const data = await res.json();
       if (!data) return;
 
@@ -180,10 +215,25 @@
       });
 
       _offset += PAGE;
-      btn.disabled = data.length < _offset;
+      const exhausted = data.length < _offset;
+      if (exhausted) btn.style.display = 'none';
+      else btn.disabled = false;
     }
 
     document.getElementById('load-more-btn').addEventListener('click', loadEntries);
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _filter = btn.dataset.search;
+        _offset = 0;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('filter-active'));
+        btn.classList.add('filter-active');
+        const loadBtn = document.getElementById('load-more-btn');
+        loadBtn.style.display = '';
+        loadBtn.disabled = true;
+        loadEntries();
+      });
+    });
 
     loadEntries();
   </script>

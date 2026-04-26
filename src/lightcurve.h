@@ -11,8 +11,8 @@ constexpr float S4_LOG_BASE  = 20.0f;
 constexpr float S4_FLOOR_BRI = 50.0f;
 constexpr float S4_BRI_HI    = 150.0f;    // locked to S3_BRI_LO
 
-// Segment 3: plateau crawl (15 → 300 lux) — bedside + desk only
-constexpr float S3_LUX_HI      = 300.0f;
+// Segment 3: plateau crawl (15 → 250 lux) — bedside + desk only
+constexpr float S3_LUX_HI      = 250.0f;
 constexpr float S3_CRAWL_POWER = 0.50f;
 constexpr float S3_BRI_HI      = 200.0f;  // bri of lamps just after overheads turn off
 

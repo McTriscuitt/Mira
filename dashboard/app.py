@@ -202,7 +202,11 @@ def recent_log():
     if not _dashboard_authed():
         return jsonify({'error': 'unauthorized'}), 401
     limit = request.args.get('limit', 10, type=int)
-    entries = EventLog.query.order_by(EventLog.timestamp.desc()).limit(min(limit, 500)).all()
+    search = request.args.get('search', '', type=str).strip()
+    q = EventLog.query
+    if search:
+        q = q.filter(EventLog.message.ilike(f'%{search}%'))
+    entries = q.order_by(EventLog.timestamp.desc()).limit(min(limit, 500)).all()
     return jsonify([{'timestamp': e.timestamp.isoformat() + 'Z', 'message': e.message} for e in entries])
 
 

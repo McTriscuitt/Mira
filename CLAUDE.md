@@ -14,7 +14,14 @@ Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (
 - issue with the wake sequence instantly turning on the overheads.
   - probably because ambient lux is 1800, triggering that they *should* be on even when they havent reached the correct brightness *to* turn on yet
 - depricate day types. unnecessary
-
+# dashboard 
+- get rid of top left state in favor of the middle bottom that is already implemented
+- make button on the event log words
+- query/search options
+  - serach for state, day, bri, ct, etc. use buttons to filter? 
+- load more should disappear when reaching the end of database
+- as the light cone brightens, the buttons for states need to darkem/contrast against it. they become really hard to after 1000 on the following command (which i think represents lux):
+  - updateLetterOpacity(document.querySelectorAll('.bg-letter'), 1000)
 ## Build & Flash (PlatformIO)
 
 ```bash
