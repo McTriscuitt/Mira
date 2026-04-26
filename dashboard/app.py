@@ -18,6 +18,7 @@ db = SQLAlchemy(app)
 
 ESP32_API_KEY = os.environ['ESP32_API_KEY']
 DASHBOARD_PASSWORD = os.environ['DASHBOARD_PASSWORD']
+DEMO_PASSWORD = os.environ.get('DEMO_PASSWORD', '')
 
 
 # --- Models ---
@@ -77,7 +78,11 @@ def _esp32_authed():
 
 
 def _dashboard_authed():
-    return session.get('logged_in')
+    return session.get('role') in ('owner', 'demo')
+
+
+def _owner_authed():
+    return session.get('role') == 'owner'
 
 
 # --- ESP32 endpoints ---
@@ -123,8 +128,8 @@ def poll_command():
 
 @app.route('/api/command/<int:cmd_id>/cancel', methods=['POST'])
 def cancel_command(cmd_id):
-    if not _dashboard_authed():
-        return jsonify({'error': 'unauthorized'}), 401
+    if not _owner_authed():
+        return jsonify({'error': 'unauthorized'}), 403
     cmd = db.session.get(Command, cmd_id)
     if not cmd or cmd.status != 'pending':
         return jsonify({'error': 'not found or already executed'}), 404
@@ -151,9 +156,14 @@ def ack_command(cmd_id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        if request.form.get('password') == DASHBOARD_PASSWORD:
+        pw = request.form.get('password')
+        if pw == DASHBOARD_PASSWORD:
             session.permanent = True
-            session['logged_in'] = True
+            session['role'] = 'owner'
+            return redirect(url_for('index'))
+        elif DEMO_PASSWORD and pw == DEMO_PASSWORD:
+            session.permanent = True
+            session['role'] = 'demo'
             return redirect(url_for('index'))
         return render_template('login.html', error=True)
     return render_template('login.html', error=False)
@@ -171,7 +181,7 @@ def logout():
 def index():
     if not _dashboard_authed():
         return redirect(url_for('login'))
-    return render_template('index.html')
+    return render_template('index.html', role=session.get('role', ''))
 
 
 @app.route('/api/status/latest')
@@ -222,8 +232,8 @@ def logs():
 
 @app.route('/api/command', methods=['POST'])
 def send_command():
-    if not _dashboard_authed():
-        return jsonify({'error': 'unauthorized'}), 401
+    if not _owner_authed():
+        return jsonify({'error': 'unauthorized'}), 403
     data = request.json
     cmd = Command(action=data['action'], value=data.get('value'))
     db.session.add(cmd)

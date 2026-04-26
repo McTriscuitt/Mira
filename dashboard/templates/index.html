@@ -294,13 +294,14 @@
     <div class="progress-block">
       <div class="progress-state-name" id="progress-state-name">—</div>
       <div class="progress-slider-wrap hidden" id="progress-slider-wrap">
-        <input type="range" id="progress-slider" min="0" max="100" value="0">
+        <input type="range" id="progress-slider" min="0" max="100" value="0"{% if role == 'demo' %} disabled style="pointer-events:none"{% endif %}>
         <span class="progress-text" id="progress-text">—</span>
-        <button class="finish-btn" id="finish-btn">finish</button>
+        {% if role != 'demo' %}<button class="finish-btn" id="finish-btn">finish</button>{% endif %}
       </div>
       <div class="progress-text" id="progress-detail"></div>
     </div>
 
+    {% if role != 'demo' %}
     <div class="controls">
       <button class="btn" data-action="NORMAL"     onclick="sendCommand('NORMAL')">Normal</button>
       <button class="btn" data-action="SOFT_PAUSE" onclick="sendCommand('SOFT_PAUSE')">Soft pause</button>
@@ -308,6 +309,7 @@
       <button class="btn" data-action="WAKE"       onclick="sendCommand('WAKE')">Wake</button>
       <button class="btn" data-action="HARD_OFF"   onclick="sendCommand('HARD_OFF')">Hard off</button>
     </div>
+    {% endif %}
 
     <div class="log-section">
       <div class="log-header">
@@ -322,6 +324,7 @@
   </main>
 
   <script>
+    const READONLY = {{ 'true' if role == 'demo' else 'false' }};
     let _lastData = null;
     let _pendingCommand = null;
 
@@ -459,7 +462,7 @@
       }
     });
 
-    document.getElementById('finish-btn').addEventListener('click', function () {
+    document.getElementById('finish-btn')?.addEventListener('click', function () {
       if (!_lastData) return;
       const previewAction = _pendingCommand && STATE_CMDS.has(_pendingCommand.action) ? _pendingCommand.action : null;
       const activeState = previewAction || _lastData.state;
@@ -479,6 +482,7 @@
     }
 
     async function sendCommand(action, value = null) {
+      if (READONLY) return;
       const isSameAction = _pendingCommand && _pendingCommand.action === action;
 
       if (isSameAction && value === null) {
