@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mira — Access Log</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar { display: none; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0d0d0d;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 56px 32px 40px;
+      overflow-x: hidden;
+    }
+
+    main {
+      min-height: calc(100vh - 96px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+
+    .page-title {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: #555;
+      text-transform: uppercase;
+    }
+
+    .back-link {
+      font-size: 11px;
+      color: #444;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+    }
+    @media (hover: hover) { .back-link:hover { color: #888; } }
+
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .log-entry {
+      background: #141414;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #888;
+      display: flex;
+      gap: 16px;
+      align-items: baseline;
+    }
+
+    .log-time {
+      color: #444;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 160px;
+    }
+
+    .log-role {
+      white-space: nowrap;
+      flex-shrink: 0;
+      width: 52px;
+    }
+
+    .log-role.owner { color: #aaa; }
+    .log-role.demo  { color: #555; }
+
+    .log-ip {
+      color: #555;
+      font-size: 12px;
+    }
+
+    .empty {
+      font-size: 13px;
+      color: #444;
+      padding: 20px 0;
+    }
+
+    .logout-footer {
+      text-align: center;
+      padding: 48px 0 32px;
+      margin-top: auto;
+    }
+
+    .logout {
+      font-size: 12px;
+      color: #555;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+    }
+    @media (hover: hover) { .logout:hover { color: #888; } }
+
+    @media (max-width: 600px) {
+      body { padding: 40px 16px; }
+      .log-time { min-width: 90px; font-size: 11px; }
+      .log-ip { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="page-header">
+      <div class="page-title">Access log</div>
+      <a href="/" class="back-link">← back</a>
+    </div>
+
+    <div class="log-list">
+      {% if entries %}
+        {% for entry in entries %}
+        <div class="log-entry">
+          <span class="log-time">{{ entry.timestamp.strftime('%b %-d · %H:%M:%S') }}</span>
+          <span class="log-role {{ entry.role }}">{{ entry.role }}</span>
+          <span class="log-ip">{{ entry.ip or '—' }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">no logins recorded yet</div>
+      {% endif %}
+    </div>
+
+    <div class="logout-footer">
+      <a href="/logout" class="logout">logout</a>
+    </div>
+  </main>
+</body>
+</html>

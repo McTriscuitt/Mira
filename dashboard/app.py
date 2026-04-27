@@ -182,6 +182,14 @@ def login():
     return render_template('login.html', error=False)
 
 
+@app.route('/admin/access-log')
+def admin_access_log():
+    if not _owner_authed():
+        return redirect(url_for('login'))
+    entries = AccessLog.query.order_by(AccessLog.timestamp.desc()).limit(200).all()
+    return render_template('access_log.html', entries=entries)
+
+
 @app.route('/logout')
 def logout():
     session.clear()
