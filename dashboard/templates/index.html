@@ -81,6 +81,16 @@
     }
     @media (hover: hover) { .logout:hover { color: #888; } }
 
+    .hidden-nav {
+      position: fixed;
+      left: 70%;
+      top: 56%;
+      width: 28px;
+      height: 28px;
+      z-index: 2;
+      cursor: default;
+    }
+
     /* --- Stat grid --- */
     .status-grid {
       display: grid;
@@ -322,6 +332,10 @@
       <a href="/logout" class="logout">logout</a>
     </div>
   </main>
+
+  {% if role == 'owner' %}
+  <a href="/admin/access-log" class="hidden-nav" aria-hidden="true" tabindex="-1"></a>
+  {% endif %}
 
   <script>
     const READONLY = {{ 'true' if role == 'demo' else 'false' }};
