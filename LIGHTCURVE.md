@@ -12,7 +12,7 @@ Each lux reading from the VEML7700 maps to two output values sent to the Hue Bri
 - `ct` — color temperature in mirek, 153–447 (153 = ~6500K cool, 447 = ~2200K warm)
 
 The mapping uses a four-segment piecewise curve. Segments 4/3 and 2/1 are each internally
-seamless, but there is a **deliberate discontinuity at 250 lux** — see below.
+seamless, but there is a **deliberate discontinuity at 200 lux** — see below.
 
 Color temp is derived globally from normalized brightness: high bri → cool ct, low bri → warm ct.
 
@@ -22,11 +22,11 @@ Color temp is derived globally from normalized brightness: high bri → cool ct,
 
 The curve maps to different active bulb sets depending on which side of 300 lux the system is on:
 
-- **Above 250 lux (seg 1 + seg 2):** all four bulbs active — bedside, desk, overhead 1, overhead 2
-- **Below 250 lux (seg 3 + seg 4):** overheads off — bedside and desk only
+- **Above 200 lux (seg 1 + seg 2):** all four bulbs active — bedside, desk, overhead 1, overhead 2
+- **Below 200 lux (seg 3 + seg 4):** overheads off — bedside and desk only
 
-The overhead cutoff at 250 lux is part of the evening wind-down sequence. As lux drops through
-250, the two overhead bulbs turn off and the bedside/desk lamps bump up in brightness to
+The overhead cutoff at 200 lux is part of the evening wind-down sequence. As lux drops through
+200, the two overhead bulbs turn off and the bedside/desk lamps bump up in brightness to
 partially compensate. This produces the intentional upward jump in bri at the seg 2/3 boundary.
 
 The overhead on/off logic is handled by the system state machine, not by `luxToTarget()`.
@@ -40,27 +40,27 @@ The overhead on/off logic is handled by the system state machine, not by `luxToT
 bri
 254 |                                                        *
     |                                                  *
-200 |_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _*   <- overheads OFF below here (lux descending)
-    |                                                <- seg3 ends at 200
-160 |                                               *  <- seg2 starts at 160 (discontinuity: 200 → 160)
-    |                                        .   *
-    |                              .     *
-150 |        * . . . . . . . . . *
+200 |_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _*   <- overheads OFF below here (lux descending)
+    |                                      <- seg3 ends at 200
+160 |                                   *  <- seg2 starts at 160 (discontinuity: 200 → 160)
+    |                             .   *
+    |                      .   *
+150 |        * . . . . . *
  50 |    *
     |*
-    +--+------------------+---+---------+-------------------> lux
-    0 10                 250  250       500                 3000
-      [ seg4 ][   seg3      ]|[ seg2  ][     seg1        ]
-                                       ^
-                                  discontinuity
-                               overheads turn off,
-                               lamps jump to 200 bri
+    +--+-------------+--+-----------+-------------------> lux
+    0 10            200 200         500                 3000
+      [ seg4 ][ seg3 ]|[   seg2   ][     seg1        ]
+                                   ^
+                              discontinuity
+                           overheads turn off,
+                           lamps jump to 200 bri
 ```
 
 - Segment 4 (0–10 lux): log rise from floor — deep night, bedside + desk only
-- Segment 3 (10–250 lux): hyperbolic plateau crawl — evening wind-down, bedside + desk only
-- Discontinuity at 250 lux: as lux drops through 250, overheads off, bri jumps 160 → 200
-- Segment 2 (250–500 lux): parabolic rise — transition zone, all four bulbs
+- Segment 3 (10–200 lux): hyperbolic plateau crawl — evening wind-down, bedside + desk only
+- Discontinuity at 200 lux: as lux drops through 200, overheads off, bri jumps 160 → 200
+- Segment 2 (200–500 lux): parabolic rise — transition zone, all four bulbs
 - Segment 1 (500–3000 lux): log rise to peak — full daytime, all four bulbs
 
 ---
@@ -74,14 +74,14 @@ constexpr float S4_LOG_BASE  = 20.0f;
 constexpr float S4_FLOOR_BRI = 50.0f;
 constexpr float S4_BRI_HI    = 150.0f;   // locked to S3_BRI_LO
 
-// Segment 3: plateau crawl (10 → 250 lux) — bedside + desk only
-constexpr float S3_LUX_HI      = 250.0f;
+// Segment 3: plateau crawl (10 → 200 lux) — bedside + desk only
+constexpr float S3_LUX_HI      = 200.0f;
 constexpr float S3_CRAWL_POWER = 0.50f;
 constexpr float S3_BRI_HI      = 200.0f;  // bri of lamps just after overheads turn off
 
-// Segment 2: parabolic rise (250 → 500 lux) — all four bulbs
-// NOTE: S2_BRI_LO != S3_BRI_HI — intentional discontinuity at 250 lux.
-// As lux drops through 300: overheads cut, lamps jump from 160 → 200 bri to compensate.
+// Segment 2: parabolic rise (200 → 500 lux) — all four bulbs
+// NOTE: S2_BRI_LO != S3_BRI_HI — intentional discontinuity at 200 lux.
+// As lux drops through 200: overheads cut, lamps jump from 160 → 200 bri to compensate.
 constexpr float S2_LUX_HI     = 500.0f;
 constexpr float S2_PARA_POWER = 5.0f;
 constexpr float S2_BRI_LO     = 160.0f;  // seg2 bottom — all four bulbs at this level

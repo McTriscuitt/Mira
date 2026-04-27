@@ -12,13 +12,8 @@ Behaviors
 - on /recap, update documentation
 
 
-- change wind down timer to just do 1/60, 1.5/60, 2/60. keep number minimalistic, no decimals if not necessary.
-- Set check override to false on any button click (forgot why i made a note of this)
-- issue with the wake sequence instantly turning on the overheads.
-  - probably because ambient lux is 1800, triggering that they *should* be on even when they havent reached the correct brightness *to* turn on yet
-- depricate day types. unnecessary
 
-## Build & F!lash (PlatformIO)
+## Build & Flash (PlatformIO)
 
 ```bash
 # Build
@@ -61,7 +56,7 @@ PlatformIO is the only build system. The IDE is CLion with the PlatformIO plugin
 - **`BTN_CYCLE 10`** — D10 (GPIO21); short press: cycle through all 6 states in order, forcing entry preconditions
 - **`LOCKOUT_RESET_HOUR 21`** — 24h hour after which all-lights-off re-arms the morning lockout (9 PM)
 - **`SOFT_PAUSE_MS 3600000UL`** — soft pause auto-resume duration (60 min)
-- **`DISCORD_WEBHOOK_URL`** — webhook for logging
+- **`WAKE_RAMP_TICKS 40`** — wake ramp duration (20 min at 30 s/tick)
 - **Turn-on order:** Bedside → Desk → Overhead 1+2
 - **Turn-off order:** Overhead 1+2 → Desk → Bedside
 
@@ -70,7 +65,7 @@ PlatformIO is the only build system. The IDE is CLion with the PlatformIO plugin
 State machine: `enum class State { LOCKED_OUT, NORMAL, WAKE, WIND_DOWN, SOFT_PAUSE, HARD_OFF }` in `main.cpp`. The `loop()` dispatches on `state` via a switch statement. Each state has a dedicated tick function.
 
 1. **LOCKED_OUT** — startup default; no auto-on. `checkBedsideState()` watches for manual bedside on-flip to trigger wake. Re-arms from NORMAL/WIND_DOWN when all lights confirmed off and `hour >= LOCKOUT_RESET_HOUR`.
-2. **WAKE** — `tickWakeRamp()` linearly interpolates bri and ct from the actual bedside state at trigger → `luxToTarget(ambientLux)` over 20 min (WORK) or 60 min (RELAXED). Hands off to NORMAL on completion.
+2. **WAKE** — `tickWakeRamp()` linearly interpolates bri and ct from the actual bedside state at trigger → `luxToTarget(ambientLux)` over `WAKE_RAMP_TICKS` (20 min). Overheads turn on mid-ramp when `lux >= S3_LUX_HI && rampBri >= S2_BRI_LO`. Hands off to NORMAL on completion.
 3. **NORMAL** — `tickNormal()` runs the lux→bri/ct curve, overhead edge detection, stable-lux counter, and override detection each tick. Transitions to WIND_DOWN when stable counter hits 60.
 4. **WIND_DOWN** — `tickWindDown()` linearly dims bedside+desk to floor over 60 min; desk off at step 120; transitions to LOCKED_OUT.
 5. **SOFT_PAUSE** — `tickSoftPause()` suspends all commands; auto-resumes to NORMAL after `SOFT_PAUSE_MS`.
@@ -92,18 +87,18 @@ Two PUT helpers exist in `main.cpp`:
 - **`src/lightcurve.h`** — 4-segment piecewise lux→bri/ct curve with intentional discontinuity at 250 lux; `LightTarget` struct (`uint8_t bri`, `uint16_t ct`); `luxToTarget(float lux)` entry point. See `LIGHTCURVE.md` for curve math and tuning.
 - **State machine** — `enum class State` with 6 states; switch dispatch in `loop()`; dedicated tick functions per state
 - **Polling loop** — reads lux every 30 s, sends to active bulbs when `shouldUpdate` (change > `STATE_TOLERANCE`)
-- **Discord webhook logging** — `sendDiscord()` in `main.cpp`; logs startup, bulb updates, wind-down trigger/completion, wake start/completion, soft pause trigger/resume
-- **`getTimeString()`** — shared time-formatting helper used by `printStatus()` and Discord messages
+- **Dashboard logging** — `sendLog()` posts to Railway dashboard (`/api/log`); logs startup, lux/bri/ct updates, wind-down trigger/milestones/completion, wake start/milestones/completion, soft pause trigger/resume, state transitions
+- **`getTimeString()`** — shared time-formatting helper used by `printStatus()` and log messages
 - **Overhead off** — edge-detection crossing of `S3_LUX_HI` (250 lux); CEIL_1+2 turn off descending, turn on ascending; bedside+desk update forced on crossing
 - **Wind-down** — stable lux counter (lux ≤ 10, hour ≥ 21, 60 readings); 60-min linear dim on bedside+desk to bri=50/ct=400; desk off at end; `transitiontime=300` matches poll interval for seamless gradient; `tickWindDown()` in `main.cpp`
-- **Wake sequence** — `triggerWake(lux)` reads actual bedside state via `getLightState()` at trigger time to seed `wakeStartTarget`; `wakeEndTarget = luxToTarget(ambientLux)`; `tickWakeRamp()` linearly interpolates bri and ct over `wakeStep / totalTicks`; bedside and desk turn on every tick, overheads only if `lux >= S3_LUX_HI`; `transitiontime=300` matches poll interval for seamless gradient; WORK = 40 ticks (20 min), RELAXED = 120 ticks (60 min); Discord logged on start and completion
+- **Wake sequence** — `triggerWake(lux)` reads actual bedside state via `getLightState()` at trigger time to seed `wakeStartTarget`; `wakeEndTarget = luxToTarget(ambientLux)`; `tickWakeRamp()` linearly interpolates bri and ct over `wakeStep / WAKE_RAMP_TICKS`; bedside and desk turn on every tick, overheads only when `lux >= S3_LUX_HI && rampBri >= S2_BRI_LO`; `transitiontime=300` matches poll interval for seamless gradient; `WAKE_RAMP_TICKS=40` (20 min); logged on start, 25/50/75%, and completion
 - **Morning lockout** — `state = LOCKED_OUT` at boot; `checkBedsideState()` polls bedside each tick; rising-edge detection triggers `triggerWake()`; re-arms when all 4 lights confirmed off after `LOCKOUT_RESET_HOUR`; resets `stableLuxCount` and `windDownStep` on re-arm
 - **`Preferences` last-state persistence** — `saveLastState(bri, ct)` writes to NVS on every bulb update and at wind-down completion; no longer read by `triggerWake()` (actual bedside state used instead)
 - **Override detection** — `checkOverride()` called at top of `tickNormal()`, skipped while `pauseResumeActive` is true; polls all active bulbs via `getLightState()`; `isManualOverride(ls, expectedOn)` returns true if light was turned off manually or bri/ct matches neither `lastTarget` nor `prevTarget` within `STATE_TOLERANCE`; triggers `SOFT_PAUSE` on detection. `prevTarget` holds the value of `lastTarget` before the most recent PUT — prevents false override triggers when a bulb is slow to apply an update (Hue RF lag) while still detecting real overrides even when lux simultaneously changes.
 - **Soft pause** — `tickSoftPause()` auto-resumes to NORMAL after `SOFT_PAUSE_MS` (60 min); resume ramp interpolates from pre-pause bri/ct to current ambient over 10 min (`PAUSE_RESUME_TICKS=20`); override detection suppressed for entire resume ramp duration
 - **Two buttons** — both active LOW, internal pull-up. `ButtonState` struct tracks debounce and press classification. `pollButton()` called every 50ms inside non-blocking wait loop for each button.
   - **BTN_MODE (D9/GPIO18):** `handleButtonEvents()` dispatches actions. Short press: if not NORMAL → go to NORMAL (with `skipOverrideCheck = true`); if NORMAL → SOFT_PAUSE. Long press (700ms): hard off toggle.
-  - **BTN_CYCLE (D10/GPIO21):** `handleCycleButton()` dispatches. Short press: advances `(int)state + 1) % 6` and calls `forceState(next)`. `forceState()` sets all required entry preconditions per state (seeds `windDownStartBri`, calls `triggerWake()`, resets `stableLuxCount`, etc.). Discord logged for all transitions except WAKE (which `triggerWake()` already logs).
+  - **BTN_CYCLE (D10/GPIO21):** `handleCycleButton()` dispatches. Short press: advances `(int)state + 1) % 6` and calls `forceState(next)`. `forceState()` sets all required entry preconditions per state (seeds `windDownStartBri`, calls `triggerWake()`, resets `stableLuxCount` and `skipOverrideCheck`, etc.). Logged for all transitions except WAKE (which `triggerWake()` already logs).
   - `BTN_MODE`, `BTN_CYCLE`, `DEBOUNCE_MS`, `LONG_PRESS_MS` defined in `config.h`.
 - **Non-blocking main loop** — `delay(30000)` replaced with a `while (millis() - tickStart < 30000UL)` loop that polls the button every 50ms, keeping the system responsive between lux ticks.
 - **Wake progress logging** — `tickWakeRamp()` prints `Wake A/B — bri=X/Y` each tick (current step / total ticks, current ramp bri / end target bri)
@@ -112,7 +107,7 @@ Two PUT helpers exist in `main.cpp`:
 
 ## Web Dashboard
 
-Flask + HTML/CSS/JS frontend, live on Railway (Free plan, PostgreSQL for persistence). Dual-logs with Discord webhook — `sendLog()` in `main.cpp` posts to both. Remote control of all 6 states via pending command queue polled by firmware on each tick.
+Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL for persistence). `sendLog()` in `main.cpp` posts events to the dashboard only. Remote control of all 6 states via pending command queue polled by firmware on each tick. Demo login (read-only) available via `DEMO_PASSWORD` env var.
 
 See `DASHBOARD.md` for full feature specs, design system, and implementation notes.
 
@@ -120,8 +115,8 @@ See `DASHBOARD.md` for full feature specs, design system, and implementation not
 
 - Post-dark lockout — ~2 hr hold after lux first drops ≤10, suppresses dimming before wind-down; deemed unnecessary
 - **HD44780 LCD** — attempted 4/20; abandoned. ESP32-S3 outputs 3.3V logic; HD44780 at 5V VDD requires VIH ≥ 3.5V (0.7 × VCC). Signal levels fall below threshold. Level shifting not pursued. No display planned.
-- **3-button control scheme** (Mode / Confirm / Cycle) — abandoned alongside LCD. Config screen, per-weekday DAY_TYPES editing via buttons, and simultaneous-press hard off all depended on having 3 buttons. Replaced by single-button spec below.
-- **`Preferences` flash storage for `DAY_TYPES[]`** — per-weekday work/relaxed config will be set via the web dashboard instead; no need to persist locally.
+- **3-button control scheme** (Mode / Confirm / Cycle) — abandoned alongside LCD. Config screen and simultaneous-press hard off depended on having 3 buttons. Replaced by two-button spec.
+- **DAY_TYPES / WORK / RELAXED** — per-weekday wake ramp duration removed; single `WAKE_RAMP_TICKS` constant used instead.
 
 ## Libraries
 
@@ -132,5 +127,5 @@ See `DASHBOARD.md` for full feature specs, design system, and implementation not
 | `NTPClient` | Wall-clock time via UDP |
 | `ArduinoJson` | Parse Hue Bridge JSON responses |
 | `WiFi`, `HTTPClient` | ESP32 built-ins for Hue REST calls |
-| `Preferences` | NVS flash storage — used for last-state bri/ct; DAY_TYPES persistence pending |
+| `Preferences` | NVS flash storage — used for last-state bri/ct |
 | `LiquidCrystal` | HD44780 LCD (built-in, not yet wired up) |

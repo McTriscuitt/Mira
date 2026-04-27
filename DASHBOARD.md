@@ -37,9 +37,9 @@ Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `
 
 | Feature | Notes |
 |---------|-------|
-| User auth / login | Session-based, 90-day cookie, password from env |
+| User auth / login | Session-based, 90-day cookie. Two roles: `owner` (full access, `DASHBOARD_PASSWORD`) and `demo` (read-only, `DEMO_PASSWORD` env var — optional) |
 | Live status display | Lux, bri (+ %), ct, overhead on/off, last seen — polls `/api/status/latest` every 30 s |
-| State control buttons | Normal, Soft Pause, Wind Down, Wake, Hard Off — send pending commands; active button stays highlighted until server confirms command gone; button text/border darkens dynamically as ambient lux increases past 1000 to maintain contrast against the light cone |
+| State control buttons | Normal, Soft Pause, Wind Down, Wake, Hard Off — send pending commands; active button stays highlighted until server confirms command gone; button text/border darkens dynamically as ambient lux increases past 1000 to maintain contrast against the light cone; Hard Off requires two-click confirm (first click arms "confirm?" for 3 s, second click sends) |
 | Pending command tracking | `pending_command_id` in status response lets client preserve pending state across polls without false clears |
 | Progress block | Shows current state name + detail; slider for Wake/Wind-down with seek; finish button jumps ramp to end |
 | Live slider preview | Dragging the slider updates text live before committing |
@@ -55,7 +55,6 @@ Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `
 | Feature | Notes |
 |---------|-------|
 | Lux curve graph | Integrate `mira_lux_curve_tuner_v5.html`; plot current poll position on the curve |
-| DAY_TYPES config | Per-weekday WORK / RELAXED setting — replaces abandoned button-based config screen |
 | Season mode selector | Pick season or specific light curve; brighter curves for short-day seasons |
 | Google Calendar integration | Read end time from sleep calendar; schedule wake ramp start — OAuth via Flask backend |
 
@@ -93,9 +92,3 @@ Dashboard-only (session auth):
 | POST | `/api/command` | Queue new command |
 | POST | `/api/command/<id>/cancel` | Cancel pending command |
 
----
-
-## Notes
-
-- DAY_TYPES changes from the dashboard do **not** need to persist to ESP32 flash — dashboard is source of truth, pushes config on reconnect
-- Dashboard is authoritative for per-weekday WORK / RELAXED config

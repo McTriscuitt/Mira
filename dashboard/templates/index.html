@@ -307,11 +307,11 @@
       <button class="btn" data-action="SOFT_PAUSE" onclick="sendCommand('SOFT_PAUSE')">Soft pause</button>
       <button class="btn" data-action="WIND_DOWN"  onclick="sendCommand('WIND_DOWN')">Wind down</button>
       <button class="btn" data-action="WAKE"       onclick="sendCommand('WAKE')">Wake</button>
-      <button class="btn" data-action="HARD_OFF"   onclick="sendCommand('HARD_OFF')">Hard off</button>
+      <button class="btn" data-action="HARD_OFF"   onclick="hardOffClick()">Hard off</button>
     </div>
     {% endif %}
 
-    <div class="log-section">
+    <div class="log-section"{% if role == 'demo' %} style="margin-top: max(200px, calc(52vh - 180px))"{% endif %}>
       <div class="log-header">
         <a href="/logs" class="log-label">Event log</a>
       </div>
@@ -327,6 +327,8 @@
     const READONLY = {{ 'true' if role == 'demo' else 'false' }};
     let _lastData = null;
     let _pendingCommand = null;
+    let _hardOffArmed = false;
+    let _hardOffTimer = null;
 
     const STATE_LABELS = {
       NORMAL:     'Normal',
@@ -481,8 +483,28 @@
       });
     }
 
+    function _cancelHardOff() {
+      if (!_hardOffArmed) return;
+      _hardOffArmed = false;
+      clearTimeout(_hardOffTimer);
+      document.querySelector('[data-action="HARD_OFF"]').textContent = 'Hard off';
+    }
+
+    function hardOffClick() {
+      if (READONLY) return;
+      if (!_hardOffArmed) {
+        _hardOffArmed = true;
+        document.querySelector('[data-action="HARD_OFF"]').textContent = 'confirm?';
+        _hardOffTimer = setTimeout(_cancelHardOff, 3000);
+      } else {
+        _cancelHardOff();
+        sendCommand('HARD_OFF');
+      }
+    }
+
     async function sendCommand(action, value = null) {
       if (READONLY) return;
+      if (action !== 'HARD_OFF') _cancelHardOff();
       const isSameAction = _pendingCommand && _pendingCommand.action === action;
 
       if (isSameAction && value === null) {

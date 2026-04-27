@@ -20,9 +20,6 @@ struct LightState {
     int  ct;
 };
 
-// Per-weekday day types: 0=WORK, 1=RELAXED. Index 0=Sunday, 6=Saturday
-int DAY_TYPES[7] = {1, 1, 0, 1, 0, 1, 0};
-
 Adafruit_VEML7700 veml;
 Preferences prefs;
 LightTarget sentTarget = {255, 0}; // sentinel: forces first update to always send (255/0 are outside valid ranges)
@@ -174,28 +171,13 @@ void printStatus() {
     if (hour12 == 0) hour12 = 12;
     const char* ampm = h < 12 ? "AM" : "PM";
     const char* days[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
-    const char* type = DAY_TYPES[day] == 0 ? "WORK" : "RELAXED";
-
     Serial.print("[");
     Serial.print(hour12); Serial.print(":");
     if (m < 10) Serial.print("0"); Serial.print(m); Serial.print(":");
     if (s < 10) Serial.print("0"); Serial.print(s);
     Serial.print(ampm); Serial.print("] ");
-    Serial.print(days[day]); Serial.print(" — "); Serial.print(type);
+    Serial.print(days[day]);
     Serial.print(" ["); Serial.print(stateName()); Serial.println("]");
-}
-
-void sendDiscord(const String& message) {
-    HTTPClient http;
-    http.begin(DISCORD_WEBHOOK_URL);
-    http.addHeader("Content-Type", "application/json");
-    JsonDocument doc;
-    doc["content"] = message;
-    String body;
-    serializeJson(doc, body);
-    int code = http.POST(body);
-    if (code != 204) Serial.println("Discord POST → HTTP " + String(code));
-    http.end();
 }
 
 void sendDashboardLog(const String& message) {
@@ -213,7 +195,6 @@ void sendDashboardLog(const String& message) {
 }
 
 void sendLog(const String& message) {
-    sendDiscord(message);
     sendDashboardLog(message);
 }
 
@@ -230,8 +211,7 @@ void sendDashboardStatus(float lux) {
     doc["overhead_on"] = overheadsOn;
     doc["wind_down_step"] = windDownStep;
     doc["wake_step"]      = wakeStep;
-    int totalWakeTicks = DAY_TYPES[timeClient.getDay()] == 0 ? WAKE_RAMP_TICKS_WORK : WAKE_RAMP_TICKS_RELAXED;
-    doc["wake_total"]     = totalWakeTicks;
+    doc["wake_total"]     = WAKE_RAMP_TICKS;
     long pauseRemaining = (state == State::SOFT_PAUSE) ?
         max(0L, ((long)SOFT_PAUSE_MS - (long)(millis() - softPauseStart)) / 1000L) : 0L;
     doc["soft_pause_remaining_s"] = pauseRemaining;
@@ -298,38 +278,36 @@ void saveLastState(uint8_t bri, uint16_t ct) {
 
 void tickWakeRamp(float lux) {
     wakeStep++;
-    int   totalTicks = DAY_TYPES[timeClient.getDay()] == 0 ? WAKE_RAMP_TICKS_WORK : WAKE_RAMP_TICKS_RELAXED;
-    float t          = min(wakeStep / (float)totalTicks, 1.0f);
+    float t = min(wakeStep / (float)WAKE_RAMP_TICKS, 1.0f);
 
     int rampBri = wakeStartTarget.bri + t * (wakeEndTarget.bri - wakeStartTarget.bri);
-    int rampCt = wakeStartTarget.ct + t * (wakeEndTarget.ct - wakeStartTarget.ct);
+    int rampCt  = wakeStartTarget.ct  + t * (wakeEndTarget.ct  - wakeStartTarget.ct);
 
     rampBri = constrain(rampBri, 1, 254);
-   rampCt = constrain(rampCt, int(CT_COOL), int(CT_WARM));
+    rampCt  = constrain(rampCt, int(CT_COOL), int(CT_WARM));
 
     setLight(LIGHT_BEDSIDE, true, rampBri, rampCt, 300);
-    setLight(LIGHT_DESK, true, rampBri, rampCt, 300);
-    if (lux >= S3_LUX_HI) {
+    setLight(LIGHT_DESK,    true, rampBri, rampCt, 300);
+    if (lux >= S3_LUX_HI && rampBri >= (int)S2_BRI_LO) {
         setLight(LIGHT_CEIL_1, true, rampBri, rampCt, 300);
         setLight(LIGHT_CEIL_2, true, rampBri, rampCt, 300);
         overheadsOn = true;
     }
 
-    if (wakeStep == totalTicks / 4 || wakeStep == totalTicks / 2 || wakeStep == (3 * totalTicks / 4)) {
-        sendLog("[Mira] Wake " + String(wakeStep * 100 / totalTicks) + "% — bri=" + String(rampBri) + " — " + getTimeString());
+    if (wakeStep == WAKE_RAMP_TICKS / 4 || wakeStep == WAKE_RAMP_TICKS / 2 || wakeStep == (3 * WAKE_RAMP_TICKS / 4)) {
+        sendLog("Wake " + String(wakeStep * 100 / WAKE_RAMP_TICKS) + "% — bri=" + String(rampBri) + " — " + getTimeString());
     }
 
     if (t >= 1.0f) {
         state             = State::NORMAL;
         skipOverrideCheck = true;
         Serial.println("Wake complete — handing off to normal.");
-        sendLog("[Mira] Wake complete — " + getTimeString());
+        sendLog("Wake complete — " + getTimeString());
     }
     sentTarget = {(uint8_t)rampBri, (uint16_t)rampCt};
 
-    Serial.println("Wake " + String(wakeStep) + "/" + String(totalTicks) +
-                " — bri=" + String(rampBri) + "/" + String(wakeEndTarget.bri));
-
+    Serial.println("Wake " + String(wakeStep) + "/" + String(WAKE_RAMP_TICKS) +
+                   " — bri=" + String(rampBri) + "/" + String(wakeEndTarget.bri));
 }
 
 void tickWindDown() {
@@ -341,7 +319,7 @@ void tickWindDown() {
 
     Serial.println("Wind-down " + String(windDownStep * 0.5f, 1) + "/60.0 min — bri=" + String(wdBri));
     if (windDownStep == 30 || windDownStep == 60 || windDownStep == 90) {
-        sendLog("[Mira] Wind-down " + String(windDownStep / 2) + "/60 min — bri=" + String(wdBri) + " — " + getTimeString());
+        sendLog("Wind-down " + String(windDownStep / 2) + "/60 min — bri=" + String(wdBri) + " — " + getTimeString());
     }
 
     setLight(LIGHT_BEDSIDE, true, wdBri, wdCt, 300);
@@ -352,7 +330,7 @@ void tickWindDown() {
         state = State::LOCKED_OUT;
         saveLastState((uint8_t)S4_FLOOR_BRI, (uint16_t)CT_WARM);
         Serial.println("Wind-down complete. Desk off, bedside at floor.");
-        sendLog("[Mira] Wind-down complete — " + getTimeString());
+        sendLog("Wind-down complete — " + getTimeString());
     }
     sentTarget = {(uint8_t)wdBri, (uint16_t)wdCt};
 }
@@ -401,7 +379,7 @@ void checkOverride() {
         softPauseStart     = millis();
         pauseResumeActive  = false;
         Serial.println("Manual override detected — soft pause.");
-        sendLog("[Mira] Manual override — soft pause — " + getTimeString());
+        sendLog("Manual override — soft pause — " + getTimeString());
     }
 }
 
@@ -456,7 +434,7 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
         state            = State::WIND_DOWN;
         windDownStep     = 0;
         windDownStartBri = sentTarget.bri;
-        sendLog("[Mira] Wind-down starting — " + getTimeString());
+        sendLog("Wind-down starting — " + getTimeString());
         return;
     }
 
@@ -471,11 +449,10 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
         sentTarget = target;
         saveLastState(target.bri, target.ct);
         Serial.println("Bulbs updated.");
-        sendLog("[Mira] " + getTimeString() +
+        sendLog(getTimeString() +
                     " | Lux: " + String(lux, 1) +
                     " → bri=" + String(target.bri) + " (" + String(target.bri * 100 / 254) + "%)" +
-                    ", ct=" + String(target.ct) +
-                    " | Bulbs updated");
+                    ", ct=" + String(target.ct));
     } else {
         Serial.println("No change — skipping PUT.");
     }
@@ -489,7 +466,7 @@ void tickSoftPause() {
         state                  = State::NORMAL;
         skipOverrideCheck      = true;
         Serial.println("Soft pause expired — beginning 10-min resume ramp.");
-        sendLog("[Mira] Soft pause expired — resuming — " + getTimeString());
+        sendLog("Soft pause expired — resuming — " + getTimeString());
     }
 }
 
@@ -503,7 +480,7 @@ void triggerWake(float ambientLux) {
     state              = State::WAKE;
     Serial.println("Wake triggered — bri " + String(startBri) + " → " + String(wakeEndTarget.bri) +
                    ", ct " + String(startCt) + " → " + String(wakeEndTarget.ct));
-    sendLog("[Mira] Wake sequence started — " + getTimeString());
+    sendLog("Wake sequence started — " + getTimeString());
 }
 
 void checkBedsideState(float lux) {
@@ -564,6 +541,7 @@ void forceState(State next) {
         case State::NORMAL:
             sentTarget        = {255, 0};
             skipOverrideCheck = true;
+            stableLuxCount    = 0;
             state             = State::NORMAL;
             break;
         case State::WAKE:
@@ -591,7 +569,7 @@ void handleCycleButton() {
         State next = (State)(((int)state + 1) % 6);
         forceState(next);
         if (next != State::WAKE) { // triggerWake already sends discord
-            sendLog("[Mira] Cycle button → " + String(stateName()) + " — " + getTimeString());
+            sendLog("Cycle button → " + String(stateName()) + " — " + getTimeString());
         }
     }
 }
@@ -603,11 +581,11 @@ void handleButtonEvents() {
         if (state != State::HARD_OFF) {
             state = State::HARD_OFF;
             Serial.println("Button long press — hard off.");
-            sendLog("[Mira] Hard off — " + getTimeString());
+            sendLog("Hard off — " + getTimeString());
         } else {
             state = State::LOCKED_OUT;
             Serial.println("Button long press — hard off cleared.");
-            sendLog("[Mira] Hard off cleared — " + getTimeString());
+            sendLog("Hard off cleared — " + getTimeString());
         }
     }
 
@@ -620,14 +598,15 @@ void handleButtonEvents() {
             state = State::SOFT_PAUSE;
             softPauseStart = millis();
             Serial.println("Button short press — soft pause.");
-            sendLog("[Mira] Soft pause (button) — " + getTimeString());
+            sendLog("Soft pause (button) — " + getTimeString());
         } else {
             String prev = stateName();
             state             = State::NORMAL;
             sentTarget        = {255, 0};
             skipOverrideCheck = true;
+            stableLuxCount    = 0;
             Serial.println("Button short press — NORMAL (was " + prev + ").");
-            sendLog("[Mira] Returned to NORMAL by button — " + getTimeString());
+            sendLog("Returned to NORMAL by button — " + getTimeString());
         }
     }
 }
@@ -667,7 +646,7 @@ void setup() {
     lastBedsideOn = getLightState(LIGHT_BEDSIDE).on; // seed edge detection — prevents false wake trigger on first tick
     overheadsOn   = getLightState(LIGHT_CEIL_1).on;  // seed from actual state — prevents false override and bad dashboard reporting
 
-    sendLog("[Mira] Online — " + getTimeString());
+    sendLog("Online — " + getTimeString());
 }
 
 void loop() {

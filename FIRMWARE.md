@@ -135,10 +135,9 @@ Both active LOW, internal pull-up.
 #### Wake Sequence *(implemented)*
 - `triggerWake(lux)` calls `getLightState(LIGHT_BEDSIDE)` to read the actual bedside bri/ct at trigger time; seeds `wakeStartTarget` from that reading (or floor values if bulb is off); `wakeEndTarget = luxToTarget(ambientLux)`; sets `state = WAKE`
 - `tickWakeRamp(lux)` linearly interpolates bri and ct from `wakeStartTarget` → `wakeEndTarget` per tick; sets all active bulbs each step
-- Sequential turn-on: bedside + desk (every tick), overheads only if `lux >= S3_LUX_HI = 300 lux`
+- Sequential turn-on: bedside + desk (every tick), overheads only when `lux >= S3_LUX_HI && rampBri >= S2_BRI_LO`
 - `transitiontime = 300` (30 s) — matches poll interval exactly for a seamless continuous gradient
-- **WORK** = `WAKE_RAMP_TICKS_WORK = 40` ticks (20 min); **RELAXED** = `WAKE_RAMP_TICKS_RELAXED = 120` ticks (60 min)
-- Ramp ends when `wakeLux >= ambient lux`; sets `state = NORMAL`
+- `WAKE_RAMP_TICKS = 40` ticks (20 min); ramp ends at `t >= 1.0`; sets `state = NORMAL`
 
 #### Daytime Auto Cycling *(implemented)*
 - Continuous lux → bri + ct updates across all active bulbs in NORMAL state
@@ -195,7 +194,7 @@ Short press only. Advances `(int)state + 1) % 6` through the state enum order an
 | Target state | What forceState does |
 |---|---|
 | LOCKED_OUT | Resets `stableLuxCount = 0`, `windDownStep = 0` |
-| NORMAL | Resets `lastTarget` sentinel, sets `skipOverrideCheck = true` |
+| NORMAL | Resets `lastTarget` sentinel, sets `skipOverrideCheck = true`, resets `stableLuxCount = 0` |
 | WAKE | Calls `triggerWake(lastLux)` (reads actual bedside state via `getLightState`, seeds ramp) |
 | WIND_DOWN | Seeds `windDownStartBri` from `lastTarget` (or `luxToTarget(lastLux)` if sentinel), resets `windDownStep = 0` |
 | SOFT_PAUSE | Sets `softPauseStart = millis()` |
@@ -207,7 +206,7 @@ Discord is logged for all transitions except WAKE (`triggerWake` already logs it
 
 ## Web Dashboard *(live)*
 
-Flask + HTML/CSS/JS frontend hosted on Railway (Hobby plan, PostgreSQL). Live at the URL in `config.h` (`DASHBOARD_BASE_URL`). Firmware posts status and polls commands on every tick via `sendDashboardStatus()` and `pollDashboardCommand()`. Logging dual-posts to Discord and the dashboard via `sendLog()`.
+Flask + HTML/CSS/JS frontend hosted on Railway (Hobby plan, PostgreSQL). Live at the URL in `config.h` (`DASHBOARD_BASE_URL`). Firmware posts status and polls commands on every tick via `sendDashboardStatus()` and `pollDashboardCommand()`. Logging posts to the dashboard via `sendLog()`.
 
 See `DASHBOARD.md` for full feature specs, design system, and implementation notes.
 
@@ -219,8 +218,7 @@ See `DASHBOARD.md` for full feature specs, design system, and implementation not
 #define STATE_TOLERANCE      3          // bri/ct units — update suppression + override detection
 #define LOCKOUT_RESET_HOUR   23         // 24h hour after which all-lights-off re-arms lockout
 #define SOFT_PAUSE_MS        3600000UL  // soft pause auto-resume (60 min)
-#define WAKE_RAMP_TICKS_WORK     40     // 20 min ÷ 30 s/tick
-#define WAKE_RAMP_TICKS_RELAXED 120     // 60 min ÷ 30 s/tick
+#define WAKE_RAMP_TICKS          40     // 20 min ÷ 30 s/tick
 ```
 
 ---
@@ -278,7 +276,7 @@ lib_deps =
 - WiFi required for NTP sync at startup
 - Use `NTPClient` library to get current day of week
 - No RTC module — NTP only
-- Day of week used to look up `DAY_TYPES[]` for work/relaxed mode
+- Day of week available via `timeClient.getDay()` for time-based logic
 
 ---
 
@@ -304,7 +302,7 @@ lib_deps =
 
 ## Remote Logging
 
-`sendLog()` in `main.cpp` dual-posts every event to both Discord (webhook) and the Railway dashboard (`/api/log`). `sendDiscord()` and `sendDashboardLog()` are the two underlying helpers.
+`sendLog()` in `main.cpp` posts every event to the Railway dashboard (`/api/log`) via `sendDashboardLog()`.
 
 Currently logged:
 - Startup
