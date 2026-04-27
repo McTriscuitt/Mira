@@ -55,6 +55,14 @@ class EventLog(db.Model):
     message = db.Column(db.Text, nullable=False)
 
 
+class AccessLog(db.Model):
+    __tablename__ = 'access_log'
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    role = db.Column(db.String(10), nullable=False)
+    ip = db.Column(db.String(45))
+
+
 with app.app_context():
     db.create_all()
     with db.engine.connect() as conn:
@@ -157,13 +165,18 @@ def ack_command(cmd_id):
 def login():
     if request.method == 'POST':
         pw = request.form.get('password')
+        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         if pw == DASHBOARD_PASSWORD:
             session.permanent = True
             session['role'] = 'owner'
+            db.session.add(AccessLog(role='owner', ip=ip))
+            db.session.commit()
             return redirect(url_for('index'))
         elif DEMO_PASSWORD and pw == DEMO_PASSWORD:
             session.permanent = True
             session['role'] = 'demo'
+            db.session.add(AccessLog(role='demo', ip=ip))
+            db.session.commit()
             return redirect(url_for('index'))
         return render_template('login.html', error=True)
     return render_template('login.html', error=False)
