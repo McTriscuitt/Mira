@@ -327,6 +327,7 @@
     const READONLY = {{ 'true' if role == 'demo' else 'false' }};
     let _lastData = null;
     let _pendingCommand = null;
+    const HARD_OFF_CONFIRM_MS = 3000;
     let _hardOffArmed = false;
     let _hardOffTimer = null;
 
@@ -495,7 +496,7 @@
       if (!_hardOffArmed) {
         _hardOffArmed = true;
         document.querySelector('[data-action="HARD_OFF"]').textContent = 'confirm?';
-        _hardOffTimer = setTimeout(_cancelHardOff, 3000);
+        _hardOffTimer = setTimeout(_cancelHardOff, HARD_OFF_CONFIRM_MS);
       } else {
         _cancelHardOff();
         sendCommand('HARD_OFF');

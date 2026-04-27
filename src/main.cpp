@@ -404,7 +404,7 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
         int rampBri  = (int)(pauseResumeStartTarget.bri + t * (target.bri - pauseResumeStartTarget.bri));
         int rampCt   = (int)(pauseResumeStartTarget.ct  + t * (target.ct  - pauseResumeStartTarget.ct));
         rampBri      = constrain(rampBri, 1, 254);
-        rampCt       = constrain(rampCt, 153, 447);
+        rampCt       = constrain(rampCt, int(CT_COOL), int(CT_WARM));
         setLight(LIGHT_BEDSIDE, true, rampBri, rampCt, 300);
         setLight(LIGHT_DESK,    true, rampBri, rampCt, 300);
         if (overheadsOn) {
