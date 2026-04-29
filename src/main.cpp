@@ -312,6 +312,13 @@ void tickWakeRamp(float lux) {
 
 void tickWindDown() {
     windDownStep++;
+
+    if (overheadsOn) {
+        setLight(LIGHT_CEIL_1, false, 0, 0, 10);
+        setLight(LIGHT_CEIL_2, false, 0, 0, 10);
+        overheadsOn = false;
+    }
+
     float windDownBri = windDownStartBri - (windDownStartBri - S4_FLOOR_BRI) * (windDownStep / 120.0f);
     windDownBri = max(windDownBri, (float)S4_FLOOR_BRI);
     int wdBri = (int)windDownBri;
