@@ -1,8 +1,19 @@
 import os
+import re
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, session, redirect, render_template, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
+
+_TIME_RE = re.compile(
+    r'\d{1,2}:\d{2}(?:AM|PM) (?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)'
+)
+
+def _redact_message(msg):
+    msg = _TIME_RE.sub('', msg)
+    msg = re.sub(r'\s*—\s*$', '', msg)
+    msg = re.sub(r'^\s*\|\s*', '', msg)
+    return msg.strip()
 
 app = Flask(__name__)
 app.secret_key = os.environ['SECRET_KEY']
@@ -213,19 +224,21 @@ def latest_status():
     if not snap:
         return jsonify(None)
     pending = Command.query.filter_by(status='pending').order_by(Command.created_at).first()
-    return jsonify({
+    result = {
         'state': snap.state,
         'lux': snap.lux,
         'bri': snap.bri,
         'ct': snap.ct,
         'overhead_on': snap.overhead_on,
-        'timestamp': snap.timestamp.isoformat() + 'Z',
         'wind_down_step': snap.wind_down_step,
         'wake_step': snap.wake_step,
         'wake_total': snap.wake_total,
         'soft_pause_remaining_s': snap.soft_pause_remaining_s,
         'pending_command_id': pending.id if pending else None,
-    })
+    }
+    if session.get('role') != 'demo':
+        result['timestamp'] = snap.timestamp.isoformat() + 'Z'
+    return jsonify(result)
 
 
 @app.route('/api/log/recent')
@@ -241,6 +254,8 @@ def recent_log():
     for term in (t.strip() for t in exclude.split(',') if t.strip()):
         q = q.filter(~EventLog.message.ilike(f'%{term}%'))
     entries = q.order_by(EventLog.timestamp.desc()).limit(min(limit, 500)).all()
+    if session.get('role') == 'demo':
+        return jsonify([{'message': _redact_message(e.message)} for e in entries])
     return jsonify([{'timestamp': e.timestamp.isoformat() + 'Z', 'message': e.message} for e in entries])
 
 

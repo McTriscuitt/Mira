@@ -202,17 +202,20 @@
       let lastDate = null;
 
       data.forEach(entry => {
-        const key = dateKey(entry.timestamp);
-        if (key !== lastDate) {
-          const sep = document.createElement('div');
-          sep.className = 'log-date-sep';
-          sep.textContent = key;
-          list.appendChild(sep);
-          lastDate = key;
+        if (entry.timestamp) {
+          const key = dateKey(entry.timestamp);
+          if (key !== lastDate) {
+            const sep = document.createElement('div');
+            sep.className = 'log-date-sep';
+            sep.textContent = key;
+            list.appendChild(sep);
+            lastDate = key;
+          }
         }
         const el = document.createElement('div');
         el.className = 'log-entry';
-        el.innerHTML = `<span class="log-time">${formatTimestamp(entry.timestamp)}</span><span>${entry.message}</span>`;
+        const timeHtml = entry.timestamp ? `<span class="log-time">${formatTimestamp(entry.timestamp)}</span>` : '';
+        el.innerHTML = `${timeHtml}<span>${entry.message}</span>`;
         list.appendChild(el);
       });
 

@@ -11,6 +11,7 @@ Behaviors
 - all .md's for error parsing and rectifying are in \Mira\Stored Data\
 - on /recap, update documentation
 
+- stableLuxCount on dashboard?
 
 
 ## Build & Flash (PlatformIO)

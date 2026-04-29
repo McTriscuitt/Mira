@@ -380,7 +380,7 @@
       document.getElementById('val-bri').textContent = sentinel ? '—' : `${data.bri} · ${Math.round(data.bri / 254 * 100)}%`;
       document.getElementById('val-ct').textContent = sentinel ? '—' : data.ct;
       document.getElementById('val-overhead').textContent = sentinel ? '—' : (data.overhead_on ? 'on' : 'off');
-      document.getElementById('val-ts').textContent = new Date(data.timestamp).toLocaleTimeString();
+      document.getElementById('val-ts').textContent = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—';
       if (_pendingCommand && data.pending_command_id !== _pendingCommand.id) {
         _pendingCommand = null;
       }
@@ -397,7 +397,8 @@
       data.forEach(entry => {
         const el = document.createElement('div');
         el.className = 'log-entry';
-        el.innerHTML = `<span class="log-time">${new Date(entry.timestamp).toLocaleTimeString()}</span><span>${entry.message}</span>`;
+        const timeHtml = entry.timestamp ? `<span class="log-time">${new Date(entry.timestamp).toLocaleTimeString()}</span>` : '';
+        el.innerHTML = `${timeHtml}<span>${entry.message}</span>`;
         document.getElementById('log-list').appendChild(el);
       });
     }
