@@ -162,7 +162,7 @@ All phase triggers are based on lux readings, not time of day — adapts to seas
 - **Auto-trigger:** `checkOverride()` called at top of `tickNormal()`; polls all active bulbs; `isManualOverride(ls, expectedOn)` returns true if light turned off manually or bri/ct matches neither `lastTarget` nor `prevTarget` within `STATE_TOLERANCE`; sets `state = SOFT_PAUSE`, records `softPauseStart = millis()`. `prevTarget` stores the value of `lastTarget` before each PUT — guards against false positives when a Hue bulb is slow to apply an update (RF lag), without creating a grace-period window that would let a real override slip through if lux simultaneously changes enough to push a new PUT.
 - **Button trigger:** Short press when in NORMAL state
 - **Behavior:** System skips all `setLight()` calls while paused
-- **Auto-resume:** `tickSoftPause()` resumes to NORMAL after `SOFT_PAUSE_MS` (60 min); resets `lastTarget = {255, 0}` sentinel to force first update after resume
+- **Auto-resume:** `tickSoftPause()` resumes to NORMAL after `SOFT_PAUSE_MS` (60 min); resets `lastTarget = {255, 0}` sentinel to force first update after resume; syncs `overheadsOn` and `lastBedsideOn` from bridge to prevent stale edge-detection state after user manual changes during the pause window
 
 ### Hard Off *(implemented)*
 - **Trigger:** Button long press (700ms)
@@ -193,8 +193,8 @@ Short press only. Advances `(int)state + 1) % 6` through the state enum order an
 
 | Target state | What forceState does |
 |---|---|
-| LOCKED_OUT | Resets `stableLuxCount = 0`, `windDownStep = 0` |
-| NORMAL | Resets `lastTarget` sentinel, sets `skipOverrideCheck = true`, resets `stableLuxCount = 0` |
+| LOCKED_OUT | Resets `stableLuxCount = 0`, `windDownStep = 0`; syncs `lastBedsideOn` from bridge |
+| NORMAL | Resets `lastTarget` sentinel, sets `skipOverrideCheck = true`, resets `stableLuxCount = 0`; syncs `overheadsOn` and `lastBedsideOn` from bridge |
 | WAKE | Calls `triggerWake(lastLux)` (reads actual bedside state via `getLightState`, seeds ramp) |
 | WIND_DOWN | Seeds `windDownStartBri` from `lastTarget` (or `luxToTarget(lastLux)` if sentinel), resets `windDownStep = 0` |
 | SOFT_PAUSE | Sets `softPauseStart = millis()` |

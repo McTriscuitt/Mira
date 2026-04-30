@@ -470,6 +470,8 @@ void tickSoftPause() {
         pauseResumeStartTarget = sentTarget;
         pauseResumeActive      = true;
         pauseResumeStep        = 0;
+        overheadsOn            = getLightState(LIGHT_CEIL_1).on;  // sync from actual bridge state
+        lastBedsideOn          = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
         state                  = State::NORMAL;
         skipOverrideCheck      = true;
         Serial.println("Soft pause expired — beginning 10-min resume ramp.");
@@ -543,12 +545,15 @@ void forceState(State next) {
         case State::LOCKED_OUT:
             stableLuxCount = 0;
             windDownStep   = 0;
+            lastBedsideOn  = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
             state          = State::LOCKED_OUT;
             break;
         case State::NORMAL:
             sentTarget        = {255, 0};
             skipOverrideCheck = true;
             stableLuxCount    = 0;
+            overheadsOn       = getLightState(LIGHT_CEIL_1).on;  // sync from actual bridge state
+            lastBedsideOn     = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
             state             = State::NORMAL;
             break;
         case State::WAKE:
@@ -590,7 +595,8 @@ void handleButtonEvents() {
             Serial.println("Button long press — hard off.");
             sendLog("Hard off — " + getTimeString());
         } else {
-            state = State::LOCKED_OUT;
+            state         = State::LOCKED_OUT;
+            lastBedsideOn = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
             Serial.println("Button long press — hard off cleared.");
             sendLog("Hard off cleared — " + getTimeString());
         }
@@ -612,6 +618,8 @@ void handleButtonEvents() {
             sentTarget        = {255, 0};
             skipOverrideCheck = true;
             stableLuxCount    = 0;
+            overheadsOn       = getLightState(LIGHT_CEIL_1).on;  // sync from actual bridge state
+            lastBedsideOn     = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
             Serial.println("Button short press — NORMAL (was " + prev + ").");
             sendLog("Returned to NORMAL by button — " + getTimeString());
         }
