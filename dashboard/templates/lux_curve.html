@@ -481,17 +481,11 @@
       if (!keepSlider) {
         document.getElementById('tl-info').innerHTML = '<span class="tl-empty">Loading…</span>';
       }
-      const res = await fetch(`/api/lux/history?date=${dateStr}`);
-      _history = await res.json();
-
-      // Trim to local day boundaries — API filters by UTC date which bleeds across midnight in local time
       const [fy, fm, fd] = dateStr.split('-').map(Number);
-      const localDayStart = new Date(fy, fm-1, fd, 0, 0, 0, 0).getTime();
-      const localDayEnd   = localDayStart + 86400000;
-      _history = _history.filter(pt => {
-        const ts = new Date(pt.t).getTime();
-        return ts >= localDayStart && ts < localDayEnd;
-      });
+      const localStart = new Date(fy, fm-1, fd, 0, 0, 0, 0);
+      const localEnd   = new Date(localStart.getTime() + 86400000);
+      const res = await fetch(`/api/lux/history?start=${localStart.toISOString()}&end=${localEnd.toISOString()}`);
+      _history = await res.json();
 
       const slider = document.getElementById('tl-slider');
 

@@ -287,16 +287,25 @@ def lux_curve_page():
 def lux_history():
     if not _owner_authed():
         return jsonify({'error': 'unauthorized'}), 403
-    date_str = request.args.get('date')
-    if date_str:
+    start_str = request.args.get('start')
+    end_str   = request.args.get('end')
+    if start_str and end_str:
         try:
-            d = datetime.strptime(date_str, '%Y-%m-%d').date()
+            start = datetime.fromisoformat(start_str.rstrip('Z'))
+            end   = datetime.fromisoformat(end_str.rstrip('Z'))
         except ValueError:
-            return jsonify({'error': 'invalid date'}), 400
+            return jsonify({'error': 'invalid timestamp'}), 400
     else:
-        d = datetime.utcnow().date()
-    start = datetime(d.year, d.month, d.day)
-    end = start + timedelta(days=1)
+        date_str = request.args.get('date')
+        if date_str:
+            try:
+                d = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'error': 'invalid date'}), 400
+        else:
+            d = datetime.utcnow().date()
+        start = datetime(d.year, d.month, d.day)
+        end   = start + timedelta(days=1)
     snaps = (StatusSnapshot.query
              .filter(StatusSnapshot.timestamp >= start,
                      StatusSnapshot.timestamp < end,
