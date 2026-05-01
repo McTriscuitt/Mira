@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lux curve — Mira</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar { display: none; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0d0d0d;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 40px 32px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 36px;
+    }
+
+    .back-link {
+      font-size: 12px;
+      color: #444;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+    }
+    @media (hover: hover) { .back-link:hover { color: #888; } }
+
+    .page-title {
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: #2e2e2e;
+      text-transform: uppercase;
+    }
+
+    /* Canvas */
+    .canvas-wrap { background: #141414; margin-bottom: 2px; }
+    #lux-canvas { display: block; width: 100%; height: 230px; }
+
+    /* Stats row */
+    .curve-stats {
+      background: #141414;
+      padding: 14px 18px;
+      margin-bottom: 36px;
+      display: flex;
+      gap: 28px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .cs-item { display: flex; flex-direction: column; gap: 5px; }
+    .cs-label { font-size: 10px; letter-spacing: 0.1em; color: #444; text-transform: uppercase; }
+    .cs-value { font-size: 22px; font-weight: 300; color: #888; }
+    .cs-live {
+      font-size: 10px;
+      color: #3a3a3a;
+      letter-spacing: 0.08em;
+      padding-bottom: 3px;
+      margin-left: auto;
+    }
+
+    /* Date navigation */
+    .date-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .date-btn {
+      background: none;
+      border: none;
+      color: #444;
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 4px 10px;
+      line-height: 1;
+    }
+    @media (hover: hover) { .date-btn:hover:not(:disabled) { color: #888; } }
+    .date-btn:disabled { color: #222; cursor: default; }
+    .date-label {
+      font-size: 13px;
+      color: #666;
+      letter-spacing: 0.04em;
+      min-width: 110px;
+      text-align: center;
+    }
+
+    /* Timeline slider */
+    .slider-wrap { margin-bottom: 14px; }
+    #tl-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 2px;
+      background: #2a2a2a;
+      outline: none;
+      cursor: pointer;
+    }
+    #tl-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #666;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    @media (hover: hover) { #tl-slider::-webkit-slider-thumb:hover { background: #e0e0e0; } }
+    #tl-slider::-moz-range-thumb {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #666;
+      border: none;
+      cursor: pointer;
+    }
+    #tl-slider:disabled { opacity: 0.25; cursor: not-allowed; }
+
+    .tl-info {
+      font-size: 12px;
+      color: #555;
+      letter-spacing: 0.04em;
+      min-height: 18px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .tl-sep { color: #333; }
+    .tl-live { color: #3a3a3a; }
+    .tl-empty { color: #2e2e2e; }
+
+    .logout-footer {
+      text-align: center;
+      padding: 48px 0 24px;
+      margin-top: auto;
+    }
+    .logout { font-size: 12px; color: #2e2e2e; text-decoration: none; letter-spacing: 0.05em; }
+    @media (hover: hover) { .logout:hover { color: #888; } }
+
+    @media (max-width: 600px) {
+      body { padding: 32px 16px; }
+      #lux-canvas { height: 180px; }
+      .curve-stats { gap: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="page-nav">
+    <a href="/" class="back-link">← Mira</a>
+    <span class="page-title">Lux curve</span>
+  </nav>
+
+  <div class="canvas-wrap">
+    <canvas id="lux-canvas"></canvas>
+  </div>
+
+  <div class="curve-stats">
+    <div class="cs-item">
+      <span class="cs-label">Lux</span>
+      <span class="cs-value" id="cs-lux">—</span>
+    </div>
+    <div class="cs-item">
+      <span class="cs-label">Brightness</span>
+      <span class="cs-value" id="cs-bri">—</span>
+    </div>
+    <div class="cs-item">
+      <span class="cs-label">Color temp</span>
+      <span class="cs-value" id="cs-ct">—</span>
+    </div>
+    <span class="cs-live" id="cs-live"></span>
+  </div>
+
+  <div class="date-nav">
+    <button class="date-btn" id="prev-day">←</button>
+    <span class="date-label" id="date-display">Today</span>
+    <button class="date-btn" id="next-day" disabled>→</button>
+  </div>
+
+  <div class="slider-wrap">
+    <input type="range" id="tl-slider" min="0" max="0" value="0" disabled>
+  </div>
+
+  <div class="tl-info" id="tl-info">
+    <span class="tl-empty">Loading…</span>
+  </div>
+
+  <div class="logout-footer">
+    <a href="/logout" class="logout">logout</a>
+  </div>
+
+  <script>
+    // ── Lux curve math (mirrors src/lightcurve.h) ──────────────────────
+    const LC = {
+      _log(t, b) { return Math.log(1 + t*(b-1)) / Math.log(b); },
+      _crawl(t, p) { const k = 8**p, v = 1-1/(1+t*k), n = 1-1/(1+k); return v/n; },
+      calc(lux) {
+        lux = Math.max(0, Math.min(lux, 3000));
+        let bri;
+        if      (lux <= 10)  { bri = 50  + 100 * this._log(lux/10, 20); }
+        else if (lux <= 200) { const t=(lux-10)/190;   bri = 150 + 50 * this._crawl(t, 0.5); }
+        else if (lux <= 500) { const t=(lux-200)/300;  bri = 160 + 60 * t**5; }
+        else                 { const t=(lux-500)/2500; bri = 220 + 34 * this._log(t, 4.5); }
+        const n = (bri - 50) / 204;
+        return { bri: Math.round(bri), ct: Math.round(400 - 120*n) };
+      }
+    };
+
+    function luxXpct(lux) { return Math.log1p(lux) / Math.log1p(3000); }
+
+    // ── Canvas drawing ──────────────────────────────────────────────────
+    let _dotLux = null;
+
+    function redraw() {
+      const cvs = document.getElementById('lux-canvas');
+      if (!cvs || !cvs.clientWidth) return;
+      const dpr = window.devicePixelRatio || 1;
+      const W = cvs.clientWidth, H = cvs.clientHeight;
+      cvs.width = W * dpr; cvs.height = H * dpr;
+      const ctx = cvs.getContext('2d');
+      ctx.scale(dpr, dpr);
+
+      const PL = 36, PR = 16, PT = 14, PB = 28;
+      const cw = W - PL - PR, ch = H - PT - PB;
+
+      function lx(l) { return PL + luxXpct(l) * cw; }
+      function by(b) { return PT + ch - (b - 50) / 204 * ch; }
+
+      ctx.fillStyle = '#141414';
+      ctx.fillRect(0, 0, W, H);
+
+      // Grid
+      ctx.lineWidth = 0.5;
+      [50, 100, 150, 200, 254].forEach(b => {
+        ctx.beginPath();
+        ctx.strokeStyle = '#191919';
+        ctx.moveTo(PL, by(b)); ctx.lineTo(PL + cw, by(b));
+        ctx.stroke();
+      });
+      [10, 200, 500, 3000].forEach(l => {
+        ctx.beginPath();
+        ctx.strokeStyle = '#191919';
+        ctx.moveTo(lx(l), PT); ctx.lineTo(lx(l), PT + ch);
+        ctx.stroke();
+      });
+
+      // Axis labels
+      ctx.font = '10px system-ui, sans-serif';
+      ctx.fillStyle = '#2e2e2e';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      [50, 100, 150, 200, 254].forEach(b => ctx.fillText(b, PL - 6, by(b)));
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      [[10,'10'],[200,'200'],[500,'500'],[3000,'3k']].forEach(([l, label]) => {
+        ctx.fillText(label, lx(l), PT + ch + 7);
+      });
+
+      // Segment 4+3 curve (lux 0–200, bedside+desk only)
+      ctx.beginPath();
+      for (let l = 0; l <= 200; l += 2) {
+        const { bri } = LC.calc(l);
+        l === 0 ? ctx.moveTo(lx(l), by(bri)) : ctx.lineTo(lx(l), by(bri));
+      }
+      ctx.strokeStyle = '#3e3e3e';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Discontinuity connector (overheads turn on at 200 lux — bri jumps 200→160)
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      ctx.moveTo(lx(200), by(200));
+      ctx.lineTo(lx(200), by(160));
+      ctx.strokeStyle = '#282828';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // "overheads on" annotation
+      ctx.font = '9px system-ui, sans-serif';
+      ctx.fillStyle = '#252525';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('overheads', lx(200) + 7, by(180));
+
+      // Segment 2+1 curve (lux 200–3000, all 4 bulbs)
+      ctx.beginPath();
+      let first = true;
+      for (let l = 200; l <= 3000; l += 15) {
+        const { bri } = LC.calc(l);
+        if (first) { ctx.moveTo(lx(l), by(bri)); first = false; }
+        else ctx.lineTo(lx(l), by(bri));
+      }
+      ctx.strokeStyle = '#606060';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Selected / live dot
+      if (_dotLux != null) {
+        const { bri } = LC.calc(_dotLux);
+        const cx = lx(_dotLux), cy = by(bri);
+
+        // Crosshair
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx, PT); ctx.lineTo(cx, PT + ch);
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(PL, cy); ctx.lineTo(PL + cw, cy);
+        ctx.stroke();
+
+        // Value labels on axes
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.fillStyle = '#666';
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(bri, PL - 6, cy);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText(Math.round(_dotLux), cx, PT + ch + 7);
+
+        // Dot
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#c0c0c0';
+        ctx.fill();
+      }
+    }
+
+    // ── History state ───────────────────────────────────────────────────
+    let _history = [];
+    let _selectedDate = new Date().toISOString().split('T')[0];
+    let _sliderPinned = false;
+
+    function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+    function fmtDate(dateStr) {
+      if (dateStr === todayStr()) return 'Today';
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m-1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function updateStats(lux) {
+      if (lux == null) {
+        ['cs-lux','cs-bri','cs-ct'].forEach(id => document.getElementById(id).textContent = '—');
+        return;
+      }
+      const { bri, ct } = LC.calc(lux);
+      document.getElementById('cs-lux').textContent = Math.round(lux);
+      document.getElementById('cs-bri').textContent = bri;
+      document.getElementById('cs-ct').textContent = ct;
+    }
+
+    function applySlider(idx) {
+      if (!_history.length) return;
+      const pt = _history[idx];
+      const time = new Date(pt.t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      const isLive = !_sliderPinned && _selectedDate === todayStr() && idx === _history.length - 1;
+      document.getElementById('tl-info').innerHTML =
+        `<span>${time}</span><span class="tl-sep">·</span><span>${Math.round(pt.lux)} lux</span>`
+        + (isLive ? `<span class="tl-live">· live</span>` : '');
+      document.getElementById('cs-live').textContent = isLive ? 'live' : '';
+      _dotLux = pt.lux;
+      updateStats(pt.lux);
+      redraw();
+    }
+
+    async function loadHistory(dateStr, keepSlider) {
+      if (!keepSlider) {
+        document.getElementById('tl-info').innerHTML = '<span class="tl-empty">Loading…</span>';
+      }
+      const res = await fetch(`/api/lux/history?date=${dateStr}`);
+      _history = await res.json();
+      const slider = document.getElementById('tl-slider');
+
+      if (!_history.length) {
+        slider.disabled = true;
+        slider.max = 0; slider.value = 0;
+        document.getElementById('tl-info').innerHTML = '<span class="tl-empty">No data for this date.</span>';
+        document.getElementById('cs-live').textContent = '';
+        _dotLux = null;
+        updateStats(null);
+        redraw();
+        return;
+      }
+
+      slider.disabled = false;
+      slider.min = 0;
+      slider.max = _history.length - 1;
+
+      if (!keepSlider || !_sliderPinned) {
+        slider.value = _history.length - 1;
+      }
+      applySlider(parseInt(slider.value));
+    }
+
+    // ── Date navigation ─────────────────────────────────────────────────
+    function shiftDate(delta) {
+      const [y, m, d] = _selectedDate.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m-1, d));
+      dt.setUTCDate(dt.getUTCDate() + delta);
+      const next = dt.toISOString().split('T')[0];
+      if (next > todayStr()) return;
+      _selectedDate = next;
+      _sliderPinned = false;
+      document.getElementById('date-display').textContent = fmtDate(_selectedDate);
+      document.getElementById('next-day').disabled = (_selectedDate === todayStr());
+      loadHistory(_selectedDate, false);
+    }
+
+    document.getElementById('prev-day').addEventListener('click', () => shiftDate(-1));
+    document.getElementById('next-day').addEventListener('click', () => shiftDate(+1));
+
+    document.getElementById('tl-slider').addEventListener('input', function() {
+      _sliderPinned = true;
+      applySlider(parseInt(this.value));
+    });
+
+    // ── Live polling ────────────────────────────────────────────────────
+    async function pollLive() {
+      if (_selectedDate !== todayStr()) return;
+      await loadHistory(_selectedDate, true);
+    }
+
+    // ── Init ────────────────────────────────────────────────────────────
+    loadHistory(_selectedDate, false);
+    redraw();
+    setInterval(pollLive, 30000);
+
+    new ResizeObserver(redraw).observe(document.getElementById('lux-canvas'));
+  </script>
+</body>
+</html>

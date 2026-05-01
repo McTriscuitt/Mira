@@ -263,6 +263,37 @@
 
     .log-time { color: #444; white-space: nowrap; flex-shrink: 0; }
 
+    /* --- Lux curve widget --- */
+    .lux-curve-section { margin-bottom: 48px; }
+
+    .lux-curve-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+
+    .lux-curve-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: #555;
+      text-transform: uppercase;
+    }
+
+    .lux-curve-link {
+      font-size: 11px;
+      color: #444;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+    }
+    @media (hover: hover) { .lux-curve-link:hover { color: #888; } }
+
+    #lux-widget-canvas {
+      display: block;
+      width: 100%;
+      height: 76px;
+    }
+
     /* --- Mobile --- */
     @media (max-width: 600px) {
       body { padding: 40px 16px; }
@@ -320,6 +351,14 @@
       <button class="btn" data-action="HARD_OFF"   onclick="hardOffClick()">Hard off</button>
     </div>
     {% endif %}
+
+    <div class="lux-curve-section">
+      <div class="lux-curve-header">
+        <span class="lux-curve-label">Lux curve</span>
+        <a href="/lux" class="lux-curve-link">full view →</a>
+      </div>
+      <canvas id="lux-widget-canvas"></canvas>
+    </div>
 
     <div class="log-section"{% if role == 'demo' %} style="margin-top: max(200px, calc(52vh - 180px))"{% endif %}>
       <div class="log-header">
@@ -387,6 +426,7 @@
       _updateButtonStates();
       renderProgress(data);
       updateLetterOpacity(document.querySelectorAll('.bg-letter'), data.lux);
+      drawLuxWidget(data.lux);
     }
 
     async function fetchLog() {
@@ -553,6 +593,91 @@
     fetchLog();
     setInterval(fetchStatus, 30000);
     setInterval(fetchLog, 30000);
+
+    // ── Lux curve widget ─────────────────────────────────────────────────
+    const _LC = {
+      _log(t, b) { return Math.log(1 + t*(b-1)) / Math.log(b); },
+      _crawl(t, p) { const k = 8**p, v = 1-1/(1+t*k), n = 1-1/(1+k); return v/n; },
+      calc(lux) {
+        lux = Math.max(0, Math.min(lux, 3000));
+        let bri;
+        if      (lux <= 10)  { bri = 50  + 100 * this._log(lux/10, 20); }
+        else if (lux <= 200) { const t=(lux-10)/190;   bri = 150 + 50 * this._crawl(t, 0.5); }
+        else if (lux <= 500) { const t=(lux-200)/300;  bri = 160 + 60 * t**5; }
+        else                 { const t=(lux-500)/2500; bri = 220 + 34 * this._log(t, 4.5); }
+        const n = (bri-50)/204;
+        return { bri: Math.round(bri), ct: Math.round(400 - 120*n) };
+      }
+    };
+
+    function drawLuxWidget(currentLux) {
+      const cvs = document.getElementById('lux-widget-canvas');
+      if (!cvs || !cvs.clientWidth) return;
+      const dpr = window.devicePixelRatio || 1;
+      const W = cvs.clientWidth, H = cvs.clientHeight;
+      cvs.width = W * dpr; cvs.height = H * dpr;
+      const ctx = cvs.getContext('2d');
+      ctx.scale(dpr, dpr);
+
+      const px = 12, py = 7;
+      const cw = W - 2*px, ch = H - 2*py;
+      function lx(l) { return px + Math.log1p(l)/Math.log1p(3000) * cw; }
+      function by(b) { return py + ch - (b - 50)/204 * ch; }
+
+      ctx.fillStyle = '#141414';
+      ctx.fillRect(0, 0, W, H);
+
+      // Segment 4+3 (lux 0–200, bedside+desk only)
+      ctx.beginPath();
+      for (let l = 0; l <= 200; l += 2) {
+        const { bri } = _LC.calc(l);
+        l === 0 ? ctx.moveTo(lx(l), by(bri)) : ctx.lineTo(lx(l), by(bri));
+      }
+      ctx.strokeStyle = '#3e3e3e';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Dashed connector at the 200-lux discontinuity (overheads on)
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      ctx.moveTo(lx(200), by(200));
+      ctx.lineTo(lx(200), by(160));
+      ctx.strokeStyle = '#2a2a2a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Segment 2+1 (lux 200–3000, all 4 bulbs)
+      ctx.beginPath();
+      let first = true;
+      for (let l = 200; l <= 3000; l += 18) {
+        const { bri } = _LC.calc(l);
+        if (first) { ctx.moveTo(lx(l), by(bri)); first = false; }
+        else ctx.lineTo(lx(l), by(bri));
+      }
+      ctx.strokeStyle = '#5c5c5c';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Current lux dot
+      if (currentLux != null) {
+        const { bri } = _LC.calc(currentLux);
+        const cx = lx(currentLux), cy = by(bri);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + 5); ctx.lineTo(cx, py + ch);
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3.5, 0, Math.PI*2);
+        ctx.fillStyle = '#bfbfbf';
+        ctx.fill();
+      }
+    }
+
+    new ResizeObserver(() => drawLuxWidget(_lastData?.lux ?? null))
+      .observe(document.getElementById('lux-widget-canvas'));
+    drawLuxWidget(null);
   </script>
 </body>
 </html>

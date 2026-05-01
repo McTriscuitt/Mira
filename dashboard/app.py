@@ -184,7 +184,6 @@ def login():
             db.session.commit()
             return redirect(url_for('index'))
         elif DEMO_PASSWORD and pw == DEMO_PASSWORD:
-            session.permanent = True
             session['role'] = 'demo'
             db.session.add(AccessLog(role='demo', ip=ip))
             db.session.commit()
@@ -275,3 +274,33 @@ def send_command():
     db.session.add(cmd)
     db.session.commit()
     return jsonify({'ok': True, 'id': cmd.id})
+
+
+@app.route('/lux')
+def lux_curve_page():
+    if not _dashboard_authed():
+        return redirect(url_for('login'))
+    return render_template('lux_curve.html', role=session.get('role', ''))
+
+
+@app.route('/api/lux/history')
+def lux_history():
+    if not _dashboard_authed():
+        return jsonify({'error': 'unauthorized'}), 401
+    date_str = request.args.get('date')
+    if date_str:
+        try:
+            d = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'invalid date'}), 400
+    else:
+        d = datetime.utcnow().date()
+    start = datetime(d.year, d.month, d.day)
+    end = start + timedelta(days=1)
+    snaps = (StatusSnapshot.query
+             .filter(StatusSnapshot.timestamp >= start,
+                     StatusSnapshot.timestamp < end,
+                     StatusSnapshot.lux.isnot(None))
+             .order_by(StatusSnapshot.timestamp.asc())
+             .all())
+    return jsonify([{'t': s.timestamp.isoformat() + 'Z', 'lux': s.lux} for s in snaps])
