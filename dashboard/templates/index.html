@@ -227,7 +227,7 @@
 
     /* --- Log --- */
     .log-section {
-      margin-top: max(24px, calc(52vh - 340px));
+      margin-top: 0;
     }
 
     .log-header {
@@ -264,7 +264,7 @@
     .log-time { color: #444; white-space: nowrap; flex-shrink: 0; }
 
     /* --- Lux curve widget --- */
-    .lux-curve-section { margin-bottom: 48px; width: 50%; align-self: center; }
+    .lux-curve-section { margin-top: max(24px, calc(52vh - 340px)); margin-bottom: 48px; width: 50%; align-self: center; }
 
     .lux-curve-header {
       display: flex;
@@ -353,6 +353,7 @@
     </div>
     {% endif %}
 
+    {% if role != 'demo' %}
     <div class="lux-curve-section">
       <div class="lux-curve-header">
         <span class="lux-curve-label">Lux curve</span>
@@ -360,6 +361,7 @@
       </div>
       <canvas id="lux-widget-canvas"></canvas>
     </div>
+    {% endif %}
 
     <div class="log-section"{% if role == 'demo' %} style="margin-top: max(200px, calc(52vh - 180px))"{% endif %}>
       <div class="log-header">
