@@ -181,7 +181,7 @@
     // ── Timeline helpers ────────────────────────────────────────────────
     function niceMax(v) {
       for (const s of [50,100,150,200,300,500,750,1000,1500,2000,3000]) if (s >= v) return s;
-      return 3000;
+      return Math.ceil(v / 100) * 100;
     }
 
     function yTicks(yMax) {
@@ -194,7 +194,10 @@
       if (yMax <= 1000) return [0,200,400,600,800,1000];
       if (yMax <= 1500) return [0,300,600,900,1200,1500];
       if (yMax <= 2000) return [0,500,1000,1500,2000];
-      return [0,500,1000,1500,2000,2500,3000];
+      if (yMax <= 3000) return [0,500,1000,1500,2000,2500,3000];
+      const ticks = [];
+      for (let v = 0; v <= yMax; v += 500) ticks.push(v);
+      return ticks;
     }
 
     function fmtHour(h) {
@@ -423,7 +426,7 @@
       _mode = mode;
       document.getElementById('btn-curve').classList.toggle('active', mode === 'curve');
       document.getElementById('btn-timeline').classList.toggle('active', mode === 'timeline');
-      document.getElementById('lux-canvas').style.cursor = mode === 'timeline' ? 'ew-resize' : 'default';
+      document.getElementById('lux-canvas').style.cursor = mode === 'timeline' ? 'crosshair' : 'default';
       redraw();
     }
 
@@ -480,6 +483,16 @@
       }
       const res = await fetch(`/api/lux/history?date=${dateStr}`);
       _history = await res.json();
+
+      // Trim to local day boundaries — API filters by UTC date which bleeds across midnight in local time
+      const [fy, fm, fd] = dateStr.split('-').map(Number);
+      const localDayStart = new Date(fy, fm-1, fd, 0, 0, 0, 0).getTime();
+      const localDayEnd   = localDayStart + 86400000;
+      _history = _history.filter(pt => {
+        const ts = new Date(pt.t).getTime();
+        return ts >= localDayStart && ts < localDayEnd;
+      });
+
       const slider = document.getElementById('tl-slider');
 
       if (!_history.length) {
