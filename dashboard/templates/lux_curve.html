@@ -423,6 +423,7 @@
       _mode = mode;
       document.getElementById('btn-curve').classList.toggle('active', mode === 'curve');
       document.getElementById('btn-timeline').classList.toggle('active', mode === 'timeline');
+      document.getElementById('lux-canvas').style.cursor = mode === 'timeline' ? 'ew-resize' : 'default';
       redraw();
     }
 
@@ -521,6 +522,58 @@
       _sliderPinned = true;
       applySlider(parseInt(this.value));
     });
+
+    // ── Canvas drag-scrub (timeline mode) ───────────────────────────────
+    let _canvasDragging = false;
+
+    function findClosestIdx(canvasX) {
+      if (!_history.length) return -1;
+      const cvs = document.getElementById('lux-canvas');
+      const PL = 36, PR = 16;
+      const cw = cvs.clientWidth - PL - PR;
+      const fx = Math.max(0, Math.min(1, (canvasX - PL) / cw));
+      const targetMs = _dayStart + fx * 86400000;
+      let best = 0, bestDist = Infinity;
+      for (let i = 0; i < _history.length; i++) {
+        const dist = Math.abs(new Date(_history[i].t).getTime() - targetMs);
+        if (dist < bestDist) { bestDist = dist; best = i; }
+      }
+      return best;
+    }
+
+    function handleCanvasScrub(clientX) {
+      if (_mode !== 'timeline' || !_history.length) return;
+      const rect = document.getElementById('lux-canvas').getBoundingClientRect();
+      const idx = findClosestIdx(clientX - rect.left);
+      if (idx < 0) return;
+      const slider = document.getElementById('tl-slider');
+      slider.value = idx;
+      _sliderPinned = true;
+      applySlider(idx);
+    }
+
+    const _cvs = document.getElementById('lux-canvas');
+    _cvs.addEventListener('mousedown', function(e) {
+      if (_mode !== 'timeline') return;
+      _canvasDragging = true;
+      handleCanvasScrub(e.clientX);
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (!_canvasDragging) return;
+      handleCanvasScrub(e.clientX);
+    });
+    document.addEventListener('mouseup', function() { _canvasDragging = false; });
+
+    _cvs.addEventListener('touchstart', function(e) {
+      if (_mode !== 'timeline') return;
+      _canvasDragging = true;
+      handleCanvasScrub(e.touches[0].clientX);
+    }, { passive: true });
+    document.addEventListener('touchmove', function(e) {
+      if (!_canvasDragging) return;
+      handleCanvasScrub(e.touches[0].clientX);
+    }, { passive: true });
+    document.addEventListener('touchend', function() { _canvasDragging = false; });
 
     // ── Live polling ────────────────────────────────────────────────────
     async function pollLive() {

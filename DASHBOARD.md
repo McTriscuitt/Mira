@@ -5,9 +5,6 @@ Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `
 ---
 
 ## User Notes
-
-- Splash screen could just be "Mira"
-
 ---
 
 ## Tech Stack
