@@ -278,15 +278,9 @@
       letter-spacing: 0.12em;
       color: #555;
       text-transform: uppercase;
-    }
-
-    .lux-curve-link {
-      font-size: 11px;
-      color: #444;
       text-decoration: none;
-      letter-spacing: 0.05em;
     }
-    @media (hover: hover) { .lux-curve-link:hover { color: #888; } }
+    @media (hover: hover) { .lux-curve-label:hover { color: #888; } }
 
     #lux-widget-canvas {
       display: block;
@@ -356,8 +350,7 @@
     {% if role != 'demo' %}
     <div class="lux-curve-section">
       <div class="lux-curve-header">
-        <span class="lux-curve-label">Lux curve</span>
-        <a href="/lux" class="lux-curve-link">full view →</a>
+        <a href="/lux" class="lux-curve-label">Lux curve</a>
       </div>
       <canvas id="lux-widget-canvas"></canvas>
     </div>

@@ -278,15 +278,15 @@ def send_command():
 
 @app.route('/lux')
 def lux_curve_page():
-    if not _dashboard_authed():
+    if not _owner_authed():
         return redirect(url_for('login'))
     return render_template('lux_curve.html', role=session.get('role', ''))
 
 
 @app.route('/api/lux/history')
 def lux_history():
-    if not _dashboard_authed():
-        return jsonify({'error': 'unauthorized'}), 401
+    if not _owner_authed():
+        return jsonify({'error': 'unauthorized'}), 403
     date_str = request.args.get('date')
     if date_str:
         try:
