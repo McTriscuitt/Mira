@@ -25,21 +25,26 @@
       align-items: center;
       margin-bottom: 36px;
     }
-
-    .back-link {
-      font-size: 12px;
-      color: #444;
-      text-decoration: none;
-      letter-spacing: 0.05em;
-    }
+    .back-link { font-size: 12px; color: #444; text-decoration: none; letter-spacing: 0.05em; }
     @media (hover: hover) { .back-link:hover { color: #888; } }
+    .page-title { font-size: 10px; letter-spacing: 0.15em; color: #2e2e2e; text-transform: uppercase; }
 
-    .page-title {
-      font-size: 10px;
-      letter-spacing: 0.15em;
-      color: #2e2e2e;
-      text-transform: uppercase;
+    /* Mode toggle */
+    .mode-toggle { display: flex; margin-bottom: 2px; }
+    .mode-btn {
+      background: none;
+      border: 1px solid #1e1e1e;
+      color: #383838;
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      padding: 7px 20px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
     }
+    .mode-btn + .mode-btn { border-left: none; }
+    .mode-btn.active { border-color: #3a3a3a; color: #888; background: #141414; }
+    @media (hover: hover) { .mode-btn:not(.active):hover { color: #555; border-color: #2a2a2a; } }
 
     /* Canvas */
     .canvas-wrap { background: #141414; margin-bottom: 2px; }
@@ -58,87 +63,43 @@
     .cs-item { display: flex; flex-direction: column; gap: 5px; }
     .cs-label { font-size: 10px; letter-spacing: 0.1em; color: #444; text-transform: uppercase; }
     .cs-value { font-size: 22px; font-weight: 300; color: #888; }
-    .cs-live {
-      font-size: 10px;
-      color: #3a3a3a;
-      letter-spacing: 0.08em;
-      padding-bottom: 3px;
-      margin-left: auto;
-    }
+    .cs-live { font-size: 10px; color: #3a3a3a; letter-spacing: 0.08em; padding-bottom: 3px; margin-left: auto; }
 
     /* Date navigation */
-    .date-nav {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 18px;
-    }
+    .date-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
     .date-btn {
-      background: none;
-      border: none;
-      color: #444;
-      font-family: inherit;
-      font-size: 14px;
-      cursor: pointer;
-      padding: 4px 10px;
-      line-height: 1;
+      background: none; border: none; color: #444;
+      font-family: inherit; font-size: 14px; cursor: pointer; padding: 4px 10px; line-height: 1;
     }
     @media (hover: hover) { .date-btn:hover:not(:disabled) { color: #888; } }
     .date-btn:disabled { color: #222; cursor: default; }
-    .date-label {
-      font-size: 13px;
-      color: #666;
-      letter-spacing: 0.04em;
-      min-width: 110px;
-      text-align: center;
-    }
+    .date-label { font-size: 13px; color: #666; letter-spacing: 0.04em; min-width: 110px; text-align: center; }
 
     /* Timeline slider */
     .slider-wrap { margin-bottom: 14px; }
     #tl-slider {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 2px;
-      background: #2a2a2a;
-      outline: none;
-      cursor: pointer;
+      -webkit-appearance: none; width: 100%; height: 2px;
+      background: #2a2a2a; outline: none; cursor: pointer;
     }
     #tl-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: #666;
-      cursor: pointer;
-      transition: background 0.15s;
+      -webkit-appearance: none; width: 12px; height: 12px;
+      border-radius: 50%; background: #666; cursor: pointer; transition: background 0.15s;
     }
     @media (hover: hover) { #tl-slider::-webkit-slider-thumb:hover { background: #e0e0e0; } }
     #tl-slider::-moz-range-thumb {
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: #666;
-      border: none;
-      cursor: pointer;
+      width: 12px; height: 12px; border-radius: 50%; background: #666; border: none; cursor: pointer;
     }
     #tl-slider:disabled { opacity: 0.25; cursor: not-allowed; }
 
     .tl-info {
-      font-size: 12px;
-      color: #555;
-      letter-spacing: 0.04em;
-      min-height: 18px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
+      font-size: 12px; color: #555; letter-spacing: 0.04em;
+      min-height: 18px; display: flex; gap: 8px; align-items: center;
     }
     .tl-sep { color: #333; }
     .tl-live { color: #3a3a3a; }
     .tl-empty { color: #2e2e2e; }
 
-    .logout-footer {
-      text-align: center;
-      padding: 48px 0 24px;
-      margin-top: auto;
-    }
+    .logout-footer { text-align: center; padding: 48px 0 24px; margin-top: auto; }
     .logout { font-size: 12px; color: #2e2e2e; text-decoration: none; letter-spacing: 0.05em; }
     @media (hover: hover) { .logout:hover { color: #888; } }
 
@@ -154,6 +115,11 @@
     <a href="/" class="back-link">← Mira</a>
     <span class="page-title">Lux curve</span>
   </nav>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btn-curve">Curve</button>
+    <button class="mode-btn" id="btn-timeline">Timeline</button>
+  </div>
 
   <div class="canvas-wrap">
     <canvas id="lux-canvas"></canvas>
@@ -212,51 +178,65 @@
 
     function luxXpct(lux) { return Math.log1p(lux) / Math.log1p(3000); }
 
-    // ── Canvas drawing ──────────────────────────────────────────────────
+    // ── Timeline helpers ────────────────────────────────────────────────
+    function niceMax(v) {
+      for (const s of [50,100,150,200,300,500,750,1000,1500,2000,3000]) if (s >= v) return s;
+      return 3000;
+    }
+
+    function yTicks(yMax) {
+      if (yMax <= 50)   return [0,10,20,30,40,50];
+      if (yMax <= 100)  return [0,25,50,75,100];
+      if (yMax <= 200)  return [0,50,100,150,200];
+      if (yMax <= 300)  return [0,100,200,300];
+      if (yMax <= 500)  return [0,100,200,300,400,500];
+      if (yMax <= 750)  return [0,150,300,450,600,750];
+      if (yMax <= 1000) return [0,200,400,600,800,1000];
+      if (yMax <= 1500) return [0,300,600,900,1200,1500];
+      if (yMax <= 2000) return [0,500,1000,1500,2000];
+      return [0,500,1000,1500,2000,2500,3000];
+    }
+
+    function fmtHour(h) {
+      h = ((h % 24) + 24) % 24;
+      if (h === 0)  return '12a';
+      if (h < 12)   return `${h}a`;
+      if (h === 12) return '12p';
+      return `${h-12}p`;
+    }
+
+    // ── Drawing state ───────────────────────────────────────────────────
     let _dotLux = null;
+    let _dotOff = false;
+    let _mode = 'curve';
 
-    function redraw() {
-      const cvs = document.getElementById('lux-canvas');
-      if (!cvs || !cvs.clientWidth) return;
-      const dpr = window.devicePixelRatio || 1;
-      const W = cvs.clientWidth, H = cvs.clientHeight;
-      cvs.width = W * dpr; cvs.height = H * dpr;
-      const ctx = cvs.getContext('2d');
-      ctx.scale(dpr, dpr);
+    const OFF_STATES = new Set(['LOCKED_OUT', 'HARD_OFF']);
 
+    // ── Curve view ──────────────────────────────────────────────────────
+    function drawCurveView(ctx, W, H) {
       const PL = 36, PR = 16, PT = 14, PB = 28;
       const cw = W - PL - PR, ch = H - PT - PB;
 
       function lx(l) { return PL + luxXpct(l) * cw; }
       function by(b) { return PT + ch - (b - 50) / 204 * ch; }
 
-      ctx.fillStyle = '#141414';
-      ctx.fillRect(0, 0, W, H);
-
       // Grid
       ctx.lineWidth = 0.5;
       [50, 100, 150, 200, 254].forEach(b => {
-        ctx.beginPath();
-        ctx.strokeStyle = '#191919';
-        ctx.moveTo(PL, by(b)); ctx.lineTo(PL + cw, by(b));
-        ctx.stroke();
+        ctx.beginPath(); ctx.strokeStyle = '#191919';
+        ctx.moveTo(PL, by(b)); ctx.lineTo(PL + cw, by(b)); ctx.stroke();
       });
       [10, 200, 500, 3000].forEach(l => {
-        ctx.beginPath();
-        ctx.strokeStyle = '#191919';
-        ctx.moveTo(lx(l), PT); ctx.lineTo(lx(l), PT + ch);
-        ctx.stroke();
+        ctx.beginPath(); ctx.strokeStyle = '#191919';
+        ctx.moveTo(lx(l), PT); ctx.lineTo(lx(l), PT + ch); ctx.stroke();
       });
 
       // Axis labels
       ctx.font = '10px system-ui, sans-serif';
       ctx.fillStyle = '#2e2e2e';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       [50, 100, 150, 200, 254].forEach(b => ctx.fillText(b, PL - 6, by(b)));
-
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       [[10,'10'],[200,'200'],[500,'500'],[3000,'3k']].forEach(([l, label]) => {
         ctx.fillText(label, lx(l), PT + ch + 7);
       });
@@ -267,25 +247,17 @@
         const { bri } = LC.calc(l);
         l === 0 ? ctx.moveTo(lx(l), by(bri)) : ctx.lineTo(lx(l), by(bri));
       }
-      ctx.strokeStyle = '#3e3e3e';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.strokeStyle = '#3e3e3e'; ctx.lineWidth = 1.5; ctx.stroke();
 
-      // Discontinuity connector (overheads turn on at 200 lux — bri jumps 200→160)
+      // Discontinuity connector (overheads on: bri drops 200→160 at 200 lux)
       ctx.setLineDash([2, 3]);
       ctx.beginPath();
-      ctx.moveTo(lx(200), by(200));
-      ctx.lineTo(lx(200), by(160));
-      ctx.strokeStyle = '#282828';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      ctx.moveTo(lx(200), by(200)); ctx.lineTo(lx(200), by(160));
+      ctx.strokeStyle = '#282828'; ctx.lineWidth = 1; ctx.stroke();
       ctx.setLineDash([]);
 
-      // "overheads on" annotation
       ctx.font = '9px system-ui, sans-serif';
-      ctx.fillStyle = '#252525';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#252525'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillText('overheads', lx(200) + 7, by(180));
 
       // Segment 2+1 curve (lux 200–3000, all 4 bulbs)
@@ -296,11 +268,9 @@
         if (first) { ctx.moveTo(lx(l), by(bri)); first = false; }
         else ctx.lineTo(lx(l), by(bri));
       }
-      ctx.strokeStyle = '#606060';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.strokeStyle = '#606060'; ctx.lineWidth = 1.5; ctx.stroke();
 
-      // Selected / live dot
+      // Dot at selected lux
       if (_dotLux != null) {
         const { bri } = LC.calc(_dotLux);
         const cx = lx(_dotLux), cy = by(bri);
@@ -312,28 +282,163 @@
         ctx.beginPath(); ctx.moveTo(PL, cy); ctx.lineTo(PL + cw, cy);
         ctx.stroke();
 
-        // Value labels on axes
-        ctx.font = '10px system-ui, sans-serif';
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-        ctx.fillText(bri, PL - 6, cy);
-        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.fillText(Math.round(_dotLux), cx, PT + ch + 7);
+        if (_dotOff) {
+          // Hollow dim dot — shows curve position but lights are off
+          ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+          ctx.strokeStyle = '#2e2e2e'; ctx.lineWidth = 1.5; ctx.stroke();
+        } else {
+          // Axis value labels
+          ctx.font = '10px system-ui, sans-serif';
+          ctx.fillStyle = '#666';
+          ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+          ctx.fillText(bri, PL - 6, cy);
+          ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+          ctx.fillText(Math.round(_dotLux), cx, PT + ch + 7);
 
-        // Dot
-        ctx.beginPath();
-        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#c0c0c0';
-        ctx.fill();
+          // Filled dot
+          ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#c0c0c0'; ctx.fill();
+        }
       }
     }
 
+    // ── Timeline view ───────────────────────────────────────────────────
+    let _dayStart = 0;
+
+    function updateDayStart() {
+      const [y, m, d] = _selectedDate.split('-').map(Number);
+      _dayStart = new Date(y, m-1, d, 0, 0, 0, 0).getTime();
+    }
+
+    function drawTimelineView(ctx, W, H) {
+      const PL = 36, PR = 16, PT = 14, PB = 28;
+      const cw = W - PL - PR, ch = H - PT - PB;
+
+      if (!_history.length) {
+        ctx.font = '11px system-ui, sans-serif';
+        ctx.fillStyle = '#2e2e2e';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('No data for this date.', W / 2, H / 2);
+        return;
+      }
+
+      const maxLux = Math.max(..._history.map(p => p.lux));
+      const yMax = niceMax(maxLux * 1.1);
+      const ticks = yTicks(yMax);
+
+      function tx(tsStr) {
+        const pct = (new Date(tsStr).getTime() - _dayStart) / 86400000;
+        return PL + Math.max(0, Math.min(1, pct)) * cw;
+      }
+      function ly(lux) { return PT + ch - (lux / yMax) * ch; }
+
+      // Grid
+      ctx.lineWidth = 0.5; ctx.strokeStyle = '#191919';
+      ticks.forEach(v => {
+        ctx.beginPath(); ctx.moveTo(PL, ly(v)); ctx.lineTo(PL + cw, ly(v)); ctx.stroke();
+      });
+      [0, 4, 8, 12, 16, 20, 24].forEach(h => {
+        const x = PL + (h / 24) * cw;
+        ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT + ch); ctx.stroke();
+      });
+
+      // Axis labels
+      ctx.font = '10px system-ui, sans-serif'; ctx.fillStyle = '#2e2e2e';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ticks.forEach(v => ctx.fillText(v, PL - 6, ly(v)));
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      [0, 4, 8, 12, 16, 20].forEach(h => ctx.fillText(fmtHour(h), PL + (h/24)*cw, PT + ch + 7));
+
+      // Lux line — draw active segments first, then overdraw inactive ones darker
+      ctx.lineWidth = 1.5;
+
+      ctx.beginPath();
+      let first = true;
+      for (const pt of _history) {
+        const x = tx(pt.t), y = ly(pt.lux);
+        if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = '#4a4a4a'; ctx.stroke();
+
+      // Overdraw inactive (LOCKED_OUT / HARD_OFF) segments in darker color
+      let segStart = null;
+      for (let i = 0; i < _history.length; i++) {
+        const inactive = OFF_STATES.has(_history[i].state);
+        if (inactive && segStart === null) segStart = Math.max(0, i - 1);
+        if (!inactive && segStart !== null) {
+          ctx.beginPath();
+          for (let j = segStart; j <= i; j++) {
+            const p = _history[j];
+            j === segStart ? ctx.moveTo(tx(p.t), ly(p.lux)) : ctx.lineTo(tx(p.t), ly(p.lux));
+          }
+          ctx.strokeStyle = '#222'; ctx.stroke();
+          segStart = null;
+        }
+      }
+      if (segStart !== null) {
+        ctx.beginPath();
+        for (let j = segStart; j < _history.length; j++) {
+          const p = _history[j];
+          j === segStart ? ctx.moveTo(tx(p.t), ly(p.lux)) : ctx.lineTo(tx(p.t), ly(p.lux));
+        }
+        ctx.strokeStyle = '#222'; ctx.stroke();
+      }
+
+      // Selected point marker
+      const slider = document.getElementById('tl-slider');
+      const idx = parseInt(slider.value);
+      if (idx >= 0 && idx < _history.length) {
+        const pt = _history[idx];
+        const x = tx(pt.t), y = ly(pt.lux);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT + ch);
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = _dotOff ? '#2e2e2e' : '#c0c0c0'; ctx.fill();
+
+        // Lux value label on y-axis
+        ctx.font = '10px system-ui, sans-serif'; ctx.fillStyle = '#666';
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(Math.round(pt.lux), PL - 6, y);
+      }
+    }
+
+    // ── Main redraw dispatcher ──────────────────────────────────────────
+    function redraw() {
+      const cvs = document.getElementById('lux-canvas');
+      if (!cvs || !cvs.clientWidth) return;
+      const dpr = window.devicePixelRatio || 1;
+      const W = cvs.clientWidth, H = cvs.clientHeight;
+      cvs.width = W * dpr; cvs.height = H * dpr;
+      const ctx = cvs.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.fillStyle = '#141414';
+      ctx.fillRect(0, 0, W, H);
+      if (_mode === 'timeline') drawTimelineView(ctx, W, H);
+      else drawCurveView(ctx, W, H);
+    }
+
+    // ── Mode toggle ─────────────────────────────────────────────────────
+    function setMode(mode) {
+      _mode = mode;
+      document.getElementById('btn-curve').classList.toggle('active', mode === 'curve');
+      document.getElementById('btn-timeline').classList.toggle('active', mode === 'timeline');
+      redraw();
+    }
+
+    document.getElementById('btn-curve').addEventListener('click', () => setMode('curve'));
+    document.getElementById('btn-timeline').addEventListener('click', () => setMode('timeline'));
+
     // ── History state ───────────────────────────────────────────────────
     let _history = [];
-    let _selectedDate = new Date().toISOString().split('T')[0];
     let _sliderPinned = false;
 
-    function todayStr() { return new Date().toISOString().split('T')[0]; }
+    function todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    let _selectedDate = todayStr();
 
     function fmtDate(dateStr) {
       if (dateStr === todayStr()) return 'Today';
@@ -341,28 +446,30 @@
       return new Date(y, m-1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    function updateStats(lux) {
-      if (lux == null) {
-        ['cs-lux','cs-bri','cs-ct'].forEach(id => document.getElementById(id).textContent = '—');
-        return;
-      }
-      const { bri, ct } = LC.calc(lux);
-      document.getElementById('cs-lux').textContent = Math.round(lux);
-      document.getElementById('cs-bri').textContent = bri;
-      document.getElementById('cs-ct').textContent = ct;
-    }
-
     function applySlider(idx) {
       if (!_history.length) return;
       const pt = _history[idx];
       const time = new Date(pt.t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
       const isLive = !_sliderPinned && _selectedDate === todayStr() && idx === _history.length - 1;
+      const isOff = OFF_STATES.has(pt.state);
+
       document.getElementById('tl-info').innerHTML =
         `<span>${time}</span><span class="tl-sep">·</span><span>${Math.round(pt.lux)} lux</span>`
         + (isLive ? `<span class="tl-live">· live</span>` : '');
       document.getElementById('cs-live').textContent = isLive ? 'live' : '';
+
+      document.getElementById('cs-lux').textContent = Math.round(pt.lux);
+      if (isOff) {
+        document.getElementById('cs-bri').textContent = 'Off';
+        document.getElementById('cs-ct').textContent = 'Off';
+      } else {
+        const { bri, ct } = LC.calc(pt.lux);
+        document.getElementById('cs-bri').textContent = bri;
+        document.getElementById('cs-ct').textContent = ct;
+      }
+
       _dotLux = pt.lux;
-      updateStats(pt.lux);
+      _dotOff = isOff;
       redraw();
     }
 
@@ -379,8 +486,8 @@
         slider.max = 0; slider.value = 0;
         document.getElementById('tl-info').innerHTML = '<span class="tl-empty">No data for this date.</span>';
         document.getElementById('cs-live').textContent = '';
-        _dotLux = null;
-        updateStats(null);
+        ['cs-lux','cs-bri','cs-ct'].forEach(id => document.getElementById(id).textContent = '—');
+        _dotLux = null; _dotOff = false;
         redraw();
         return;
       }
@@ -388,22 +495,20 @@
       slider.disabled = false;
       slider.min = 0;
       slider.max = _history.length - 1;
-
-      if (!keepSlider || !_sliderPinned) {
-        slider.value = _history.length - 1;
-      }
+      if (!keepSlider || !_sliderPinned) slider.value = _history.length - 1;
       applySlider(parseInt(slider.value));
     }
 
     // ── Date navigation ─────────────────────────────────────────────────
     function shiftDate(delta) {
       const [y, m, d] = _selectedDate.split('-').map(Number);
-      const dt = new Date(Date.UTC(y, m-1, d));
-      dt.setUTCDate(dt.getUTCDate() + delta);
-      const next = dt.toISOString().split('T')[0];
+      const dt = new Date(y, m-1, d);
+      dt.setDate(dt.getDate() + delta);
+      const next = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
       if (next > todayStr()) return;
       _selectedDate = next;
       _sliderPinned = false;
+      updateDayStart();
       document.getElementById('date-display').textContent = fmtDate(_selectedDate);
       document.getElementById('next-day').disabled = (_selectedDate === todayStr());
       loadHistory(_selectedDate, false);
@@ -424,10 +529,10 @@
     }
 
     // ── Init ────────────────────────────────────────────────────────────
+    updateDayStart();
     loadHistory(_selectedDate, false);
     redraw();
     setInterval(pollLive, 30000);
-
     new ResizeObserver(redraw).observe(document.getElementById('lux-canvas'));
   </script>
 </body>

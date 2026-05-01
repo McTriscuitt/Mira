@@ -426,7 +426,7 @@
       _updateButtonStates();
       renderProgress(data);
       updateLetterOpacity(document.querySelectorAll('.bg-letter'), data.lux);
-      drawLuxWidget(data.lux);
+      drawLuxWidget(data.lux, data.state);
     }
 
     async function fetchLog() {
@@ -610,7 +610,7 @@
       }
     };
 
-    function drawLuxWidget(currentLux) {
+    function drawLuxWidget(currentLux, currentState) {
       const cvs = document.getElementById('lux-widget-canvas');
       if (!cvs || !cvs.clientWidth) return;
       const dpr = window.devicePixelRatio || 1;
@@ -659,10 +659,11 @@
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Current lux dot
+      // Current lux dot — hollow when lights are off/inactive
       if (currentLux != null) {
         const { bri } = _LC.calc(currentLux);
         const cx = lx(currentLux), cy = by(bri);
+        const isOff = currentState === 'LOCKED_OUT' || currentState === 'HARD_OFF';
         ctx.beginPath();
         ctx.moveTo(cx, cy + 5); ctx.lineTo(cx, py + ch);
         ctx.strokeStyle = 'rgba(255,255,255,0.06)';
@@ -670,14 +671,20 @@
         ctx.stroke();
         ctx.beginPath();
         ctx.arc(cx, cy, 3.5, 0, Math.PI*2);
-        ctx.fillStyle = '#bfbfbf';
-        ctx.fill();
+        if (isOff) {
+          ctx.strokeStyle = '#3a3a3a';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = '#bfbfbf';
+          ctx.fill();
+        }
       }
     }
 
-    new ResizeObserver(() => drawLuxWidget(_lastData?.lux ?? null))
+    new ResizeObserver(() => drawLuxWidget(_lastData?.lux ?? null, _lastData?.state ?? null))
       .observe(document.getElementById('lux-widget-canvas'));
-    drawLuxWidget(null);
+    drawLuxWidget(null, null);
   </script>
 </body>
 </html>

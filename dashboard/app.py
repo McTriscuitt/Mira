@@ -303,4 +303,4 @@ def lux_history():
                      StatusSnapshot.lux.isnot(None))
              .order_by(StatusSnapshot.timestamp.asc())
              .all())
-    return jsonify([{'t': s.timestamp.isoformat() + 'Z', 'lux': s.lux} for s in snaps])
+    return jsonify([{'t': s.timestamp.isoformat() + 'Z', 'lux': s.lux, 'state': s.state} for s in snaps])
