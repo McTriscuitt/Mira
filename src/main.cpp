@@ -276,11 +276,10 @@ static bool isOverridden(int idx, LightState ls) {
 
 // ── One-time bootstrap of the light cache ───────────────────────────────────
 // Hits the v2 endpoint once at startup to seed every cached field; SSE keeps it
-// fresh thereafter. Must run after ensureBridgeCert() so we have a valid cert.
+// fresh thereafter.
 static void bootstrapLightStates() {
-    if (_bridgeCertPem.isEmpty()) { Serial.println("bootstrap: no cert"); return; }
     WiFiClientSecure client;
-    client.setCACert(_bridgeCertPem.c_str());
+    client.setInsecure();
     HTTPClient http;
     http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light");
     http.addHeader("hue-application-key", HUE_API_KEY);
@@ -363,12 +362,11 @@ static void _hsbToXY(int hueV1, int satV1, float& x, float& y) {
 
 // v2 HTTPS color PUT (HSB color mode). bri is percent 0.0–100.0. durationMs in ms.
 void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, int durationMs) {
-    if (_bridgeCertPem.isEmpty()) { Serial.println("setLightColor: no cert"); return; }
     float cx, cy;
     _hsbToXY(hueV1, satV1, cx, cy);
 
     WiFiClientSecure client;
-    client.setCACert(_bridgeCertPem.c_str());
+    client.setInsecure();
     HTTPClient http;
     http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light/" + uuid);
     http.addHeader("Content-Type",      "application/json");
@@ -389,9 +387,8 @@ void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, i
 
 // v2 HTTPS white/CT PUT. bri is percent 0.0–100.0. durationMs in ms.
 void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
-    if (_bridgeCertPem.isEmpty()) { Serial.println("setLight: no cert"); return; }
     WiFiClientSecure client;
-    client.setCACert(_bridgeCertPem.c_str());
+    client.setInsecure();
     HTTPClient http;
     http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light/" + uuid);
     http.addHeader("Content-Type",      "application/json");
@@ -557,20 +554,14 @@ static void handleSseLine(const String& line) {
 // Open the persistent SSE connection. Sends the GET, drains response headers
 // non-blocking-ish (bounded 5s loop) until the empty header-terminator line.
 static void sseConnect() {
-    static int sseFailCount = 0;
     sseClient.stop();
     sseBuf = "";
-    sseClient.setCACert(_bridgeCertPem.c_str());
+    sseClient.setInsecure();
     sseClient.setTimeout(5);
     if (!sseClient.connect(HUE_BRIDGE_HOST, 443)) {
         Serial.println("SSE: connect failed");
-        if (++sseFailCount == 12) { // ~60s of back-to-back failures
-            Serial.println("SSE: persistent failure — refreshing bridge cert...");
-            _fetchAndStoreBridgeCert(); // updates _bridgeCertPem; next attempt picks it up
-        }
         return;
     }
-    sseFailCount = 0;
     sseClient.print("GET /eventstream/clip/v2 HTTP/1.1\r\n"
                     "Host: " HUE_BRIDGE_HOST "\r\n"
                     "hue-application-key: " HUE_API_KEY "\r\n"
@@ -614,15 +605,19 @@ static void sseTick() {
         }
         return;
     }
-    while (sseClient.available()) {
-        char c = sseClient.read();
+    // Use read() instead of available()+read(): read() calls mbedtls_ssl_read()
+    // which pulls new TLS records from the TCP socket. available() alone only
+    // checks the already-decrypted buffer and misses buffered heartbeats.
+    int b;
+    while ((b = sseClient.read()) >= 0) {
+        char c = (char)b;
         sseLastByteMs = millis();
         if (c == '\n') {
             if (sseBuf.length() > 0) handleSseLine(sseBuf);
             sseBuf = "";
         } else if (c != '\r') {
             sseBuf += c;
-            if (sseBuf.length() > 4096) sseBuf = ""; // runaway guard
+            if (sseBuf.length() > 4096) sseBuf = "";
         }
     }
     if (millis() - sseLastByteMs >= SSE_STALE_TIMEOUT_MS) {

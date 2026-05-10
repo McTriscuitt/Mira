@@ -7,10 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (ABX00083)**. It reads ambient lux via a VEML7700 sensor and adjusts 4 Philips Hue bulbs through the local Hue Bridge HTTP REST API.
 
 ## User Notes
-Behaviors
 - all .md's for error parsing and rectifying are in \Mira\Stored Data\
 - all .md's for information on the system code/upgrades/etc are in \mira\Markdowns
-- on /recap, update documentation
 
 - stableLuxCount on dashboard
   - editable
@@ -19,7 +17,6 @@ Behaviors
 - add a "recruiter" role so that recruiters from companies can see what owner role see, but cannot edit. 
   - in between demo and owner permissions 
   - no hidden owner IP button allowed for recruiter role
-  - 
 - disable zooming on mobile
 - change log on dashboard from utc to est
 - create section/page for serial-like output?
