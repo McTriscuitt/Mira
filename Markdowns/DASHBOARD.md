@@ -34,7 +34,7 @@ Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `
 
 | Feature | Notes |
 |---------|-------|
-| User auth / login | Session-based, 90-day cookie. Two roles: `owner` (full access, `DASHBOARD_PASSWORD`) and `demo` (read-only, `DEMO_PASSWORD` env var — optional) |
+| User auth / login | Session-based, 90-day cookie. Two roles: `owner` (full access, `DASHBOARD_PASSWORD`) and `demo` (read-only, `DEMO_PASSWORD` env var — optional). `/lux` and `/api/lux/history` are owner-only (demo cannot access). |
 | Live status display | Lux, bri (+ %), ct, overhead on/off, last seen — polls `/api/status/latest` every 30 s |
 | State control buttons | Normal, Soft Pause, Wind Down, Wake, Hard Off — send pending commands; active button stays highlighted until server confirms command gone; button text/border darkens dynamically as ambient lux increases past 1000 to maintain contrast against the light cone; Hard Off requires two-click confirm (first click arms "confirm?" for 3 s, second click sends) |
 | Pending command tracking | `pending_command_id` in status response lets client preserve pending state across polls without false clears |
@@ -44,6 +44,8 @@ Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `
 | Event log page | Full paginated log at `/logs`; date separators; "load more" hides when DB is exhausted; filter buttons: all / normal / wake / wind down / soft pause / hard off — normal uses exclusion filter (strips state-transition events, shows routine operation logs) |
 | Command queue | `commands` table; firmware GETs oldest pending, ACKs after execution; dashboard can cancel before pickup |
 | Mobile hover fix | All `:hover` rules wrapped in `@media (hover: hover)` — no sticky-tap on touch devices |
+| Lux curve widget (index) | 50%-wide canvas centered below the MIRA logo; hidden from demo mode; "Lux curve" label links to `/lux`; draws the bri/ct curve with a dot at the current lux reading; dot is hollow when state is LOCKED_OUT or HARD_OFF |
+| Lux curve page (`/lux`) | Owner-only. Two views toggled by buttons: **Curve** — full bri/ct vs. lux chart with axis labels, grid, segment discontinuity marker at 200 lux (overhead threshold), and interactive dot showing current bri/ct/lux in the stats panel. **Timeline** — full local-day lux history (midnight-to-midnight, fixed via UTC-boundary query so no 8pm-to-8pm bleed); date navigation; slider + canvas drag-scrub (click or drag anywhere on canvas to scrub); dynamic y-axis cap rounds to nearest 100 above day max if data exceeds 3000 lux; stats panel shows lux/bri/ct for selected point; "live" badge on the latest point when viewing today; auto-polls every 30 s on today's date |
 
 ---
 
@@ -51,7 +53,6 @@ Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `
 
 | Feature | Notes |
 |---------|-------|
-| Lux curve graph | Integrate `mira_lux_curve_tuner_v5.html`; plot current poll position on the curve |
 | Season mode selector | Pick season or specific light curve; brighter curves for short-day seasons |
 | Google Calendar integration | Read end time from sleep calendar; schedule wake ramp start — OAuth via Flask backend |
 
@@ -88,4 +89,11 @@ Dashboard-only (session auth):
 | GET | `/api/log/recent` | Log entries — `?limit=N&search=<term>&exclude=<term1,term2>` |
 | POST | `/api/command` | Queue new command |
 | POST | `/api/command/<id>/cancel` | Cancel pending command |
+
+Owner-only:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/lux` | Lux curve page (redirects to login if not owner) |
+| GET | `/api/lux/history` | Lux history snapshots — preferred params: `start=<ISO>&end=<ISO>` (local-day UTC boundaries); legacy fallback: `date=YYYY-MM-DD` (UTC date, may bleed across local midnight) |
 

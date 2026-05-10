@@ -4,30 +4,31 @@
 
 // ── Curve constants ────────────────────────────────────────────────────────
 // To retune: adjust constexpr values only. Do not touch the math functions.
+// Brightness values are in percent (0.0–100.0) — native Hue API v2 units.
 
 // Segment 4: night log rise (0 → 10 lux) — bedside + desk only
 constexpr float S4_LUX_HI    = 10.0f;
 constexpr float S4_LOG_BASE  = 20.0f;
-constexpr float S4_FLOOR_BRI = 50.0f;
-constexpr float S4_BRI_HI    = 150.0f;    // locked to S3_BRI_LO
+constexpr float S4_FLOOR_BRI = 19.7f;   // ~50/254 — night floor
+constexpr float S4_BRI_HI    = 59.1f;   // ~150/254 — locked to S3_BRI_LO
 
 // Segment 3: plateau crawl (15 → 200 lux) — bedside + desk only
 constexpr float S3_LUX_HI      = 200.0f;
 constexpr float S3_CRAWL_POWER = 0.50f;
-constexpr float S3_BRI_HI      = 200.0f;  // bri of lamps just after overheads turn off
+constexpr float S3_BRI_HI      = 78.7f;   // ~200/254 — bri just after overheads turn off
 
 // Segment 2: parabolic rise (300 → 500 lux) — all four bulbs
 // NOTE: S2_BRI_LO != S3_BRI_HI — intentional discontinuity at 300 lux.
-// As lux drops through 300: overheads cut, lamps jump from 160 → 200 bri to compensate.
+// As lux drops through 300: overheads cut, lamps jump from ~63% → ~79% to compensate.
 constexpr float S2_LUX_HI     = 500.0f;
 constexpr float S2_PARA_POWER = 5.0f;
-constexpr float S2_BRI_LO     = 160.0f;   // seg2 bottom — all four bulbs at this level
-constexpr float S2_BRI_HI     = 220.0f;  // locked to S1_BRI_LO
+constexpr float S2_BRI_LO     = 63.0f;    // ~160/254 — seg2 bottom — all four bulbs at this level
+constexpr float S2_BRI_HI     = 86.6f;    // ~220/254 — locked to S1_BRI_LO
 
 // Segment 1: daytime log rise (500 → 3000 lux) — all four bulbs
 constexpr float S1_LUX_HI   = 3000.0f;
 constexpr float S1_LOG_BASE = 4.5f;
-constexpr float S1_BRI_HI   = 254.0f;
+constexpr float S1_BRI_HI   = 100.0f;   // 100% — max brightness
 
 // Color temp endpoints (mirek)
 constexpr float CT_COOL = 280.0f;   // ~3500K — high brightness
@@ -35,7 +36,7 @@ constexpr float CT_WARM = 400.0f;   // ~2200K — night/floor
 
 // ── Output struct ──────────────────────────────────────────────────────────
 struct LightTarget {
-    uint8_t  bri;   // Hue bri, 0–254
+    float    bri;   // brightness percent, 0.0–100.0 (Hue API v2 native)
     uint16_t ct;    // Hue ct mirek, 153–447
 };
 
@@ -91,5 +92,5 @@ LightTarget luxToTarget(float lux) {
     float briNorm = (bri - S4_FLOOR_BRI) / (S1_BRI_HI - S4_FLOOR_BRI);
     float ct = CT_WARM - (CT_WARM - CT_COOL) * briNorm;
 
-    return { (uint8_t)bri, (uint16_t)ct };
+    return { bri, (uint16_t)ct };
 }

@@ -591,6 +591,11 @@
     setInterval(fetchLog, 30000);
 
     // ── Lux curve widget ─────────────────────────────────────────────────
+    // ── Lux curve math ────────────────────────────────────────────────────
+    // CLIENT-SIDE DUPLICATE of src/lightcurve.h — not derived at runtime.
+    // If curve constants change in lightcurve.h, update this block and the
+    // matching block in lux_curve.html to match. See HANDOFF_v2_migration.md
+    // for the full before/after when migrating bri units (v1 → v2 percent).
     const _LC = {
       _log(t, b) { return Math.log(1 + t*(b-1)) / Math.log(b); },
       _crawl(t, p) { const k = 8**p, v = 1-1/(1+t*k), n = 1-1/(1+k); return v/n; },

@@ -15,15 +15,15 @@
 #include "lightcurve.h"
 
 struct LightState {
-    bool on;
-    int  bri;
-    int  ct;
+    bool  on;
+    float bri;  // percent 0.0–100.0 (scaled from v1 0–254 in getLightState)
+    int   ct;
 };
 
 Adafruit_VEML7700 veml;
 Preferences prefs;
-LightTarget sentTarget = {255, 0}; // sentinel: forces first update to always send (255/0 are outside valid ranges)
-LightTarget prevSentTarget = {255, 0}; // sentTarget before the most recent PUT — lets checkOverride ignore slow-applying bulbs
+LightTarget sentTarget = {-1.0f, 0}; // sentinel: forces first update to always send (-1/0 are outside valid ranges)
+LightTarget prevSentTarget = {-1.0f, 0}; // sentTarget before the most recent PUT — lets checkOverride ignore slow-applying bulbs
 bool overheadsOn = false;
 
 struct ButtonState {
@@ -95,25 +95,28 @@ LightState getLightState(int id) {
     HTTPClient http;
     String url = String(HUE_BASE_URL) + "/lights/" + id;
     http.begin(url);
-    LightState result = {false, 0, 0};
+    LightState result = {false, 0.0f, 0};
     if (http.GET() == 200) {
         JsonDocument doc;
         deserializeJson(doc, http.getString());
         result.on  = doc["state"]["on"].as<bool>();
-        result.bri = doc["state"]["bri"].as<int>();
+        result.bri = doc["state"]["bri"].as<float>() / 2.54f; // Phase 1 shim: v1 0–254 → percent 0–100
         result.ct  = doc["state"]["ct"].as<int>();
     }
     http.end();
     return result;
 }
 
-void setLightColor(int id, bool on, int bri, int hue, int sat, int transitiontime) {
+// Phase 1 shim: bri is percent (0.0–100.0); converted to v1 int (0–254) internally.
+// Phase 2 will replace the body with v2 JSON and remove the conversion.
+void setLightColor(int id, bool on, float bri, int hue, int sat, int transitiontime) {
+    int v1bri = constrain((int)(bri * 2.54f), 1, 254);
     HTTPClient http;
     String url = String(HUE_BASE_URL) + "/lights/" + id + "/state";
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
     String body = "{\"on\":" + String(on ? "true" : "false") +
-                  ", \"bri\": " + String(bri) +
+                  ", \"bri\": " + String(v1bri) +
                   ", \"hue\": " + String(hue) +
                   ", \"sat\": " + String(sat) +
                   ", \"transitiontime\": " + String(transitiontime) + "}";
@@ -122,19 +125,18 @@ void setLightColor(int id, bool on, int bri, int hue, int sat, int transitiontim
     http.end();
 }
 
-void setLight(int id, bool on, int bri, int ct, int transitiontime) {
+void setLight(int id, bool on, float bri, int ct, int transitiontime) {
+    int v1bri = constrain((int)(bri * 2.54f), 1, 254);
     HTTPClient http;
     String url = String(HUE_BASE_URL) + "/lights/" + id + "/state";
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
-
     String body = "{\"on\":" + String(on ? "true" : "false") +
-                ", \"bri\": " + String(bri) +
+                ", \"bri\": " + String(v1bri) +
                 ", \"ct\": " + String(ct) +
                 ", \"transitiontime\": " + String(transitiontime) + "}";
     int code = http.PUT(body);
     Serial.println("setLight(" + String(id) + ") → HTTP " + code);
-
     http.end();
 }
 
@@ -269,9 +271,9 @@ void pollDashboardCommand() {
     }
 }
 
-void saveLastState(uint8_t bri, uint16_t ct) {
+void saveLastState(float bri, uint16_t ct) {
     prefs.begin("mira", false);
-    prefs.putUChar("savedBri", bri);
+    prefs.putFloat("savedBri", bri);
     prefs.putUShort("savedCt", ct);
     prefs.end();
 }
@@ -280,22 +282,22 @@ void tickWakeRamp(float lux) {
     wakeStep++;
     float t = min(wakeStep / (float)WAKE_RAMP_TICKS, 1.0f);
 
-    int rampBri = wakeStartTarget.bri + t * (wakeEndTarget.bri - wakeStartTarget.bri);
-    int rampCt  = wakeStartTarget.ct  + t * (wakeEndTarget.ct  - wakeStartTarget.ct);
+    float rampBri = wakeStartTarget.bri + t * (wakeEndTarget.bri - wakeStartTarget.bri);
+    int   rampCt  = (int)(wakeStartTarget.ct  + t * (wakeEndTarget.ct  - wakeStartTarget.ct));
 
-    rampBri = constrain(rampBri, 1, 254);
-    rampCt  = constrain(rampCt, int(CT_COOL), int(CT_WARM));
+    rampBri = constrain(rampBri, 1.0f, 100.0f);
+    rampCt  = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
 
     setLight(LIGHT_BEDSIDE, true, rampBri, rampCt, 300);
     setLight(LIGHT_DESK,    true, rampBri, rampCt, 300);
-    if (lux >= S3_LUX_HI && rampBri >= (int)S2_BRI_LO) {
+    if (lux >= S3_LUX_HI && rampBri >= S2_BRI_LO) {
         setLight(LIGHT_CEIL_1, true, rampBri, rampCt, 300);
         setLight(LIGHT_CEIL_2, true, rampBri, rampCt, 300);
         overheadsOn = true;
     }
 
     if (wakeStep == WAKE_RAMP_TICKS / 4 || wakeStep == WAKE_RAMP_TICKS / 2 || wakeStep == (3 * WAKE_RAMP_TICKS / 4)) {
-        sendLog("Wake " + String(wakeStep * 100 / WAKE_RAMP_TICKS) + "% — bri=" + String(rampBri) + " — " + getTimeString());
+        sendLog("Wake " + String(wakeStep * 100 / WAKE_RAMP_TICKS) + "% — bri=" + String(rampBri, 1) + "% — " + getTimeString());
     }
 
     if (t >= 1.0f) {
@@ -304,10 +306,10 @@ void tickWakeRamp(float lux) {
         Serial.println("Wake complete — handing off to normal.");
         sendLog("Wake complete — " + getTimeString());
     }
-    sentTarget = {(uint8_t)rampBri, (uint16_t)rampCt};
+    sentTarget = {rampBri, (uint16_t)rampCt};
 
     Serial.println("Wake " + String(wakeStep) + "/" + String(WAKE_RAMP_TICKS) +
-                   " — bri=" + String(rampBri) + "/" + String(wakeEndTarget.bri));
+                   " — bri=" + String(rampBri, 1) + "%/" + String(wakeEndTarget.bri, 1) + "%");
 }
 
 void tickWindDown() {
@@ -319,14 +321,13 @@ void tickWindDown() {
         overheadsOn = false;
     }
 
-    float windDownBri = windDownStartBri - (windDownStartBri - S4_FLOOR_BRI) * (windDownStep / 120.0f);
-    windDownBri = max(windDownBri, (float)S4_FLOOR_BRI);
-    int wdBri = (int)windDownBri;
+    float wdBri = windDownStartBri - (windDownStartBri - S4_FLOOR_BRI) * (windDownStep / 120.0f);
+    wdBri = max(wdBri, S4_FLOOR_BRI);
     int wdCt  = (int)CT_WARM;
 
-    Serial.println("Wind-down " + String(windDownStep * 0.5f, 1) + "/60.0 min — bri=" + String(wdBri));
+    Serial.println("Wind-down " + String(windDownStep * 0.5f, 1) + "/60.0 min — bri=" + String(wdBri, 1) + "%");
     if (windDownStep == 30 || windDownStep == 60 || windDownStep == 90) {
-        sendLog("Wind-down " + String(windDownStep / 2) + "/60 min — bri=" + String(wdBri) + " — " + getTimeString());
+        sendLog("Wind-down " + String(windDownStep / 2) + "/60 min — bri=" + String(wdBri, 1) + "% — " + getTimeString());
     }
 
     setLight(LIGHT_BEDSIDE, true, wdBri, wdCt, 300);
@@ -335,20 +336,20 @@ void tickWindDown() {
     } else {
         setLight(LIGHT_DESK, false, wdBri, wdCt, 100);
         state = State::LOCKED_OUT;
-        saveLastState((uint8_t)S4_FLOOR_BRI, (uint16_t)CT_WARM);
+        saveLastState(S4_FLOOR_BRI, (uint16_t)CT_WARM);
         Serial.println("Wind-down complete. Desk off, bedside at floor.");
         sendLog("Wind-down complete — " + getTimeString());
     }
-    sentTarget = {(uint8_t)wdBri, (uint16_t)wdCt};
+    sentTarget = {wdBri, (uint16_t)wdCt};
 }
 
 bool isManualOverride(LightState ls, bool expectedOn) {
     if (expectedOn && !ls.on) return true;
     if (ls.on) {
-        bool matchesCurrent = abs(ls.bri - sentTarget.bri) <= STATE_TOLERANCE &&
-                              abs(ls.ct  - sentTarget.ct)  <= STATE_TOLERANCE;
-        bool matchesPrev    = abs(ls.bri - prevSentTarget.bri) <= STATE_TOLERANCE &&
-                              abs(ls.ct  - prevSentTarget.ct)  <= STATE_TOLERANCE;
+        bool matchesCurrent = fabsf(ls.bri - sentTarget.bri) <= STATE_TOLERANCE_BRI &&
+                              abs(ls.ct  - sentTarget.ct)  <= STATE_TOLERANCE_CT;
+        bool matchesPrev    = fabsf(ls.bri - prevSentTarget.bri) <= STATE_TOLERANCE_BRI &&
+                              abs(ls.ct  - prevSentTarget.ct)  <= STATE_TOLERANCE_CT;
         if (!matchesCurrent && !matchesPrev) return true;
     }
     return false;
@@ -407,11 +408,11 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
     // Soft pause resume ramp — drift from pre-pause bri/ct to current ambient over 10 min
     if (pauseResumeActive) {
         pauseResumeStep++;
-        float t      = min(pauseResumeStep / (float)PAUSE_RESUME_TICKS, 1.0f);
-        int rampBri  = (int)(pauseResumeStartTarget.bri + t * (target.bri - pauseResumeStartTarget.bri));
-        int rampCt   = (int)(pauseResumeStartTarget.ct  + t * (target.ct  - pauseResumeStartTarget.ct));
-        rampBri      = constrain(rampBri, 1, 254);
-        rampCt       = constrain(rampCt, int(CT_COOL), int(CT_WARM));
+        float t       = min(pauseResumeStep / (float)PAUSE_RESUME_TICKS, 1.0f);
+        float rampBri = pauseResumeStartTarget.bri + t * (target.bri - pauseResumeStartTarget.bri);
+        int   rampCt  = (int)(pauseResumeStartTarget.ct  + t * (target.ct  - pauseResumeStartTarget.ct));
+        rampBri       = constrain(rampBri, 1.0f, 100.0f);
+        rampCt        = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
         setLight(LIGHT_BEDSIDE, true, rampBri, rampCt, 300);
         setLight(LIGHT_DESK,    true, rampBri, rampCt, 300);
         if (overheadsOn) {
@@ -419,10 +420,10 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
             setLight(LIGHT_CEIL_2, true, rampBri, rampCt, 300);
         }
         prevSentTarget = sentTarget;
-        sentTarget = {(uint8_t)rampBri, (uint16_t)rampCt};
-        saveLastState((uint8_t)rampBri, (uint16_t)rampCt);
+        sentTarget = {rampBri, (uint16_t)rampCt};
+        saveLastState(rampBri, (uint16_t)rampCt);
         Serial.println("Resume ramp " + String(pauseResumeStep) + "/" + String(PAUSE_RESUME_TICKS) +
-                       " — bri=" + String(rampBri) + " (" + String(rampBri * 100 / 254) + "%), ct=" + String(rampCt));
+                       " — bri=" + String(rampBri, 1) + "%, ct=" + String(rampCt));
         if (pauseResumeStep >= PAUSE_RESUME_TICKS) {
             pauseResumeActive = false;
             Serial.println("Resume ramp complete.");
@@ -458,7 +459,7 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
         Serial.println("Bulbs updated.");
         sendLog(getTimeString() +
                     " | Lux: " + String(lux, 1) +
-                    " → bri=" + String(target.bri) + " (" + String(target.bri * 100 / 254) + "%)" +
+                    " → bri=" + String(target.bri, 1) + "%" +
                     ", ct=" + String(target.ct));
     } else {
         Serial.println("No change — skipping PUT.");
@@ -481,7 +482,7 @@ void tickSoftPause() {
 
 void triggerWake(float ambientLux) {
     LightState bedside = getLightState(LIGHT_BEDSIDE);
-    uint8_t  startBri  = (bedside.on && bedside.bri > 0) ? (uint8_t)bedside.bri : (uint8_t)S4_FLOOR_BRI;
+    float    startBri  = (bedside.on && bedside.bri > 0.0f) ? bedside.bri : S4_FLOOR_BRI;
     uint16_t startCt   = (bedside.ct  > 0) ? (uint16_t)bedside.ct  : (uint16_t)CT_WARM;
     wakeStartTarget    = {startBri, startCt};
     wakeEndTarget      = luxToTarget(ambientLux);
@@ -549,7 +550,7 @@ void forceState(State next) {
             state          = State::LOCKED_OUT;
             break;
         case State::NORMAL:
-            sentTarget        = {255, 0};
+            sentTarget        = {-1.0f, 0};
             skipOverrideCheck = true;
             stableLuxCount    = 0;
             overheadsOn       = getLightState(LIGHT_CEIL_1).on;  // sync from actual bridge state
@@ -615,7 +616,7 @@ void handleButtonEvents() {
         } else {
             String prev = stateName();
             state             = State::NORMAL;
-            sentTarget        = {255, 0};
+            sentTarget        = {-1.0f, 0};
             skipOverrideCheck = true;
             stableLuxCount    = 0;
             overheadsOn       = getLightState(LIGHT_CEIL_1).on;  // sync from actual bridge state
@@ -672,11 +673,10 @@ void loop() {
     lastLux = lux;
     LightTarget target = luxToTarget(lux);
     Serial.print("Lux: "); Serial.print(lux, 1);
-    Serial.print(" → bri="); Serial.print(target.bri);
-    Serial.print(" ("); Serial.print(target.bri * 100 / 254); Serial.print("%)");
+    Serial.print(" → bri="); Serial.print(target.bri, 1); Serial.print("%");
     Serial.print(", ct="); Serial.println(target.ct);
 
-    bool shouldUpdate = abs(target.bri - sentTarget.bri) > STATE_TOLERANCE || abs(target.ct - sentTarget.ct) > STATE_TOLERANCE;
+    bool shouldUpdate = fabsf(target.bri - sentTarget.bri) > STATE_TOLERANCE_BRI || abs(target.ct - sentTarget.ct) > STATE_TOLERANCE_CT;
 
     pollDashboardCommand();
 
