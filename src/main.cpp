@@ -18,15 +18,24 @@
 
 struct LightState {
     bool  on;
-    float bri;  // percent 0.0–100.0 (scaled from v1 0–254 in getLightState)
+    float bri;  // percent 0.0–100.0 (Hue API v2 native units)
     int   ct;
 };
 
 Adafruit_VEML7700 veml;
 Preferences prefs;
 LightTarget sentTarget = {-1.0f, 0}; // sentinel: forces first update to always send (-1/0 are outside valid ranges)
-LightTarget prevSentTarget = {-1.0f, 0}; // sentTarget before the most recent PUT — lets checkOverride ignore slow-applying bulbs
 bool overheadsOn = false;
+
+// Phase 3 — light state cache. Mirror of bridge state; bootstrapped via v2 GET at startup,
+// kept in sync by SSE events. Replaces the old per-tick HTTP polling of getLightState().
+struct CachedLight {
+    bool  on          = false;
+    float bri         = 0.0f;
+    int   ct          = 0;
+    bool  initialized = false;
+};
+CachedLight lightCache[4]; // indexed by LIGHT_BEDSIDE / LIGHT_DESK / LIGHT_CEIL_1 / LIGHT_CEIL_2
 
 struct ButtonState {
     bool debounced       = false;
@@ -58,12 +67,25 @@ LightTarget wakeEndTarget   = {0, 0};
 
 // Soft pause state
 unsigned long softPauseStart = 0;
-bool skipOverrideCheck = false;
 
 // Soft pause resume ramp
 bool        pauseResumeActive      = false;
 int         pauseResumeStep        = 0;
-LightTarget pauseResumeStartTarget = {0, 0}; // skip first checkOverride after wake — lights still mid-transition
+LightTarget pauseResumeStartTarget = {0, 0}; // bri/ct snapshot at soft pause entry — interpolated on resume
+
+// Override mute — suppresses SSE-driven override detection for a window after a state
+// transition into NORMAL, while our own PUTs are still echoing back over the SSE stream.
+unsigned long overrideMuteStart       = 0;
+unsigned long overrideMuteDur         = 0;
+const unsigned long MUTE_AFTER_TRANSITION_MS = 5000UL;
+
+// SSE event stream — persistent HTTPS connection over which the bridge pushes state changes.
+WiFiClientSecure sseClient;
+String        sseBuf;            // partial-line accumulator for incoming SSE bytes
+unsigned long sseLastByteMs    = 0;
+unsigned long sseLastConnectMs = 0;
+const unsigned long SSE_RECONNECT_DELAY_MS = 5000UL;
+const unsigned long SSE_STALE_TIMEOUT_MS   = 60000UL;
 
 // Bedside edge detection
 bool lastBedsideOn = false;  // previous bedside poll — detects manual on/off flips
@@ -171,14 +193,119 @@ static void ensureBridgeCert() {
 
     if (!needFetch) {
         _bridgeCertPem = stored;
-        Serial.println("Bridge cert loaded from NVS.");
-        return;
+        // Verify the stored cert still validates against the live bridge.
+        // Catches cert rotation (bridge issues new cert before old one expires).
+        WiFiClientSecure test;
+        test.setCACert(_bridgeCertPem.c_str());
+        test.setTimeout(5);
+        bool ok = test.connect(HUE_BRIDGE_HOST, 443);
+        test.stop();
+        if (ok) {
+            Serial.println("Bridge cert loaded from NVS.");
+            return;
+        }
+        Serial.println("Bridge cert NVS verify failed — re-fetching...");
+    } else {
+        Serial.println("Bridge cert missing or expiring — fetching...");
     }
-
-    Serial.println("Bridge cert missing or expiring — fetching...");
     if (!_fetchAndStoreBridgeCert() && !stored.isEmpty()) {
         _bridgeCertPem = stored;
         Serial.println("Cert fetch failed — using stored cert.");
+    }
+}
+
+// ── Light cache helpers ─────────────────────────────────────────────────────
+
+// Map a v2 UUID string to its lightCache[] index. Returns -1 for unknown UUIDs.
+static int idxByUuid(const char* uuid) {
+    if (!uuid) return -1;
+    if (strcmp(uuid, LIGHT_UUID_BEDSIDE) == 0) return LIGHT_BEDSIDE;
+    if (strcmp(uuid, LIGHT_UUID_DESK)    == 0) return LIGHT_DESK;
+    if (strcmp(uuid, LIGHT_UUID_CEIL_1)  == 0) return LIGHT_CEIL_1;
+    if (strcmp(uuid, LIGHT_UUID_CEIL_2)  == 0) return LIGHT_CEIL_2;
+    return -1;
+}
+
+// Read the cached state for a bulb. Replaces the old HTTP-polling getLightState().
+LightState cachedLight(int idx) {
+    if (idx < 0 || idx >= 4) return {false, 0.0f, 0};
+    const CachedLight& c = lightCache[idx];
+    return {c.on, c.bri, c.ct};
+}
+
+// ── Override mute window ────────────────────────────────────────────────────
+// Time-based replacement for the old `skipOverrideCheck` single-shot flag.
+// SSE events stream in continuously, so a mute *window* is the right primitive:
+// after entering NORMAL, our own PUTs echo back over SSE for a moment — we mute
+// override detection long enough for those echoes to land without false positives.
+
+static void muteOverride(unsigned long ms) {
+    overrideMuteStart = millis();
+    overrideMuteDur   = ms;
+}
+
+static bool isOverrideMuted() {
+    if (overrideMuteDur == 0) return false;
+    if (millis() - overrideMuteStart >= overrideMuteDur) {
+        overrideMuteDur = 0;
+        return false;
+    }
+    return true;
+}
+
+// Per-light override check. Each light has an "expected" state under NORMAL:
+//   - bedside / desk: always on, matching sentTarget
+//   - overheads:      on with sentTarget iff overheadsOn==true; otherwise expected off
+// When the expected state is "off", manual changes are ignored — preserves the prior
+// behavior of only checking overheads when the firmware intends them on.
+static bool isOverridden(int idx, LightState ls) {
+    bool expectedOn;
+    switch (idx) {
+        case LIGHT_BEDSIDE:
+        case LIGHT_DESK:    expectedOn = true;        break;
+        case LIGHT_CEIL_1:
+        case LIGHT_CEIL_2:  expectedOn = overheadsOn; break;
+        default:            return false;
+    }
+    if (!expectedOn) return false;
+    if (!ls.on)      return true;
+    if (fabsf(ls.bri - sentTarget.bri) > STATE_TOLERANCE_BRI) return true;
+    if (abs (ls.ct  - sentTarget.ct)   > STATE_TOLERANCE_CT)  return true;
+    return false;
+}
+
+// ── One-time bootstrap of the light cache ───────────────────────────────────
+// Hits the v2 endpoint once at startup to seed every cached field; SSE keeps it
+// fresh thereafter. Must run after ensureBridgeCert() so we have a valid cert.
+static void bootstrapLightStates() {
+    if (_bridgeCertPem.isEmpty()) { Serial.println("bootstrap: no cert"); return; }
+    WiFiClientSecure client;
+    client.setCACert(_bridgeCertPem.c_str());
+    HTTPClient http;
+    http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light");
+    http.addHeader("hue-application-key", HUE_API_KEY);
+    int code = http.GET();
+    if (code != 200) {
+        Serial.println("bootstrap: HTTP " + String(code));
+        http.end();
+        return;
+    }
+    String body = http.getString();
+    http.end();
+
+    JsonDocument doc;
+    if (deserializeJson(doc, body)) { Serial.println("bootstrap: JSON parse failed"); return; }
+    for (JsonObject light : doc["data"].as<JsonArray>()) {
+        const char* uuid = light["id"];
+        int idx = idxByUuid(uuid);
+        if (idx < 0) continue;
+        lightCache[idx].on  = light["on"]["on"]                          | false;
+        lightCache[idx].bri = light["dimming"]["brightness"].as<float>();
+        lightCache[idx].ct  = light["color_temperature"]["mirek"]        | 0;
+        lightCache[idx].initialized = true;
+        Serial.printf("Bootstrap idx=%d on=%d bri=%.1f ct=%d (%s)\n",
+                      idx, lightCache[idx].on, lightCache[idx].bri, lightCache[idx].ct,
+                      String(uuid).substring(0, 8).c_str());
     }
 }
 
@@ -202,22 +329,6 @@ void connectWiFi() {
     setRGB(false, true, false); // solid green = connected
     Serial.println("\nWiFi connected — IP: " + WiFi.localIP().toString());
     delay(800);
-}
-
-LightState getLightState(int id) {
-    HTTPClient http;
-    String url = String(HUE_BASE_URL) + "/lights/" + id;
-    http.begin(url);
-    LightState result = {false, 0.0f, 0};
-    if (http.GET() == 200) {
-        JsonDocument doc;
-        deserializeJson(doc, http.getString());
-        result.on  = doc["state"]["on"].as<bool>();
-        result.bri = doc["state"]["bri"].as<float>() / 2.54f; // Phase 1 shim: v1 0–254 → percent 0–100
-        result.ct  = doc["state"]["ct"].as<int>();
-    }
-    http.end();
-    return result;
 }
 
 // Convert Hue v1 HSB (hue 0–65535, sat 0–254) to CIE xy for the v2 API.
@@ -383,6 +494,143 @@ void sendDashboardStatus(float lux) {
     http.end();
 }
 
+// ── SSE event handling ──────────────────────────────────────────────────────
+// The Hue v2 bridge pushes resource updates over a long-lived HTTPS stream. We
+// drain the socket from the main wait loop, parse `data:` lines as JSON arrays,
+// update the cache, and trigger SOFT_PAUSE on a real manual override.
+
+// Apply a single light update event to the cache; check override if in NORMAL.
+static void handleLightUpdate(JsonObjectConst upd) {
+    const char* uuid = upd["id"];
+    int idx = idxByUuid(uuid);
+    if (idx < 0) return;
+
+    bool changed = false;
+    JsonVariantConst onField  = upd["on"]["on"];
+    JsonVariantConst briField = upd["dimming"]["brightness"];
+    JsonVariantConst ctField  = upd["color_temperature"]["mirek"];
+    if (!onField.isNull())  { lightCache[idx].on  = onField.as<bool>();   changed = true; }
+    if (!briField.isNull()) { lightCache[idx].bri = briField.as<float>(); changed = true; }
+    if (!ctField.isNull())  { lightCache[idx].ct  = ctField.as<int>();    changed = true; }
+    if (!changed) return;
+
+    if (state != State::NORMAL) return;
+    if (isOverrideMuted())      return;
+    if (pauseResumeActive)      return;
+
+    LightState ls = {lightCache[idx].on, lightCache[idx].bri, lightCache[idx].ct};
+    if (isOverridden(idx, ls)) {
+        state             = State::SOFT_PAUSE;
+        softPauseStart    = millis();
+        pauseResumeActive = false;
+        Serial.println("SSE override — soft pause.");
+        sendLog("Manual override — soft pause — " + getTimeString());
+    }
+}
+
+// Parse one SSE `data:` payload — an array of events, each with a nested array of resource updates.
+static void handleSseEventData(const char* json) {
+    JsonDocument doc;
+    if (deserializeJson(doc, json)) return;
+    for (JsonObject event : doc.as<JsonArray>()) {
+        const char* type = event["type"] | "";
+        if (strcmp(type, "update") != 0) continue;
+        for (JsonObject upd : event["data"].as<JsonArray>()) {
+            const char* updType = upd["type"] | "";
+            if (strcmp(updType, "light") != 0) continue;
+            handleLightUpdate(upd);
+        }
+    }
+}
+
+// Process one complete SSE protocol line. Lines starting with `:` are comments
+// (the bridge sends `: hi`-style heartbeats); `id:` carries the event ID; only
+// `data:` lines carry the JSON payload we care about.
+static void handleSseLine(const String& line) {
+    if (line.startsWith("data:")) {
+        const char* p = line.c_str() + 5;
+        while (*p == ' ') p++;
+        handleSseEventData(p);
+    }
+}
+
+// Open the persistent SSE connection. Sends the GET, drains response headers
+// non-blocking-ish (bounded 5s loop) until the empty header-terminator line.
+static void sseConnect() {
+    static int sseFailCount = 0;
+    sseClient.stop();
+    sseBuf = "";
+    sseClient.setCACert(_bridgeCertPem.c_str());
+    sseClient.setTimeout(5);
+    if (!sseClient.connect(HUE_BRIDGE_HOST, 443)) {
+        Serial.println("SSE: connect failed");
+        if (++sseFailCount == 12) { // ~60s of back-to-back failures
+            Serial.println("SSE: persistent failure — refreshing bridge cert...");
+            _fetchAndStoreBridgeCert(); // updates _bridgeCertPem; next attempt picks it up
+        }
+        return;
+    }
+    sseFailCount = 0;
+    sseClient.print("GET /eventstream/clip/v2 HTTP/1.1\r\n"
+                    "Host: " HUE_BRIDGE_HOST "\r\n"
+                    "hue-application-key: " HUE_API_KEY "\r\n"
+                    "Accept: text/event-stream\r\n"
+                    "Connection: keep-alive\r\n\r\n");
+
+    String hdrLine;
+    unsigned long t0 = millis();
+    while (millis() - t0 < 5000UL) {
+        if (!sseClient.connected()) {
+            Serial.println("SSE: dropped during headers");
+            sseClient.stop();
+            return;
+        }
+        while (sseClient.available()) {
+            char c = sseClient.read();
+            if (c == '\n') {
+                if (hdrLine.length() == 0) {
+                    sseLastByteMs = millis();
+                    Serial.println("SSE: connected.");
+                    return;
+                }
+                hdrLine = "";
+            } else if (c != '\r') {
+                hdrLine += c;
+            }
+        }
+        delay(5);
+    }
+    Serial.println("SSE: header read timeout");
+    sseClient.stop();
+}
+
+// Drain available SSE bytes; reconnect on disconnect or stale stream.
+// Called inside the main wait loop alongside button polling.
+static void sseTick() {
+    if (!sseClient.connected()) {
+        if (millis() - sseLastConnectMs >= SSE_RECONNECT_DELAY_MS) {
+            sseLastConnectMs = millis();
+            sseConnect();
+        }
+        return;
+    }
+    while (sseClient.available()) {
+        char c = sseClient.read();
+        sseLastByteMs = millis();
+        if (c == '\n') {
+            if (sseBuf.length() > 0) handleSseLine(sseBuf);
+            sseBuf = "";
+        } else if (c != '\r') {
+            sseBuf += c;
+            if (sseBuf.length() > 4096) sseBuf = ""; // runaway guard
+        }
+    }
+    if (millis() - sseLastByteMs >= SSE_STALE_TIMEOUT_MS) {
+        Serial.println("SSE: stale — reconnecting");
+        sseClient.stop();
+    }
+}
+
 void forceState(State next); // defined later — forward declaration for pollDashboardCommand
 
 void pollDashboardCommand() {
@@ -461,7 +709,7 @@ void tickWakeRamp(float lux) {
 
     if (t >= 1.0f) {
         state             = State::NORMAL;
-        skipOverrideCheck = true;
+        muteOverride(MUTE_AFTER_TRANSITION_MS);
         Serial.println("Wake complete — handing off to normal.");
         sendLog("Wake complete — " + getTimeString());
     }
@@ -502,57 +750,9 @@ void tickWindDown() {
     sentTarget = {wdBri, (uint16_t)wdCt};
 }
 
-bool isManualOverride(LightState ls, bool expectedOn) {
-    if (expectedOn && !ls.on) return true;
-    if (ls.on) {
-        bool matchesCurrent = fabsf(ls.bri - sentTarget.bri) <= STATE_TOLERANCE_BRI &&
-                              abs(ls.ct  - sentTarget.ct)  <= STATE_TOLERANCE_CT;
-        bool matchesPrev    = fabsf(ls.bri - prevSentTarget.bri) <= STATE_TOLERANCE_BRI &&
-                              abs(ls.ct  - prevSentTarget.ct)  <= STATE_TOLERANCE_CT;
-        if (!matchesCurrent && !matchesPrev) return true;
-    }
-    return false;
-}
-
-void checkOverride() {
-    if (skipOverrideCheck) { skipOverrideCheck = false; return; }
-
-    auto debugLight = [](const char* name, LightState ls) {
-        Serial.print("  "); Serial.print(name);
-        Serial.print(": on="); Serial.print(ls.on);
-        Serial.print(" bri="); Serial.print(ls.bri);
-        Serial.print(" ct="); Serial.println(ls.ct);
-    };
-
-    LightState bedside = getLightState(LIGHT_BEDSIDE);
-    LightState desk    = getLightState(LIGHT_DESK);
-
-    Serial.print("checkOverride — sentTarget bri="); Serial.print(sentTarget.bri);
-    Serial.print(" ct="); Serial.println(sentTarget.ct);
-    debugLight("bedside", bedside);
-    debugLight("desk",    desk);
-
-    bool overridden = isManualOverride(bedside, true) || isManualOverride(desk, true);
-    if (overheadsOn) {
-        LightState ceil1 = getLightState(LIGHT_CEIL_1);
-        LightState ceil2 = getLightState(LIGHT_CEIL_2);
-        debugLight("ceil1", ceil1);
-        debugLight("ceil2", ceil2);
-        overridden = overridden || isManualOverride(ceil1, true) || isManualOverride(ceil2, true);
-    }
-
-    if (overridden) {
-        state              = State::SOFT_PAUSE;
-        softPauseStart     = millis();
-        pauseResumeActive  = false;
-        Serial.println("Manual override detected — soft pause.");
-        sendLog("Manual override — soft pause — " + getTimeString());
-    }
-}
-
 void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
-    if (!pauseResumeActive) checkOverride();
-    if (state == State::SOFT_PAUSE) return;
+    // Override detection now happens asynchronously inside the SSE handler
+    // (handleLightUpdate), so tickNormal is no longer responsible for polling.
 
     bool newOverheadsOn = lux > S3_LUX_HI;
     if (overheadsOn && !newOverheadsOn) {
@@ -578,7 +778,6 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
             setLight(LIGHT_UUID_CEIL_1, true, rampBri, rampCt, 30000);
             setLight(LIGHT_UUID_CEIL_2, true, rampBri, rampCt, 30000);
         }
-        prevSentTarget = sentTarget;
         sentTarget = {rampBri, (uint16_t)rampCt};
         saveLastState(rampBri, (uint16_t)rampCt);
         Serial.println("Resume ramp " + String(pauseResumeStep) + "/" + String(PAUSE_RESUME_TICKS) +
@@ -612,7 +811,6 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
             setLight(LIGHT_UUID_CEIL_1, true, target.bri, target.ct, 1000);
             setLight(LIGHT_UUID_CEIL_2, true, target.bri, target.ct, 1000);
         }
-        prevSentTarget = sentTarget;
         sentTarget = target;
         saveLastState(target.bri, target.ct);
         Serial.println("Bulbs updated.");
@@ -630,17 +828,17 @@ void tickSoftPause() {
         pauseResumeStartTarget = sentTarget;
         pauseResumeActive      = true;
         pauseResumeStep        = 0;
-        overheadsOn            = getLightState(LIGHT_CEIL_1).on;  // sync from actual bridge state
-        lastBedsideOn          = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
+        overheadsOn            = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
+        lastBedsideOn          = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
         state                  = State::NORMAL;
-        skipOverrideCheck      = true;
+        muteOverride(MUTE_AFTER_TRANSITION_MS);
         Serial.println("Soft pause expired — beginning 10-min resume ramp.");
         sendLog("Soft pause expired — resuming — " + getTimeString());
     }
 }
 
 void triggerWake(float ambientLux) {
-    LightState bedside = getLightState(LIGHT_BEDSIDE);
+    LightState bedside = cachedLight(LIGHT_BEDSIDE);
     float    startBri  = (bedside.on && bedside.bri > 0.0f) ? bedside.bri : S4_FLOOR_BRI;
     uint16_t startCt   = (bedside.ct  > 0) ? (uint16_t)bedside.ct  : (uint16_t)CT_WARM;
     wakeStartTarget    = {startBri, startCt};
@@ -653,16 +851,16 @@ void triggerWake(float ambientLux) {
 }
 
 void checkBedsideState(float lux) {
-    LightState bedside = getLightState(LIGHT_BEDSIDE);
+    LightState bedside = cachedLight(LIGHT_BEDSIDE);
 
     if (state == State::LOCKED_OUT && !lastBedsideOn && bedside.on) {
         triggerWake(lux);
     }
 
     if (lastBedsideOn && !bedside.on && timeClient.getHours() >= LOCKOUT_RESET_HOUR) {
-        LightState desk  = getLightState(LIGHT_DESK);
-        LightState ceil1 = getLightState(LIGHT_CEIL_1);
-        LightState ceil2 = getLightState(LIGHT_CEIL_2);
+        LightState desk  = cachedLight(LIGHT_DESK);
+        LightState ceil1 = cachedLight(LIGHT_CEIL_1);
+        LightState ceil2 = cachedLight(LIGHT_CEIL_2);
         if (!desk.on && !ceil1.on && !ceil2.on) {
             state          = State::LOCKED_OUT;
             stableLuxCount = 0;
@@ -705,15 +903,15 @@ void forceState(State next) {
         case State::LOCKED_OUT:
             stableLuxCount = 0;
             windDownStep   = 0;
-            lastBedsideOn  = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
+            lastBedsideOn  = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
             state          = State::LOCKED_OUT;
             break;
         case State::NORMAL:
             sentTarget        = {-1.0f, 0};
-            skipOverrideCheck = true;
+            muteOverride(MUTE_AFTER_TRANSITION_MS);
             stableLuxCount    = 0;
-            overheadsOn       = getLightState(LIGHT_CEIL_1).on;  // sync from actual bridge state
-            lastBedsideOn     = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
+            overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
+            lastBedsideOn     = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
             state             = State::NORMAL;
             break;
         case State::WAKE:
@@ -756,7 +954,7 @@ void handleButtonEvents() {
             sendLog("Hard off — " + getTimeString());
         } else {
             state         = State::LOCKED_OUT;
-            lastBedsideOn = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
+            lastBedsideOn = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
             Serial.println("Button long press — hard off cleared.");
             sendLog("Hard off cleared — " + getTimeString());
         }
@@ -776,10 +974,10 @@ void handleButtonEvents() {
             String prev = stateName();
             state             = State::NORMAL;
             sentTarget        = {-1.0f, 0};
-            skipOverrideCheck = true;
+            muteOverride(MUTE_AFTER_TRANSITION_MS);
             stableLuxCount    = 0;
-            overheadsOn       = getLightState(LIGHT_CEIL_1).on;  // sync from actual bridge state
-            lastBedsideOn     = getLightState(LIGHT_BEDSIDE).on; // sync from actual bridge state
+            overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
+            lastBedsideOn     = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
             Serial.println("Button short press — NORMAL (was " + prev + ").");
             sendLog("Returned to NORMAL by button — " + getTimeString());
         }
@@ -810,23 +1008,31 @@ void setup() {
     }
     Serial.println("VEML7700 ready.");
 
-    ensureBridgeCert(); // must be after NTP sync; loads or fetches the bridge TLS cert
+    ensureBridgeCert();    // must be after NTP sync; loads or fetches the bridge TLS cert
+    bootstrapLightStates(); // one-time v2 GET seeds lightCache[]; SSE keeps it fresh thereafter
 
     setRGB(false, false, false); // LED off — boot complete
 
     // Startup flash — deep purple, then restore previous state
-    LightState saved = getLightState(LIGHT_BEDSIDE);
+    LightState saved = cachedLight(LIGHT_BEDSIDE);
     setLightColor(LIGHT_UUID_BEDSIDE, true, 78.7f, 48000, 200, 1000); // fade in purple over 1s
     delay(3000);                                                        // hold for 3s
     setLight(LIGHT_UUID_BEDSIDE, saved.on, saved.bri, saved.ct, 1000); // restore over 1s
 
-    lastBedsideOn = getLightState(LIGHT_BEDSIDE).on; // seed edge detection — prevents false wake trigger on first tick
-    overheadsOn   = getLightState(LIGHT_CEIL_1).on;  // seed from actual state — prevents false override and bad dashboard reporting
+    lastBedsideOn = cachedLight(LIGHT_BEDSIDE).on; // seed edge detection — prevents false wake trigger on first tick
+    overheadsOn   = cachedLight(LIGHT_CEIL_1).on;  // seed from actual state — prevents false override and bad dashboard reporting
+
+    sseConnect(); // open the persistent SSE event stream — drained in the wait loop each tick
 
     sendLog("Online — " + getTimeString());
 }
 
 void loop() {
+    // Anchor tickStart at the very top of the loop so the wait loop subtracts
+    // processing time (HTTP calls, SSE event handling, etc.) from the 30s budget,
+    // yielding consistent 30s tick intervals regardless of how long processing took.
+    unsigned long tickStart = millis();
+
     timeClient.update();
     printStatus();
 
@@ -871,12 +1077,12 @@ void loop() {
 
     sendDashboardStatus(lux);
 
-    unsigned long tickStart = millis();
     while (millis() - tickStart < 30000UL) {
         pollButton(btnMode,  BTN_MODE);
         pollButton(btnCycle, BTN_CYCLE);
         handleButtonEvents();
         handleCycleButton();
+        sseTick(); // drain SSE bytes; reconnect on disconnect or stale stream
         delay(50);
     }
 }
