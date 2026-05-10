@@ -21,6 +21,7 @@ Behaviors
   - no hidden owner IP button allowed for recruiter role
   - 
 - disable zooming on mobile
+- change log on dashboard from utc to est
 - create section/page for serial-like output?
   - would that be too intense and slow the whole system down substantially? 
 - PRIORITY
@@ -62,8 +63,9 @@ PlatformIO is the only build system. The IDE is CLion with the PlatformIO plugin
 
 `config.h` holds WiFi credentials and Hue API details. It is checked into the repo but **must not be shared publicly**.
 
-- **Hue Bridge:** `192.168.1.186`, API user token in `HUE_BASE_URL`
-- **Light IDs:** `LIGHT_BEDSIDE=3`, `LIGHT_DESK=4`, `LIGHT_CEIL_1=1`, `LIGHT_CEIL_2=2`
+- **Hue Bridge:** `192.168.1.186`; v1 URL in `HUE_BASE_URL` (getLightState only), v2 in `HUE_V2_BASE_URL` + `HUE_API_KEY`
+- **Light IDs (v1):** `LIGHT_BEDSIDE=3`, `LIGHT_DESK=4`, `LIGHT_CEIL_1=1`, `LIGHT_CEIL_2=2` — used by `getLightState()` only
+- **Light UUIDs (v2):** `LIGHT_UUID_BEDSIDE`, `LIGHT_UUID_DESK`, `LIGHT_UUID_CEIL_1`, `LIGHT_UUID_CEIL_2` — hardcoded in `config.h` from discovery; stable Zigbee identities, only change on factory reset
 - **UTC offset:** `UTC_OFFSET_SEC` — currently `-14400` (UTC-4 / Eastern Daylight)
 - **`STATE_TOLERANCE_BRI 1.2f`** — min bri delta (percent) before a PUT is sent; also used for override detection window (≈ 3/254 in old v1 units)
 - **`STATE_TOLERANCE_CT 3`** — min ct delta (mirek) before a PUT is sent; also used for override detection window
@@ -88,19 +90,21 @@ State machine: `enum class State { LOCKED_OUT, NORMAL, WAKE, WIND_DOWN, SOFT_PAU
 
 Evening phases are lux-driven (not time-driven) so the system adapts to seasonal sunset variation automatically.
 
-## Hue API Patterns (current — v1 with Phase 1 shim)
+## Hue API Patterns (current — v2 HTTPS, Phase 2 active)
 
 Two PUT helpers exist in `main.cpp`:
-- `setLight(id, on, bri, ct, transitiontime)` — white/color-temperature mode; `bri` is `float` (0.0–100.0%), converted to v1 int internally via `bri * 2.54f`
-- `setLightColor(id, on, bri, hue, sat, transitiontime)` — HSB color mode; same `bri` shim applies
+- `setLight(uuid, on, bri, ct, durationMs)` — white/CT mode; `bri` is `float` (0.0–100.0%, native v2 units); `durationMs` in ms (e.g., `30000` = 30 s poll interval, `1000` = 1 s snap)
+- `setLightColor(uuid, on, bri, hueV1, satV1, durationMs)` — HSB color mode; internally converts v1 hue (0–65535) + sat (0–254) to CIE xy via `_hsbToXY()`
 
-`transitiontime` is in units of 100 ms (e.g., `10` = 1 s). GET state via `getLightState(id)` which returns a `LightState {on, bri, ct}` where `bri` is `float` (0.0–100.0%), scaled from the v1 int response via `bri / 2.54f`.
+Both use `WiFiClientSecure` with the NVS-stored bridge TLS cert (`_bridgeCertPem`) and the `hue-application-key` header. GET state still uses v1 via `getLightState(id)` — v1 HTTP, integer IDs — this is removed in Phase 3.
 
-**A full v1 → v2 migration is in progress.** See the section below. Phase 1 (float bri refactor) is complete — the shims above will be removed in Phase 2 when the API calls switch to HTTPS v2.
+**NVS cert management:** `ensureBridgeCert()` runs at startup (after NTP sync). Loads cert + expiry from NVS (`Preferences` namespace `"mira"`, keys `hueCert`/`hueCertExpiry`). Re-fetches using `setInsecure()` if absent, expired, or within 30 days of expiry. All normal v2 calls use the stored PEM via `client.setCACert()`.
 
-## Planned: Hue API v2 Migration
+**Phase 1 and Phase 2 are complete.** See `Markdowns/HANDOFF_v2_migration.md` for the full 3-phase plan. Phase 3 (SSE stream, remove polling) is next.
 
-Migration from v1 (local HTTP, integer light IDs) to v2 (local HTTPS, UUID light IDs, SSE events). **Phase 1 complete** — see `Markdowns/HANDOFF_v2_migration.md` for the full 3-phase plan and per-phase scope.
+## Hue API v2 Migration (in progress)
+
+Migration from v1 (local HTTP, integer light IDs) to v2 (local HTTPS, UUID light IDs, SSE events). **Phases 1 and 2 complete.** See `Markdowns/HANDOFF_v2_migration.md` for the full 3-phase plan and per-phase scope.
 
 ### Why
 
@@ -175,8 +179,8 @@ Audit every `millis()` comparison in `main.cpp` and verify it uses the subtracti
 - **Dashboard logging** — `sendLog()` posts to Railway dashboard (`/api/log`); logs startup, lux/bri/ct updates, wind-down trigger/milestones/completion, wake start/milestones/completion, soft pause trigger/resume, state transitions
 - **`getTimeString()`** — shared time-formatting helper used by `printStatus()` and log messages
 - **Overhead off** — edge-detection crossing of `S3_LUX_HI` (250 lux); CEIL_1+2 turn off descending, turn on ascending; bedside+desk update forced on crossing; `overheadsOn` flag is firmware intent (not physical state) — synced from actual bridge state (`getLightState(LIGHT_CEIL_1).on`) on all NORMAL re-entry points to prevent stale state after user manual changes during SOFT_PAUSE, WAKE, or HARD_OFF
-- **Wind-down** — stable lux counter (lux ≤ 10, hour ≥ 21, 60 readings); 60-min linear dim on bedside+desk to bri=50/ct=400; desk off at end; `transitiontime=300` matches poll interval for seamless gradient; `tickWindDown()` in `main.cpp`
-- **Wake sequence** — `triggerWake(lux)` reads actual bedside state via `getLightState()` at trigger time to seed `wakeStartTarget`; `wakeEndTarget = luxToTarget(ambientLux)`; `tickWakeRamp()` linearly interpolates bri and ct over `wakeStep / WAKE_RAMP_TICKS`; bedside and desk turn on every tick, overheads only when `lux >= S3_LUX_HI && rampBri >= S2_BRI_LO`; `transitiontime=300` matches poll interval for seamless gradient; `WAKE_RAMP_TICKS=40` (20 min); logged on start, 25/50/75%, and completion
+- **Wind-down** — stable lux counter (lux ≤ 10, hour ≥ 21, 60 readings); 60-min linear dim on bedside+desk to floor bri/ct=warm; desk off at end; `dynamics.duration=30000` matches poll interval for seamless gradient; `tickWindDown()` in `main.cpp`
+- **Wake sequence** — `triggerWake(lux)` reads actual bedside state via `getLightState()` at trigger time to seed `wakeStartTarget`; `wakeEndTarget = luxToTarget(ambientLux)`; `tickWakeRamp()` linearly interpolates bri and ct over `wakeStep / WAKE_RAMP_TICKS`; bedside and desk turn on every tick, overheads only when `lux >= S3_LUX_HI && rampBri >= S2_BRI_LO`; `dynamics.duration=30000` matches poll interval for seamless gradient; `WAKE_RAMP_TICKS=40` (20 min); logged on start, 25/50/75%, and completion
 - **Morning lockout** — `state = LOCKED_OUT` at boot; `checkBedsideState()` polls bedside each tick; rising-edge detection triggers `triggerWake()`; re-arms when all 4 lights confirmed off after `LOCKOUT_RESET_HOUR`; resets `stableLuxCount` and `windDownStep` on re-arm; `lastBedsideOn` is an edge-detector accumulator (not physical state) — synced from bridge on all NORMAL and LOCKED_OUT re-entry points to prevent false wake triggers or false lockout re-arms after user changes during SOFT_PAUSE, WAKE, or HARD_OFF
 - **`Preferences` last-state persistence** — `saveLastState(bri, ct)` writes to NVS on every bulb update and at wind-down completion; no longer read by `triggerWake()` (actual bedside state used instead)
 - **Override detection** — `checkOverride()` called at top of `tickNormal()`, skipped while `pauseResumeActive` is true; polls all active bulbs via `getLightState()`; `isManualOverride(ls, expectedOn)` returns true if light was turned off manually or bri/ct matches neither `sentTarget` nor `prevSentTarget` within `STATE_TOLERANCE_BRI`/`STATE_TOLERANCE_CT`; triggers `SOFT_PAUSE` on detection. `prevSentTarget` holds the value of `sentTarget` before the most recent PUT — prevents false override triggers when a bulb is slow to apply an update (Hue RF lag) while still detecting real overrides even when lux simultaneously changes. Will be replaced by SSE event handler in Phase 3.
@@ -188,6 +192,8 @@ Audit every `millis()` comparison in `main.cpp` and verify it uses the subtracti
 - **Non-blocking main loop** — `delay(30000)` replaced with a `while (millis() - tickStart < 30000UL)` loop that polls the button every 50ms, keeping the system responsive between lux ticks.
 - **Wake progress logging** — `tickWakeRamp()` prints `Wake A/B — bri=X/Y` each tick (current step / total ticks, current ramp bri / end target bri)
 - **Wind-down progress logging** — `tickWindDown()` prints `Wind-down X.X/60.0 min — bri=N` each tick (elapsed minutes at 0.5 min/tick)
+- **Hue API v2 (Phase 2)** — `setLight(uuid, on, bri, ct, durationMs)` and `setLightColor(uuid, on, bri, hueV1, satV1, durationMs)` send v2 HTTPS JSON (`on.on`, `dimming.brightness`, `color_temperature.mirek`, `dynamics.duration`). `_bridgeCertPem` global holds the PEM loaded from NVS. `ensureBridgeCert()` in `setup()` auto-fetches and caches the bridge TLS cert. `_hsbToXY()` converts v1 HSB to CIE xy for color mode. `getLightState()` and `checkOverride()` still use v1 HTTP polling — removed in Phase 3.
+- **Dashboard bri migration (Phase 2)** — `status_snapshots.bri` column type migrated to `FLOAT`; startup migration SQL converts historical v1 rows (`bri > 100`) to percent on first deploy. Both JS lux curve calculators (`index.html`, `lux_curve.html`) updated to v2 percent constants; bri displays now show `%` suffix.
 
 
 ## Web Dashboard

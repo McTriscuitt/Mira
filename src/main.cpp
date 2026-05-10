@@ -6,6 +6,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <mbedtls/x509_crt.h>
 #include <ArduinoJson.h>
 #include <NTPClient.h>
 #include <WiFiUDP.h>
@@ -69,6 +71,117 @@ bool lastBedsideOn = false;  // previous bedside poll — detects manual on/off 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", UTC_OFFSET_SEC);
 
+static String _bridgeCertPem; // TLS cert loaded from NVS; used by all v2 HTTPS calls
+
+
+
+// Encode DER bytes as a PEM certificate string (no mbedTLS dependency).
+static String _derToPem(const uint8_t* der, size_t len) {
+    static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    String out = "-----BEGIN CERTIFICATE-----\n";
+    size_t lineLen = 0;
+    for (size_t i = 0; i < len; i += 3) {
+        uint32_t v = (uint32_t)der[i] << 16;
+        if (i+1 < len) v |= (uint32_t)der[i+1] << 8;
+        if (i+2 < len) v |= (uint32_t)der[i+2];
+        out += b64[(v >> 18) & 63];
+        out += b64[(v >> 12) & 63];
+        out += (i+1 < len) ? b64[(v >> 6) & 63] : '=';
+        out += (i+2 < len) ? b64[v & 63]         : '=';
+        lineLen += 4;
+        if (lineLen >= 64) { out += '\n'; lineLen = 0; }
+    }
+    if (lineLen > 0) out += '\n';
+    out += "-----END CERTIFICATE-----\n";
+    return out;
+}
+
+// Convert mbedtls_x509_time (UTC) to a Unix timestamp for NVS expiry storage.
+static unsigned long _certTimeToEpoch(const mbedtls_x509_time& t) {
+    static const int dom[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    unsigned long days = 0;
+    for (int y = 1970; y < t.year; y++) {
+        bool leap = (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0));
+        days += leap ? 366 : 365;
+    }
+    for (int m = 1; m < t.mon; m++) {
+        days += dom[m-1];
+        if (m == 2) {
+            bool leap = (t.year % 4 == 0 && (t.year % 100 != 0 || t.year % 400 == 0));
+            if (leap) days++;
+        }
+    }
+    days += t.day - 1;
+    return days * 86400UL + t.hour * 3600UL + t.min * 60UL + t.sec;
+}
+
+// Connect once with setInsecure(), grab the bridge TLS cert, and write it to NVS.
+static bool _fetchAndStoreBridgeCert() {
+    WiFiClientSecure client;
+    client.setInsecure();
+    client.setTimeout(10);
+    if (!client.connect("192.168.1.186", 443)) {
+        Serial.println("Cert fetch: connect failed");
+        return false;
+    }
+    // Send a minimal GET so the TLS handshake completes and the peer cert is available.
+    client.print("GET /clip/v2/resource/light HTTP/1.0\r\n"
+                 "Host: 192.168.1.186\r\n"
+                 "hue-application-key: " HUE_API_KEY "\r\n"
+                 "Connection: close\r\n\r\n");
+    // Drain just enough to ensure the handshake finished.
+    unsigned long t0 = millis();
+    while (client.connected() && millis() - t0 < 3000UL) {
+        if (client.available()) { client.read(); break; }
+    }
+
+    const mbedtls_x509_crt* cert = client.getPeerCertificate();
+    if (!cert) {
+        Serial.println("Cert fetch: no peer cert");
+        client.stop();
+        return false;
+    }
+
+    String pem    = _derToPem(cert->raw.p, cert->raw.len);
+    unsigned long expiry = _certTimeToEpoch(cert->valid_to);
+    client.stop();
+
+    prefs.begin("mira", false);
+    prefs.putString("hueCert",       pem);
+    prefs.putULong ("hueCertExpiry", expiry);
+    prefs.end();
+
+    _bridgeCertPem = pem;
+    Serial.println("Bridge cert stored. Expiry epoch: " + String(expiry));
+    return true;
+}
+
+// Load cert from NVS; re-fetch if missing, expired, or within 30 days of expiry.
+// Must be called AFTER NTP sync (relies on timeClient.getEpochTime()).
+static void ensureBridgeCert() {
+    prefs.begin("mira", true);
+    String        stored = prefs.getString("hueCert",       "");
+    unsigned long expiry = prefs.getULong ("hueCertExpiry", 0);
+    prefs.end();
+
+    unsigned long now      = timeClient.getEpochTime();
+    bool          needFetch = stored.isEmpty()
+                           || (now >= expiry)
+                           || (expiry - now < 30UL * 24 * 3600);
+
+    if (!needFetch) {
+        _bridgeCertPem = stored;
+        Serial.println("Bridge cert loaded from NVS.");
+        return;
+    }
+
+    Serial.println("Bridge cert missing or expiring — fetching...");
+    if (!_fetchAndStoreBridgeCert() && !stored.isEmpty()) {
+        _bridgeCertPem = stored;
+        Serial.println("Cert fetch failed — using stored cert.");
+    }
+}
+
 
 
 void setRGB(bool r, bool g, bool b) {
@@ -107,36 +220,82 @@ LightState getLightState(int id) {
     return result;
 }
 
-// Phase 1 shim: bri is percent (0.0–100.0); converted to v1 int (0–254) internally.
-// Phase 2 will replace the body with v2 JSON and remove the conversion.
-void setLightColor(int id, bool on, float bri, int hue, int sat, int transitiontime) {
-    int v1bri = constrain((int)(bri * 2.54f), 1, 254);
+// Convert Hue v1 HSB (hue 0–65535, sat 0–254) to CIE xy for the v2 API.
+static void _hsbToXY(int hueV1, int satV1, float& x, float& y) {
+    float h = hueV1 * 360.0f / 65535.0f;
+    float s = satV1 / 254.0f;
+    int   hi = (int)(h / 60.0f) % 6;
+    float f  = h / 60.0f - (int)(h / 60.0f);
+    float p  = 1.0f - s;
+    float q  = 1.0f - f * s;
+    float t  = 1.0f - (1.0f - f) * s;
+    float r, g, b;
+    switch (hi) {
+        case 0: r=1; g=t; b=p; break;
+        case 1: r=q; g=1; b=p; break;
+        case 2: r=p; g=1; b=t; break;
+        case 3: r=p; g=q; b=1; break;
+        case 4: r=t; g=p; b=1; break;
+        default:r=1; g=p; b=q; break;
+    }
+    auto gamma = [](float c) -> float {
+        return c > 0.04045f ? powf((c + 0.055f) / 1.055f, 2.4f) : c / 12.92f;
+    };
+    r = gamma(r); g = gamma(g); b = gamma(b);
+    float X = r*0.4124f + g*0.3576f + b*0.1805f;
+    float Y = r*0.2126f + g*0.7152f + b*0.0722f;
+    float Z = r*0.0193f + g*0.1192f + b*0.9505f;
+    float sum = X + Y + Z;
+    x = (sum > 0.0f) ? X / sum : 0.3f;
+    y = (sum > 0.0f) ? Y / sum : 0.3f;
+}
+
+// v2 HTTPS color PUT (HSB color mode). bri is percent 0.0–100.0. durationMs in ms.
+void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, int durationMs) {
+    if (_bridgeCertPem.isEmpty()) { Serial.println("setLightColor: no cert"); return; }
+    float cx, cy;
+    _hsbToXY(hueV1, satV1, cx, cy);
+
+    WiFiClientSecure client;
+    client.setCACert(_bridgeCertPem.c_str());
     HTTPClient http;
-    String url = String(HUE_BASE_URL) + "/lights/" + id + "/state";
-    http.begin(url);
-    http.addHeader("Content-Type", "application/json");
-    String body = "{\"on\":" + String(on ? "true" : "false") +
-                  ", \"bri\": " + String(v1bri) +
-                  ", \"hue\": " + String(hue) +
-                  ", \"sat\": " + String(sat) +
-                  ", \"transitiontime\": " + String(transitiontime) + "}";
+    http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light/" + uuid);
+    http.addHeader("Content-Type",      "application/json");
+    http.addHeader("hue-application-key", HUE_API_KEY);
+
+    String body = "{\"on\":{\"on\":" + String(on ? "true" : "false") + "}";
+    body += ",\"dynamics\":{\"duration\":" + String(durationMs) + "}";
+    if (on) {
+        body += ",\"dimming\":{\"brightness\":" + String(bri, 1) + "}";
+        body += ",\"color\":{\"xy\":{\"x\":" + String(cx, 4) + ",\"y\":" + String(cy, 4) + "}}";
+    }
+    body += "}";
+
     int code = http.PUT(body);
-    Serial.println("setLightColor(" + String(id) + ") → HTTP " + code);
+    Serial.println("setLightColor(" + String(uuid).substring(0,8) + "…) → HTTP " + code);
     http.end();
 }
 
-void setLight(int id, bool on, float bri, int ct, int transitiontime) {
-    int v1bri = constrain((int)(bri * 2.54f), 1, 254);
+// v2 HTTPS white/CT PUT. bri is percent 0.0–100.0. durationMs in ms.
+void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
+    if (_bridgeCertPem.isEmpty()) { Serial.println("setLight: no cert"); return; }
+    WiFiClientSecure client;
+    client.setCACert(_bridgeCertPem.c_str());
     HTTPClient http;
-    String url = String(HUE_BASE_URL) + "/lights/" + id + "/state";
-    http.begin(url);
-    http.addHeader("Content-Type", "application/json");
-    String body = "{\"on\":" + String(on ? "true" : "false") +
-                ", \"bri\": " + String(v1bri) +
-                ", \"ct\": " + String(ct) +
-                ", \"transitiontime\": " + String(transitiontime) + "}";
+    http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light/" + uuid);
+    http.addHeader("Content-Type",      "application/json");
+    http.addHeader("hue-application-key", HUE_API_KEY);
+
+    String body = "{\"on\":{\"on\":" + String(on ? "true" : "false") + "}";
+    body += ",\"dynamics\":{\"duration\":" + String(durationMs) + "}";
+    if (on) {
+        body += ",\"dimming\":{\"brightness\":" + String(bri, 1) + "}";
+        body += ",\"color_temperature\":{\"mirek\":" + String(ct) + "}";
+    }
+    body += "}";
+
     int code = http.PUT(body);
-    Serial.println("setLight(" + String(id) + ") → HTTP " + code);
+    Serial.println("setLight(" + String(uuid).substring(0,8) + "…) → HTTP " + code);
     http.end();
 }
 
@@ -288,11 +447,11 @@ void tickWakeRamp(float lux) {
     rampBri = constrain(rampBri, 1.0f, 100.0f);
     rampCt  = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
 
-    setLight(LIGHT_BEDSIDE, true, rampBri, rampCt, 300);
-    setLight(LIGHT_DESK,    true, rampBri, rampCt, 300);
+    setLight(LIGHT_UUID_BEDSIDE, true, rampBri, rampCt, 30000);
+    setLight(LIGHT_UUID_DESK,    true, rampBri, rampCt, 30000);
     if (lux >= S3_LUX_HI && rampBri >= S2_BRI_LO) {
-        setLight(LIGHT_CEIL_1, true, rampBri, rampCt, 300);
-        setLight(LIGHT_CEIL_2, true, rampBri, rampCt, 300);
+        setLight(LIGHT_UUID_CEIL_1, true, rampBri, rampCt, 30000);
+        setLight(LIGHT_UUID_CEIL_2, true, rampBri, rampCt, 30000);
         overheadsOn = true;
     }
 
@@ -316,8 +475,8 @@ void tickWindDown() {
     windDownStep++;
 
     if (overheadsOn) {
-        setLight(LIGHT_CEIL_1, false, 0, 0, 10);
-        setLight(LIGHT_CEIL_2, false, 0, 0, 10);
+        setLight(LIGHT_UUID_CEIL_1, false, 0, 0, 1000);
+        setLight(LIGHT_UUID_CEIL_2, false, 0, 0, 1000);
         overheadsOn = false;
     }
 
@@ -330,11 +489,11 @@ void tickWindDown() {
         sendLog("Wind-down " + String(windDownStep / 2) + "/60 min — bri=" + String(wdBri, 1) + "% — " + getTimeString());
     }
 
-    setLight(LIGHT_BEDSIDE, true, wdBri, wdCt, 300);
+    setLight(LIGHT_UUID_BEDSIDE, true, wdBri, wdCt, 30000);
     if (windDownStep < 120) {
-        setLight(LIGHT_DESK, true, wdBri, wdCt, 300);
+        setLight(LIGHT_UUID_DESK, true, wdBri, wdCt, 30000);
     } else {
-        setLight(LIGHT_DESK, false, wdBri, wdCt, 100);
+        setLight(LIGHT_UUID_DESK, false, wdBri, wdCt, 10000);
         state = State::LOCKED_OUT;
         saveLastState(S4_FLOOR_BRI, (uint16_t)CT_WARM);
         Serial.println("Wind-down complete. Desk off, bedside at floor.");
@@ -397,8 +556,8 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
 
     bool newOverheadsOn = lux > S3_LUX_HI;
     if (overheadsOn && !newOverheadsOn) {
-        setLight(LIGHT_CEIL_1, false, 0, 0, 5);
-        setLight(LIGHT_CEIL_2, false, 0, 0, 5);
+        setLight(LIGHT_UUID_CEIL_1, false, 0, 0, 500);
+        setLight(LIGHT_UUID_CEIL_2, false, 0, 0, 500);
         shouldUpdate = true;
     } else if (!overheadsOn && newOverheadsOn) {
         shouldUpdate = true;
@@ -413,11 +572,11 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
         int   rampCt  = (int)(pauseResumeStartTarget.ct  + t * (target.ct  - pauseResumeStartTarget.ct));
         rampBri       = constrain(rampBri, 1.0f, 100.0f);
         rampCt        = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
-        setLight(LIGHT_BEDSIDE, true, rampBri, rampCt, 300);
-        setLight(LIGHT_DESK,    true, rampBri, rampCt, 300);
+        setLight(LIGHT_UUID_BEDSIDE, true, rampBri, rampCt, 30000);
+        setLight(LIGHT_UUID_DESK,    true, rampBri, rampCt, 30000);
         if (overheadsOn) {
-            setLight(LIGHT_CEIL_1, true, rampBri, rampCt, 300);
-            setLight(LIGHT_CEIL_2, true, rampBri, rampCt, 300);
+            setLight(LIGHT_UUID_CEIL_1, true, rampBri, rampCt, 30000);
+            setLight(LIGHT_UUID_CEIL_2, true, rampBri, rampCt, 30000);
         }
         prevSentTarget = sentTarget;
         sentTarget = {rampBri, (uint16_t)rampCt};
@@ -447,11 +606,11 @@ void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
     }
 
     if (shouldUpdate) {
-        setLight(LIGHT_BEDSIDE, true, target.bri, target.ct, 10);
-        setLight(LIGHT_DESK,    true, target.bri, target.ct, 10);
+        setLight(LIGHT_UUID_BEDSIDE, true, target.bri, target.ct, 1000);
+        setLight(LIGHT_UUID_DESK,    true, target.bri, target.ct, 1000);
         if (overheadsOn) {
-            setLight(LIGHT_CEIL_1, true, target.bri, target.ct, 10);
-            setLight(LIGHT_CEIL_2, true, target.bri, target.ct, 10);
+            setLight(LIGHT_UUID_CEIL_1, true, target.bri, target.ct, 1000);
+            setLight(LIGHT_UUID_CEIL_2, true, target.bri, target.ct, 1000);
         }
         prevSentTarget = sentTarget;
         sentTarget = target;
@@ -651,13 +810,15 @@ void setup() {
     }
     Serial.println("VEML7700 ready.");
 
+    ensureBridgeCert(); // must be after NTP sync; loads or fetches the bridge TLS cert
+
     setRGB(false, false, false); // LED off — boot complete
 
     // Startup flash — deep purple, then restore previous state
     LightState saved = getLightState(LIGHT_BEDSIDE);
-    setLightColor(LIGHT_BEDSIDE, true, 200, 48000, 200, 10); // fade in purple over 1s
-    delay(3000);                                              // hold for 3s
-    setLight(LIGHT_BEDSIDE, saved.on, saved.bri, saved.ct, 10); // restore over 1s
+    setLightColor(LIGHT_UUID_BEDSIDE, true, 78.7f, 48000, 200, 1000); // fade in purple over 1s
+    delay(3000);                                                        // hold for 3s
+    setLight(LIGHT_UUID_BEDSIDE, saved.on, saved.bri, saved.ct, 1000); // restore over 1s
 
     lastBedsideOn = getLightState(LIGHT_BEDSIDE).on; // seed edge detection — prevents false wake trigger on first tick
     overheadsOn   = getLightState(LIGHT_CEIL_1).on;  // seed from actual state — prevents false override and bad dashboard reporting

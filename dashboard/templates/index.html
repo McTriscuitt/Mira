@@ -412,7 +412,7 @@
       _lastData = data;
       const sentinel = data.ct === 0;
       document.getElementById('val-lux').textContent = Math.round(data.lux);
-      document.getElementById('val-bri').textContent = sentinel ? '—' : `${data.bri} · ${Math.round(data.bri / 254 * 100)}%`;
+      document.getElementById('val-bri').textContent = sentinel ? '—' : `${data.bri?.toFixed(1) ?? '—'}%`;
       document.getElementById('val-ct').textContent = sentinel ? '—' : data.ct;
       document.getElementById('val-overhead').textContent = sentinel ? '—' : (data.overhead_on ? 'on' : 'off');
       document.getElementById('val-ts').textContent = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—';
@@ -602,12 +602,12 @@
       calc(lux) {
         lux = Math.max(0, Math.min(lux, 3000));
         let bri;
-        if      (lux <= 10)  { bri = 50  + 100 * this._log(lux/10, 20); }
-        else if (lux <= 200) { const t=(lux-10)/190;   bri = 150 + 50 * this._crawl(t, 0.5); }
-        else if (lux <= 500) { const t=(lux-200)/300;  bri = 160 + 60 * t**5; }
-        else                 { const t=(lux-500)/2500; bri = 220 + 34 * this._log(t, 4.5); }
-        const n = (bri-50)/204;
-        return { bri: Math.round(bri), ct: Math.round(400 - 120*n) };
+        if      (lux <= 10)  { bri = 19.7 + 39.4 * this._log(lux/10, 20); }
+        else if (lux <= 200) { const t=(lux-10)/190;   bri = 59.1 + 19.6 * this._crawl(t, 0.5); }
+        else if (lux <= 500) { const t=(lux-200)/300;  bri = 63.0 + 23.6 * t**5; }
+        else                 { const t=(lux-500)/2500; bri = 86.6 + 13.4 * this._log(t, 4.5); }
+        const n = (bri - 19.7) / 80.3;
+        return { bri, ct: Math.round(400 - 120*n) };
       }
     };
 
@@ -623,7 +623,7 @@
       const px = 12, py = 7;
       const cw = W - 2*px, ch = H - 2*py;
       function lx(l) { return px + Math.log1p(l)/Math.log1p(3000) * cw; }
-      function by(b) { return py + ch - (b - 50)/204 * ch; }
+      function by(b) { return py + ch - (b - 19.7)/80.3 * ch; }
 
       ctx.fillStyle = '#141414';
       ctx.fillRect(0, 0, W, H);
@@ -641,8 +641,8 @@
       // Dashed connector at the 200-lux discontinuity (overheads on)
       ctx.setLineDash([2, 3]);
       ctx.beginPath();
-      ctx.moveTo(lx(200), by(200));
-      ctx.lineTo(lx(200), by(160));
+      ctx.moveTo(lx(200), by(78.7));
+      ctx.lineTo(lx(200), by(63.0));
       ctx.strokeStyle = '#2a2a2a';
       ctx.lineWidth = 1;
       ctx.stroke();

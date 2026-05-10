@@ -40,7 +40,7 @@ class StatusSnapshot(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     state = db.Column(db.String(20), nullable=False)
     lux = db.Column(db.Float)
-    bri = db.Column(db.Integer)
+    bri = db.Column(db.Float)
     ct = db.Column(db.Integer)
     overhead_on = db.Column(db.Boolean)
     wind_down_step = db.Column(db.Integer)
@@ -88,6 +88,20 @@ with app.app_context():
                 f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {coltype}'
             ))
         conn.commit()
+
+        # Migrate bri from v1 integer (0–254) to v2 float percent (0.0–100.0)
+        row = conn.execute(text(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name='status_snapshots' AND column_name='bri'"
+        )).fetchone()
+        if row and row[0] == 'integer':
+            conn.execute(text(
+                'ALTER TABLE status_snapshots ALTER COLUMN bri TYPE FLOAT USING bri::float'
+            ))
+            conn.execute(text(
+                'UPDATE status_snapshots SET bri = ROUND(CAST(bri AS NUMERIC) / 2.54, 1) WHERE bri > 100'
+            ))
+            conn.commit()
 
 
 # --- Auth helpers ---

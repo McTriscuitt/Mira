@@ -3,6 +3,11 @@
 We've been discussing migrating Mira's Hue integration from API v1 (local HTTP) to API v2 (local HTTPS). Nothing has been implemented yet — this is a planning conversation. Here's what was decided.
 
 ---
+## User Notes
+
+- I am sure there are other ways to utilize the SSE. We will need to brainstorm other ways to use it
+
+---
 
 ## Why Migrate
 
@@ -75,12 +80,12 @@ The migration is split into three independently testable phases. Flash and verif
 - `config.h` — split `STATE_TOLERANCE` into `STATE_TOLERANCE_BRI` (float, percent) and `STATE_TOLERANCE_CT` (int, mirek); add v2 URL/key/UUID placeholder defines for Phase 2 setup
 - millis() rollover audit — all existing comparisons already use safe subtraction form; no changes needed
 
-### Phase 2 — NVS cert storage + v2 API calls
-*Switches the actual Hue API calls to HTTPS v2. Requires UUID discovery first.*
+### Phase 2 — NVS cert storage + v2 API calls ✅ complete
+*Switches the actual Hue API calls to HTTPS v2.*
 
-- `config.h` — activate v2 base URL, fill in light UUIDs (from manual GET to `/clip/v2/resource/light`)
-- `main.cpp` — implement NVS cert fetch/store/expiry helper; rewrite `setLight()` and `setLightColor()` to use v2 JSON schema, HTTPS client, `hue-application-key` header, and UUID-based endpoints; remove the Phase 1 conversion shim (bri is now native percent end-to-end)
-- Dashboard — update `app.py` bri column type + run the historical data migration SQL; update JS `calc()` and `by()` in both HTML templates; update bri display formula (see "Dashboard Changes" section below)
+- `config.h` — v2 base URL + `HUE_API_KEY` activated; UUID defines filled in from discovery (Bedside: `6cccebb8`, Desk: `14bd82eb`, Ceil_1: `616a67e4`, Ceil_2: `2064523e`)
+- `main.cpp` — `ensureBridgeCert()` loads/fetches bridge TLS cert from NVS; `setLight()` and `setLightColor()` rewritten to v2 HTTPS JSON (`on.on`, `dimming.brightness`, `color_temperature.mirek`, `dynamics.duration` in ms); Phase 1 shims removed; `_hsbToXY()` added for color mode; `getLightState()` stays v1 HTTP (removed in Phase 3)
+- Dashboard — `bri` column migrated to `FLOAT`; startup migration SQL converts historical rows; JS `calc()` and `by()` updated to v2 percent constants in both templates; bri displays show `%` suffix
 
 ### Phase 3 — SSE stream + remove polling
 *The payoff: instant override detection, consistent 30s tick intervals.*
@@ -94,14 +99,14 @@ The migration is split into three independently testable phases. Flash and verif
 
 | Area | Change | Phase |
 |---|---|---|
-| `config.h` | Split `STATE_TOLERANCE`; add v2 URL/key/UUID placeholders | 1 |
-| `lightcurve.h` | All curve constants and `luxToTarget()` output in 0.0–100.0 range | 1 |
-| `LightTarget` struct | `bri` becomes `float` | 1 |
-| `setLight()` / `setLightColor()` | Phase 1: v1-boundary shim; Phase 2: full v2 JSON + HTTPS | 1→2 |
-| `getLightState()` | Phase 1: scale bri to percent; Phase 3: removed | 1→3 |
-| NVS cert storage | New cert fetch/store/expiry logic, isolated helper | 2 |
-| `config.h` | Activate v2 base URL, fill light UUIDs | 2 |
-| Dashboard | bri column type, JS curve constants, display formula | 2 |
+| `config.h` | Split `STATE_TOLERANCE`; add v2 URL/key/UUID placeholders | ✅ 1 |
+| `lightcurve.h` | All curve constants and `luxToTarget()` output in 0.0–100.0 range | ✅ 1 |
+| `LightTarget` struct | `bri` becomes `float` | ✅ 1 |
+| `setLight()` / `setLightColor()` | Full v2 JSON + HTTPS, UUID-based endpoints, `_hsbToXY()` | ✅ 2 |
+| `getLightState()` | bri scaled to percent (v1 HTTP stays until Phase 3) | ✅ 1 → 3 |
+| NVS cert storage | `ensureBridgeCert()`, `_fetchAndStoreBridgeCert()`, `_derToPem()` | ✅ 2 |
+| `config.h` | v2 base URL + API key active; UUIDs hardcoded | ✅ 2 |
+| Dashboard | `bri` column → FLOAT; JS curve constants + `by()` + display | ✅ 2 |
 | `checkOverride()` | Replaced by SSE event handler | 3 |
 | Non-blocking wait loop | SSE stream reader + tick timing correction | 3 |
 | millis() rollover audit | Already clean — no changes needed | ✅ done |
