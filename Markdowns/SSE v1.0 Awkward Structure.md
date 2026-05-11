@@ -45,3 +45,21 @@ a snapshot via the regular v2 endpoint anytime the cache feels stale (e.g., afte
 - (a) — async SSE task — is the most impactful for responsiveness but doesn't change the discrimination logic; it
   just makes the existing logic run sooner.
   ─────────────────────────────────────────────────
+
+---
+
+## Implementation Status (May 2026)
+
+| Item | Status | Where |
+|---|---|---|
+| (a) Async SSE task pinned to Core 1 | **Open** — easier after (d) cleaned up cache contract | — |
+| (b) Recent-PUT ring buffer for echo discrimination | **Shipped** | `noteRecentPut()` / `eventMatchesRecentPut()` / `recentPuts[4]` in `main.cpp`, commits `8811d5c` + `71ee541` |
+| (c) Per-light `sentTarget` | **Shipped** (folded into b) | `recentPuts[4]` is intrinsically per-UUID; `sentTarget` stays single-tuple for `tickNormal`'s drift check, where the per-light split would be redundant |
+| (d) Cache contract simplified | **Shipped** | `lightCache[]` no longer participates in override semantics — that's `recentPuts[]`'s job. Cache is now read-mostly: last-reported state for diagnostics + bedside-edge sync at NORMAL/LOCKED_OUT re-entry |
+| (e) Bootstrap/SSE unification | **Open** — independent of the other items |
+
+### Post-implementation note: tolerance tuning
+
+Initial implementation reused `STATE_TOLERANCE_BRI=1.2` and `STATE_TOLERANCE_CT=3` for trajectory matching. False positives on every NORMAL entry: Zigbee/bulb-side step quantization pushed settled echoes ~1–3% bri / 5–10 mirek outside `[prior, target] ± STATE_TOLERANCE`. Fixed in `71ee541` by introducing wider `TRAJECTORY_TOLERANCE_BRI=5.0` / `TRAJECTORY_TOLERANCE_CT=15` for the echo discriminator while keeping `STATE_TOLERANCE_*` at their tight values for the drift check in `tickNormal`. `RECENT_PUT_GRACE_MS` bumped 2 s → 5 s for slow mesh settles. Diagnostic `Serial.printf` added at the override trigger point.
+
+The point about (b) "no false negatives during the mute window" remains valid post-tuning: a real user-driven override (typically double-digit percent bri or 50+ mirek) is well outside the 5%/15-mirek window, so the wider tolerance preserves the architectural win without re-introducing the missed-override class.

@@ -218,3 +218,16 @@ We've been discussing ways to integrate external automation into Mira. No decisi
 - The existing `ESP32_API_KEY` bearer token pattern should extend to any inbound webhook endpoints for security
 - This connects to the planned Google Calendar integration already noted in `DASHBOARD.md`
 - No implementation decisions made — treat this as an open design area to revisit
+
+---
+
+## Post-Phase-3 Refinements (May 2026)
+
+Phase 3 shipped SSE-based override detection using a time-window mute (`muteOverride` / `MUTE_AFTER_TRANSITION_MS`) plus a single `sentTarget` tuple. In practice this turned out to be awkward — see `SSE v1.0 Awkward Structure.md` for the full critique. Tracked items (b), (c), (d) from that doc were implemented as a single refactor:
+
+- Time-window mute → per-light **`RecentPut recentPuts[4]`** trajectory ring (commit `8811d5c`). Each outgoing PUT calls `noteRecentPut()` *before* the HTTP request to snapshot `(priorBri/Ct, targetBri/Ct, postedAtMs, durationMs)`. The SSE handler calls `eventMatchesRecentPut()` to check if the event's reported values lie within the trajectory `[min(prior, target), max(prior, target)] ± TRAJECTORY_TOLERANCE_*`. On-trajectory → echo, ignored. Off-trajectory → external, fire `SOFT_PAUSE`.
+- **Two-tier tolerance** (commit `71ee541`). The original refactor reused `STATE_TOLERANCE_BRI=1.2%` / `STATE_TOLERANCE_CT=3` for both "should I send a new PUT?" (drift in `tickNormal`) and trajectory matching, which turned out too tight — Zigbee/bulb-side step quantization (~1–3% bri, 5–10 mirek) routinely pushed settled echoes outside the window, firing `SOFT_PAUSE` on every NORMAL entry. Split into `TRAJECTORY_TOLERANCE_BRI=5.0` / `TRAJECTORY_TOLERANCE_CT=15` for the echo discriminator; `STATE_TOLERANCE_*` keeps its tighter values for drift detection. `RECENT_PUT_GRACE_MS` also bumped from 2 s to 5 s for slow Zigbee mesh settles.
+- **Closed-loop discrimination.** The new mechanism doesn't depend on bridge-supplied actor metadata (which is unreliable on `light`-event `owner` fields — see `SSE_BRAINSTORM.md` section A verification note). It depends only on what we just told the bridge, so it can't be broken by a bridge firmware update changing event shape.
+- **Diagnostic at the trigger point.** A single `Serial.printf` immediately before `SOFT_PAUSE` entry dumps event vs `RecentPut` state side-by-side. Free in steady state (only runs on the override path); makes root-causing the next misfire a single-flash exercise.
+
+Items (a) — pin SSE handling to Core 1 via FreeRTOS task — and (e) — collapse `bootstrapLightStates()` with SSE event handling — remain open. Both became lower-risk after (b)/(c)/(d): with the cache and `sentTarget` now read-mostly (no longer participating in override discrimination), the mutex surface for an async SSE task is small.

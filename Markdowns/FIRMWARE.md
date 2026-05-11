@@ -159,10 +159,10 @@ All phase triggers are based on lux readings, not time of day — adapts to seas
 ## Override System
 
 ### Soft Pause *(implemented)*
-- **Auto-trigger:** `checkOverride()` called at top of `tickNormal()`; polls all active bulbs; `isManualOverride(ls, expectedOn)` returns true if light turned off manually or bri/ct matches neither `lastTarget` nor `prevTarget` within `STATE_TOLERANCE`; sets `state = SOFT_PAUSE`, records `softPauseStart = millis()`. `prevTarget` stores the value of `lastTarget` before each PUT — guards against false positives when a Hue bulb is slow to apply an update (RF lag), without creating a grace-period window that would let a real override slip through if lux simultaneously changes enough to push a new PUT.
+- **Auto-trigger (SSE, trajectory-matched):** `handleLightUpdate()` runs on every incoming SSE light event. Each outgoing PUT calls `noteRecentPut(idx, on, bri, ct, durationMs)` *before* the HTTP request, snapshotting `(priorBri/Ct from cache, targetBri/Ct, postedAtMs, durationMs)` into `recentPuts[idx]`. The handler then calls `eventMatchesRecentPut(...)` for each incoming event — on-trajectory (within `[min(prior, target), max(prior, target)] ± TRAJECTORY_TOLERANCE_*`, entry not expired past `postedAtMs + durationMs + RECENT_PUT_GRACE_MS`) → echo, ignored. Off-trajectory → external change, sets `state = SOFT_PAUSE` and `softPauseStart = millis()`. Closed-loop: depends only on what we told the bridge, not on bridge-supplied metadata. Per-light: an in-flight bedside PUT can't mask a real override on the overheads. Replaces the previous polling-based `checkOverride()` and time-window `muteOverride()` mechanisms.
 - **Button trigger:** Short press when in NORMAL state
 - **Behavior:** System skips all `setLight()` calls while paused
-- **Auto-resume:** `tickSoftPause()` resumes to NORMAL after `SOFT_PAUSE_MS` (60 min); resets `lastTarget = {255, 0}` sentinel to force first update after resume; syncs `overheadsOn` and `lastBedsideOn` from bridge to prevent stale edge-detection state after user manual changes during the pause window
+- **Auto-resume:** `tickSoftPause()` resumes to NORMAL after `SOFT_PAUSE_MS` (60 min); resets `sentTarget = {-1.0f, 0}` sentinel to force first PUT after resume; syncs `overheadsOn` and `lastBedsideOn` from cache to prevent stale edge-detection state after user manual changes during the pause window. Override detection is also suppressed for the duration of the 10-min resume ramp via the `pauseResumeActive` flag.
 
 ### Hard Off *(implemented)*
 - **Trigger:** Button long press (700ms)
@@ -182,7 +182,7 @@ Two tactile buttons, both active LOW, internal pull-up. Both polled every 50ms i
 
 | Press type | Action |
 |---|---|
-| Short press | If not NORMAL → go to NORMAL (sets `skipOverrideCheck = true`); if already NORMAL → SOFT_PAUSE |
+| Short press | If not NORMAL → go to NORMAL (resets `sentTarget` to sentinel; syncs `overheadsOn` and `lastBedsideOn` from cache); if already NORMAL → SOFT_PAUSE |
 | Long press (700ms) | Hard off toggle (HARD_OFF ↔ LOCKED_OUT) |
 
 ### BTN_CYCLE — D10 (GPIO21)
@@ -194,7 +194,7 @@ Short press only. Advances `(int)state + 1) % 6` through the state enum order an
 | Target state | What forceState does |
 |---|---|
 | LOCKED_OUT | Resets `stableLuxCount = 0`, `windDownStep = 0`; syncs `lastBedsideOn` from bridge |
-| NORMAL | Resets `lastTarget` sentinel, sets `skipOverrideCheck = true`, resets `stableLuxCount = 0`; syncs `overheadsOn` and `lastBedsideOn` from bridge |
+| NORMAL | Resets `sentTarget` to sentinel, resets `stableLuxCount = 0`; syncs `overheadsOn` and `lastBedsideOn` from bridge cache. (No transition-time mute is needed — override discrimination is per-PUT via the `recentPuts[]` trajectory ring; see "Override detection" in CLAUDE.md.) |
 | WAKE | Calls `triggerWake(lastLux)` (reads actual bedside state via `getLightState`, seeds ramp) |
 | WIND_DOWN | Seeds `windDownStartBri` from `lastTarget` (or `luxToTarget(lastLux)` if sentinel), resets `windDownStep = 0` |
 | SOFT_PAUSE | Sets `softPauseStart = millis()` |
