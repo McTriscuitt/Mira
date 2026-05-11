@@ -12,14 +12,14 @@ constexpr float S4_LOG_BASE  = 20.0f;
 constexpr float S4_FLOOR_BRI = 19.7f;   // ~50/254 — night floor
 constexpr float S4_BRI_HI    = 59.1f;   // ~150/254 — locked to S3_BRI_LO
 
-// Segment 3: plateau crawl (15 → 200 lux) — bedside + desk only
+// Segment 3: plateau crawl (10 → 200 lux) — bedside + desk only
 constexpr float S3_LUX_HI      = 200.0f;
 constexpr float S3_CRAWL_POWER = 0.50f;
 constexpr float S3_BRI_HI      = 78.7f;   // ~200/254 — bri just after overheads turn off
 
-// Segment 2: parabolic rise (300 → 500 lux) — all four bulbs
-// NOTE: S2_BRI_LO != S3_BRI_HI — intentional discontinuity at 300 lux.
-// As lux drops through 300: overheads cut, lamps jump from ~63% → ~79% to compensate.
+// Segment 2: parabolic rise (200 → 500 lux) — all four bulbs
+// NOTE: S2_BRI_LO != S3_BRI_HI — intentional discontinuity at 200 lux.
+// As lux drops through 200: overheads cut, lamps jump from ~63% → ~79% to compensate.
 constexpr float S2_LUX_HI     = 500.0f;
 constexpr float S2_PARA_POWER = 5.0f;
 constexpr float S2_BRI_LO     = 63.0f;    // ~160/254 — seg2 bottom — all four bulbs at this level
@@ -67,23 +67,23 @@ LightTarget luxToTarget(float lux) {
     float bri;
 
     if (lux <= S4_LUX_HI) {
-        // Segment 4: night log rise (bri 50 → 150)
+        // Segment 4: night log rise (bri ~19.7% → ~59.1%)
         float t = lux / S4_LUX_HI;
         bri = S4_FLOOR_BRI + (S4_BRI_HI - S4_FLOOR_BRI) * _logMap(t, S4_LOG_BASE);
 
     } else if (lux <= S3_LUX_HI) {
-        // Segment 3: plateau crawl (bri 150 → 200) — bedside + desk only
+        // Segment 3: plateau crawl (bri ~59.1% → ~78.7%) — bedside + desk only
         float t = (lux - S4_LUX_HI) / (S3_LUX_HI - S4_LUX_HI);
         bri = S4_BRI_HI + (S3_BRI_HI - S4_BRI_HI) * _hyperCrawl(t, S3_CRAWL_POWER);
 
     } else if (lux <= S2_LUX_HI) {
-        // Segment 2: parabolic rise (bri 160 → 220) — all four bulbs
-        // Starts at S2_BRI_LO (160), not S3_BRI_HI (200): intentional discontinuity
+        // Segment 2: parabolic rise (bri ~63.0% → ~86.6%) — all four bulbs
+        // Starts at S2_BRI_LO (~63%), not S3_BRI_HI (~79%): intentional discontinuity
         float t = (lux - S3_LUX_HI) / (S2_LUX_HI - S3_LUX_HI);
         bri = S2_BRI_LO + (S2_BRI_HI - S2_BRI_LO) * powf(t, S2_PARA_POWER);
 
     } else {
-        // Segment 1: daytime log rise (bri 220 → 254) — all four bulbs
+        // Segment 1: daytime log rise (bri ~86.6% → 100.0%) — all four bulbs
         float t = (lux - S2_LUX_HI) / (S1_LUX_HI - S2_LUX_HI);
         bri = S2_BRI_HI + (S1_BRI_HI - S2_BRI_HI) * _logMap(t, S1_LOG_BASE);
     }
