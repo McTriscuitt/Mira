@@ -73,11 +73,25 @@ bool        pauseResumeActive      = false;
 int         pauseResumeStep        = 0;
 LightTarget pauseResumeStartTarget = {0, 0}; // bri/ct snapshot at soft pause entry — interpolated on resume
 
-// Override mute — suppresses SSE-driven override detection for a window after a state
-// transition into NORMAL, while our own PUTs are still echoing back over the SSE stream.
-unsigned long overrideMuteStart       = 0;
-unsigned long overrideMuteDur         = 0;
-const unsigned long MUTE_AFTER_TRANSITION_MS = 5000UL;
+// Recent-PUT trajectory record — one slot per light index. Replaces the old
+// time-window override mute. Each outgoing PUT snapshots its (prior, target)
+// trajectory here so the SSE handler can discriminate self-PUT echoes (events
+// that land on the trajectory) from external overrides (events that don't).
+// Closed-loop: depends only on what we just told the bridge, not on bridge
+// metadata. Per-light, so an in-flight bedside PUT doesn't mask a real override
+// on the overheads.
+struct RecentPut {
+    bool          active     = false;
+    bool          onTarget   = false;
+    float         priorBri   = 0.0f;
+    float         targetBri  = 0.0f;
+    int           priorCt    = 0;
+    int           targetCt   = 0;
+    unsigned long postedAtMs = 0;
+    unsigned long durationMs = 0;
+};
+RecentPut recentPuts[4];
+const unsigned long RECENT_PUT_GRACE_MS = 2000UL; // post-ramp slack for late echoes
 
 // SSE event stream — persistent HTTPS connection over which the bridge pushes state changes.
 WiFiClientSecure sseClient;
@@ -85,7 +99,7 @@ String        sseBuf;            // partial-line accumulator for incoming SSE by
 unsigned long sseLastByteMs    = 0;
 unsigned long sseLastConnectMs = 0;
 const unsigned long SSE_RECONNECT_DELAY_MS = 5000UL;
-const unsigned long SSE_STALE_TIMEOUT_MS   = 60000UL;
+const unsigned long SSE_STALE_TIMEOUT_MS   = 600000UL; // Hue v2 sends no keepalive; only reconnect on long silence
 
 // Bedside edge detection
 bool lastBedsideOn = false;  // previous bedside poll — detects manual on/off flips
@@ -233,45 +247,55 @@ LightState cachedLight(int idx) {
     return {c.on, c.bri, c.ct};
 }
 
-// ── Override mute window ────────────────────────────────────────────────────
-// Time-based replacement for the old `skipOverrideCheck` single-shot flag.
-// SSE events stream in continuously, so a mute *window* is the right primitive:
-// after entering NORMAL, our own PUTs echo back over SSE for a moment — we mute
-// override detection long enough for those echoes to land without false positives.
+// ── Recent-PUT trajectory matching ──────────────────────────────────────────
+// Replaces the old time-window override mute. The key insight: a self-PUT echo
+// arrives reporting bri/ct values that lie on the trajectory between our pre-PUT
+// state and our PUT target. An external override arrives reporting values that
+// don't. Matching on trajectory (not just endpoint) absorbs the bridge's
+// intermediate ramp echoes without needing to time-window them.
 
-static void muteOverride(unsigned long ms) {
-    overrideMuteStart = millis();
-    overrideMuteDur   = ms;
+// Snapshot an outgoing PUT's trajectory. Called from setLight*/setLightColor
+// *before* the HTTP request goes out — the bridge can echo back faster than
+// HTTPClient::PUT() returns, so the entry must already exist when the SSE
+// event lands.
+static void noteRecentPut(int idx, bool on, float bri, int ct, unsigned long durationMs) {
+    if (idx < 0 || idx >= 4) return;
+    RecentPut& r = recentPuts[idx];
+    r.active     = true;
+    r.onTarget   = on;
+    r.priorBri   = lightCache[idx].bri;
+    r.targetBri  = bri;
+    r.priorCt    = lightCache[idx].ct;
+    r.targetCt   = ct;
+    r.postedAtMs = millis();
+    r.durationMs = durationMs;
 }
 
-static bool isOverrideMuted() {
-    if (overrideMuteDur == 0) return false;
-    if (millis() - overrideMuteStart >= overrideMuteDur) {
-        overrideMuteDur = 0;
+// Does an incoming SSE event lie on the trajectory of the most recent PUT for
+// this light? Auto-expires entries past their dynamics window + grace.
+static bool eventMatchesRecentPut(int idx,
+                                  bool hasOn,  bool   evOn,
+                                  bool hasBri, float  evBri,
+                                  bool hasCt,  int    evCt) {
+    if (idx < 0 || idx >= 4) return false;
+    RecentPut& r = recentPuts[idx];
+    if (!r.active) return false;
+    if (millis() - r.postedAtMs > r.durationMs + RECENT_PUT_GRACE_MS) {
+        r.active = false;
         return false;
     }
-    return true;
-}
-
-// Per-light override check. Each light has an "expected" state under NORMAL:
-//   - bedside / desk: always on, matching sentTarget
-//   - overheads:      on with sentTarget iff overheadsOn==true; otherwise expected off
-// When the expected state is "off", manual changes are ignored — preserves the prior
-// behavior of only checking overheads when the firmware intends them on.
-static bool isOverridden(int idx, LightState ls) {
-    bool expectedOn;
-    switch (idx) {
-        case LIGHT_BEDSIDE:
-        case LIGHT_DESK:    expectedOn = true;        break;
-        case LIGHT_CEIL_1:
-        case LIGHT_CEIL_2:  expectedOn = overheadsOn; break;
-        default:            return false;
+    if (hasOn && evOn != r.onTarget) return false;
+    if (hasBri) {
+        float lo = fminf(r.priorBri, r.targetBri) - STATE_TOLERANCE_BRI;
+        float hi = fmaxf(r.priorBri, r.targetBri) + STATE_TOLERANCE_BRI;
+        if (evBri < lo || evBri > hi) return false;
     }
-    if (!expectedOn) return false;
-    if (!ls.on)      return true;
-    if (fabsf(ls.bri - sentTarget.bri) > STATE_TOLERANCE_BRI) return true;
-    if (abs (ls.ct  - sentTarget.ct)   > STATE_TOLERANCE_CT)  return true;
-    return false;
+    if (hasCt) {
+        int lo = min(r.priorCt, r.targetCt) - (int)STATE_TOLERANCE_CT;
+        int hi = max(r.priorCt, r.targetCt) + (int)STATE_TOLERANCE_CT;
+        if (evCt < lo || evCt > hi) return false;
+    }
+    return true;
 }
 
 // ── One-time bootstrap of the light cache ───────────────────────────────────
@@ -362,6 +386,13 @@ static void _hsbToXY(int hueV1, int satV1, float& x, float& y) {
 
 // v2 HTTPS color PUT (HSB color mode). bri is percent 0.0–100.0. durationMs in ms.
 void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, int durationMs) {
+    // Record trajectory so SSE echoes are recognized as ours. Color mode doesn't
+    // change CT meaningfully — pass through the cached value so the ct check is a
+    // self-match.
+    int idx = idxByUuid(uuid);
+    int ctTarget = (idx >= 0) ? lightCache[idx].ct : 0;
+    noteRecentPut(idx, on, bri, ctTarget, (unsigned long)durationMs);
+
     float cx, cy;
     _hsbToXY(hueV1, satV1, cx, cy);
 
@@ -387,6 +418,9 @@ void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, i
 
 // v2 HTTPS white/CT PUT. bri is percent 0.0–100.0. durationMs in ms.
 void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
+    // Record trajectory so the SSE echo of this PUT is recognized as ours.
+    noteRecentPut(idxByUuid(uuid), on, bri, ct, (unsigned long)durationMs);
+
     WiFiClientSecure client;
     client.setInsecure();
     HTTPClient http;
@@ -497,32 +531,55 @@ void sendDashboardStatus(float lux) {
 // update the cache, and trigger SOFT_PAUSE on a real manual override.
 
 // Apply a single light update event to the cache; check override if in NORMAL.
+// Override is evaluated ONLY against fields present in this event — not against
+// cache-merged state. The bridge splits state changes across multiple events
+// (e.g. a `dimming` event followed by a separate `color_temperature` event),
+// so the cache is a Frankenstein of new + stale fields between arrivals, and
+// using cached fields would generate false positives every time a partial event
+// landed during a steady-state lux-driven PUT.
 static void handleLightUpdate(JsonObjectConst upd) {
     const char* uuid = upd["id"];
     int idx = idxByUuid(uuid);
     if (idx < 0) return;
 
-    bool changed = false;
     JsonVariantConst onField  = upd["on"]["on"];
     JsonVariantConst briField = upd["dimming"]["brightness"];
     JsonVariantConst ctField  = upd["color_temperature"]["mirek"];
-    if (!onField.isNull())  { lightCache[idx].on  = onField.as<bool>();   changed = true; }
-    if (!briField.isNull()) { lightCache[idx].bri = briField.as<float>(); changed = true; }
-    if (!ctField.isNull())  { lightCache[idx].ct  = ctField.as<int>();    changed = true; }
-    if (!changed) return;
+    bool hasOn  = !onField.isNull();
+    bool hasBri = !briField.isNull();
+    bool hasCt  = !ctField.isNull();
+    if (!hasOn && !hasBri && !hasCt) return;
+
+    if (hasOn)  lightCache[idx].on  = onField.as<bool>();
+    if (hasBri) lightCache[idx].bri = briField.as<float>();
+    if (hasCt)  lightCache[idx].ct  = ctField.as<int>();
 
     if (state != State::NORMAL) return;
-    if (isOverrideMuted())      return;
     if (pauseResumeActive)      return;
 
-    LightState ls = {lightCache[idx].on, lightCache[idx].bri, lightCache[idx].ct};
-    if (isOverridden(idx, ls)) {
-        state             = State::SOFT_PAUSE;
-        softPauseStart    = millis();
-        pauseResumeActive = false;
-        Serial.println("SSE override — soft pause.");
-        sendLog("Manual override — soft pause — " + getTimeString());
+    bool expectedOn;
+    switch (idx) {
+        case LIGHT_BEDSIDE:
+        case LIGHT_DESK:    expectedOn = true;        break;
+        case LIGHT_CEIL_1:
+        case LIGHT_CEIL_2:  expectedOn = overheadsOn; break;
+        default:            return;
     }
+    if (!expectedOn) return;
+
+    // Echo discrimination: if this event lies on the trajectory of a recent PUT
+    // for this light, it's our own echo — ignore it. Anything off-trajectory is
+    // an external change by construction.
+    bool  evOn  = hasOn  ? onField.as<bool>()   : false;
+    float evBri = hasBri ? briField.as<float>() : 0.0f;
+    int   evCt  = hasCt  ? ctField.as<int>()    : 0;
+    if (eventMatchesRecentPut(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt)) return;
+
+    state             = State::SOFT_PAUSE;
+    softPauseStart    = millis();
+    pauseResumeActive = false;
+    Serial.println("SSE override — soft pause.");
+    sendLog("Manual override — soft pause — " + getTimeString());
 }
 
 // Parse one SSE `data:` payload — an array of events, each with a nested array of resource updates.
@@ -704,7 +761,6 @@ void tickWakeRamp(float lux) {
 
     if (t >= 1.0f) {
         state             = State::NORMAL;
-        muteOverride(MUTE_AFTER_TRANSITION_MS);
         Serial.println("Wake complete — handing off to normal.");
         sendLog("Wake complete — " + getTimeString());
     }
@@ -745,9 +801,14 @@ void tickWindDown() {
     sentTarget = {wdBri, (uint16_t)wdCt};
 }
 
-void tickNormal(float lux, LightTarget target, bool shouldUpdate) {
+void tickNormal(float lux, LightTarget target) {
     // Override detection now happens asynchronously inside the SSE handler
     // (handleLightUpdate), so tickNormal is no longer responsible for polling.
+
+    // Compute shouldUpdate here, not in loop(), so a forceState()-driven
+    // sentTarget reset (via pollDashboardCommand earlier this tick) is reflected.
+    bool shouldUpdate = fabsf(target.bri - sentTarget.bri) > STATE_TOLERANCE_BRI
+                     || abs(target.ct - sentTarget.ct)    > STATE_TOLERANCE_CT;
 
     bool newOverheadsOn = lux > S3_LUX_HI;
     if (overheadsOn && !newOverheadsOn) {
@@ -826,7 +887,6 @@ void tickSoftPause() {
         overheadsOn            = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
         lastBedsideOn          = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
         state                  = State::NORMAL;
-        muteOverride(MUTE_AFTER_TRANSITION_MS);
         Serial.println("Soft pause expired — beginning 10-min resume ramp.");
         sendLog("Soft pause expired — resuming — " + getTimeString());
     }
@@ -903,7 +963,6 @@ void forceState(State next) {
             break;
         case State::NORMAL:
             sentTarget        = {-1.0f, 0};
-            muteOverride(MUTE_AFTER_TRANSITION_MS);
             stableLuxCount    = 0;
             overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
             lastBedsideOn     = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
@@ -969,7 +1028,6 @@ void handleButtonEvents() {
             String prev = stateName();
             state             = State::NORMAL;
             sentTarget        = {-1.0f, 0};
-            muteOverride(MUTE_AFTER_TRANSITION_MS);
             stableLuxCount    = 0;
             overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
             lastBedsideOn     = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
@@ -1038,8 +1096,6 @@ void loop() {
     Serial.print(" → bri="); Serial.print(target.bri, 1); Serial.print("%");
     Serial.print(", ct="); Serial.println(target.ct);
 
-    bool shouldUpdate = fabsf(target.bri - sentTarget.bri) > STATE_TOLERANCE_BRI || abs(target.ct - sentTarget.ct) > STATE_TOLERANCE_CT;
-
     pollDashboardCommand();
 
     switch (state) {
@@ -1049,7 +1105,7 @@ void loop() {
 
         case State::NORMAL:
             checkBedsideState(lux);
-            tickNormal(lux, target, shouldUpdate);
+            tickNormal(lux, target);
             break;
 
         case State::WAKE:

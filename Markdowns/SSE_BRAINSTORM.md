@@ -81,6 +81,38 @@ The `owner` field tells us *who* did it.
 > Mira is currently the only system controlling the lights. Revisit when the
 > integration surface expands.
 
+#### Verification needed before relying on `owner` for actor-identification
+
+The ideas above (A1–A4) assume the `owner` field on a `light`-type SSE event
+identifies the *actor* that triggered the change (Mira vs. Hue app vs.
+behavior_instance vs. entertainment_configuration). That assumption is not yet
+confirmed for this bridge's firmware.
+
+On Hue v2, the `owner` field on a *light* resource is documented as a reference
+to the parent resource the light belongs to (typically the bulb's `device`),
+which is identification of *what changed*, not *who caused it*. Actor info, if
+exposed at all, may live in other fields (e.g., `service_id`, application
+references on `auth_v1` resources) and is not consistent across bridge firmware
+versions.
+
+**Action item — when investigating A:** add temporary `Serial.printf` of the
+full event JSON inside `handleLightUpdate()`. Trigger three changes back-to-back
+and compare event shapes:
+
+1. A Mira-driven change (let lux trigger a PUT, or use the dashboard).
+2. A Hue-app change from the phone (tap a bulb in the Hue app).
+3. A physical change (toggle the bulb at the wall switch, or use a paired
+   accessory if one exists).
+
+If any field reliably differs across the three sources, owner-aware policy is
+viable using that field. If they're indistinguishable, owner-aware policy as
+described above is not implementable on light events, and we should either
+(a) accept that scope for owner-aware logic is limited to `button` /
+`relative_rotary` / `behavior_instance` events whose owner *does* identify the
+originating accessory, or (b) lean entirely on the recent-PUT ring buffer
+(`SSE v1.0 Awkward Structure.md` option (b)) for echo discrimination, which is
+closed-loop and doesn't depend on bridge-supplied actor metadata.
+
 ### B. Hue Accessories as Physical UI
 
 Replace or extend the two GPIO buttons with wireless Hue accessories.

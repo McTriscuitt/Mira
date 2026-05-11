@@ -25,6 +25,17 @@ Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (
   - rework files to accomodate dashboard being integrated into main "portfolio" page
     - railway will become the landing page, with /mira and /tempproject coming from that (something like that)  
 
+- is there a way to do sse-like updates (near-instant) with the dashboard? 
+- should the wind down and wake ramps catch soft pause-esque changes? 
+
+- change could be to add the owner vs other tag, that would tell us what
+changes are made by mira vs owner (me through hue app) vs dashboard, so differentiation is easy
+
+- this may seem silly, but change it so that polls happen on :00 and :30, instead of whenever 
+the system reflashes. make it commentable so that it can be ignored for testing.
+
+
+
 ## Build & Flash (PlatformIO)
 
 ```bash
@@ -180,7 +191,7 @@ Audit every `millis()` comparison in `main.cpp` and verify it uses the subtracti
 - **Wake sequence** — `triggerWake(lux)` reads actual bedside state via `getLightState()` at trigger time to seed `wakeStartTarget`; `wakeEndTarget = luxToTarget(ambientLux)`; `tickWakeRamp()` linearly interpolates bri and ct over `wakeStep / WAKE_RAMP_TICKS`; bedside and desk turn on every tick, overheads only when `lux >= S3_LUX_HI && rampBri >= S2_BRI_LO`; `dynamics.duration=30000` matches poll interval for seamless gradient; `WAKE_RAMP_TICKS=40` (20 min); logged on start, 25/50/75%, and completion
 - **Morning lockout** — `state = LOCKED_OUT` at boot; `checkBedsideState()` polls bedside each tick; rising-edge detection triggers `triggerWake()`; re-arms when all 4 lights confirmed off after `LOCKOUT_RESET_HOUR`; resets `stableLuxCount` and `windDownStep` on re-arm; `lastBedsideOn` is an edge-detector accumulator (not physical state) — synced from bridge on all NORMAL and LOCKED_OUT re-entry points to prevent false wake triggers or false lockout re-arms after user changes during SOFT_PAUSE, WAKE, or HARD_OFF
 - **`Preferences` last-state persistence** — `saveLastState(bri, ct)` writes to NVS on every bulb update and at wind-down completion; no longer read by `triggerWake()` (actual bedside state used instead)
-- **Override detection** — `checkOverride()` called at top of `tickNormal()`, skipped while `pauseResumeActive` is true; polls all active bulbs via `getLightState()`; `isManualOverride(ls, expectedOn)` returns true if light was turned off manually or bri/ct matches neither `sentTarget` nor `prevSentTarget` within `STATE_TOLERANCE_BRI`/`STATE_TOLERANCE_CT`; triggers `SOFT_PAUSE` on detection. `prevSentTarget` holds the value of `sentTarget` before the most recent PUT — prevents false override triggers when a bulb is slow to apply an update (Hue RF lag) while still detecting real overrides even when lux simultaneously changes. Will be replaced by SSE event handler in Phase 3.
+- **Override detection (SSE, trajectory-matched)** — implemented in `handleLightUpdate()` on every incoming SSE light event. Discriminates self-PUT echoes from external changes using a per-light `RecentPut recentPuts[4]` ring: each outgoing PUT calls `noteRecentPut(idx, on, bri, ct, durationMs)` before the HTTP request, snapshotting `(priorBri/Ct from cache, targetBri/Ct, postedAtMs, durationMs)`. The handler calls `eventMatchesRecentPut(...)` to check if the event's reported on/bri/ct lies within the trajectory `[min(prior, target), max(prior, target)] ± STATE_TOLERANCE_*` for an entry that hasn't yet expired (`postedAtMs + durationMs + RECENT_PUT_GRACE_MS`). On-trajectory → echo, ignored. Off-trajectory → external, triggers `SOFT_PAUSE`. Closed-loop (depends only on what we just told the bridge, not on bridge metadata), per-light (an in-flight bedside PUT can't mask a real overhead override), and catches off-path overrides mid-ramp (which the old time-window mute could not). Skipped while `state != NORMAL`, `pauseResumeActive`, or for lights where `expectedOn` is false. Replaces the prior `muteOverride()` time-window mute and the old `sentTarget`/`prevSentTarget` double-buffer.
 - **Soft pause** — `tickSoftPause()` auto-resumes to NORMAL after `SOFT_PAUSE_MS` (60 min); resume ramp interpolates from pre-pause bri/ct to current ambient over 10 min (`PAUSE_RESUME_TICKS=20`); override detection suppressed for entire resume ramp duration; `overheadsOn` and `lastBedsideOn` synced from bridge on auto-resume (and on all other NORMAL/LOCKED_OUT re-entry points) to prevent stale edge-detection state after user manual changes during the pause window
 - **Two buttons** — both active LOW, internal pull-up. `ButtonState` struct tracks debounce and press classification. `pollButton()` called every 50ms inside non-blocking wait loop for each button.
   - **BTN_MODE (D9/GPIO18):** `handleButtonEvents()` dispatches actions. Short press: if not NORMAL → go to NORMAL (syncs `overheadsOn` and `lastBedsideOn` from bridge, sets `skipOverrideCheck = true`); if NORMAL → SOFT_PAUSE. Long press (700ms): hard off toggle; HARD_OFF → LOCKED_OUT path syncs `lastBedsideOn` from bridge.
