@@ -91,7 +91,16 @@ struct RecentPut {
     unsigned long durationMs = 0;
 };
 RecentPut recentPuts[4];
-const unsigned long RECENT_PUT_GRACE_MS = 2000UL; // post-ramp slack for late echoes
+const unsigned long RECENT_PUT_GRACE_MS = 5000UL; // post-ramp slack for late echoes (Zigbee mesh can be slow)
+// Trajectory-match tolerances, intentionally wider than STATE_TOLERANCE_*:
+// - STATE_TOLERANCE_* sizes "is the curve drifted enough to send a new PUT?"
+// - TRAJECTORY_TOLERANCE_* sizes "is the bridge's settled value within the slop
+//   we expect from Zigbee/bulb-side quantization?" Bulbs snap to discrete bri/ct
+//   steps (~1-2% bri, ~5-10 mirek), and the cached priorBri/Ct may itself be a
+//   step off the bulb's real pre-PUT state. A user-driven override is typically
+//   double-digit percent or 50+ mirek, well outside this window.
+const float TRAJECTORY_TOLERANCE_BRI = 5.0f;
+const int   TRAJECTORY_TOLERANCE_CT  = 15;
 
 // SSE event stream — persistent HTTPS connection over which the bridge pushes state changes.
 WiFiClientSecure sseClient;
@@ -286,13 +295,13 @@ static bool eventMatchesRecentPut(int idx,
     }
     if (hasOn && evOn != r.onTarget) return false;
     if (hasBri) {
-        float lo = fminf(r.priorBri, r.targetBri) - STATE_TOLERANCE_BRI;
-        float hi = fmaxf(r.priorBri, r.targetBri) + STATE_TOLERANCE_BRI;
+        float lo = fminf(r.priorBri, r.targetBri) - TRAJECTORY_TOLERANCE_BRI;
+        float hi = fmaxf(r.priorBri, r.targetBri) + TRAJECTORY_TOLERANCE_BRI;
         if (evBri < lo || evBri > hi) return false;
     }
     if (hasCt) {
-        int lo = min(r.priorCt, r.targetCt) - (int)STATE_TOLERANCE_CT;
-        int hi = max(r.priorCt, r.targetCt) + (int)STATE_TOLERANCE_CT;
+        int lo = min(r.priorCt, r.targetCt) - TRAJECTORY_TOLERANCE_CT;
+        int hi = max(r.priorCt, r.targetCt) + TRAJECTORY_TOLERANCE_CT;
         if (evCt < lo || evCt > hi) return false;
     }
     return true;
@@ -574,6 +583,19 @@ static void handleLightUpdate(JsonObjectConst upd) {
     float evBri = hasBri ? briField.as<float>() : 0.0f;
     int   evCt  = hasCt  ? ctField.as<int>()    : 0;
     if (eventMatchesRecentPut(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt)) return;
+
+    // Diagnostic dump: capture the exact misfire conditions. Cheap, fires only
+    // immediately before SOFT_PAUSE entry; useful for tuning trajectory windows
+    // and identifying real-vs-spurious overrides during the SSE rollout.
+    const RecentPut& r = recentPuts[idx];
+    unsigned long age = millis() - r.postedAtMs;
+    Serial.printf(
+        "Override fire: idx=%d  event[hasOn=%d evOn=%d hasBri=%d evBri=%.2f hasCt=%d evCt=%d]  "
+        "recent[active=%d onTarget=%d priorBri=%.2f targetBri=%.2f priorCt=%d targetCt=%d age=%lu/%lu+grace=%lu]\n",
+        idx,
+        hasOn?1:0, evOn?1:0, hasBri?1:0, evBri, hasCt?1:0, evCt,
+        r.active?1:0, r.onTarget?1:0, r.priorBri, r.targetBri, r.priorCt, r.targetCt,
+        age, r.durationMs, RECENT_PUT_GRACE_MS);
 
     state             = State::SOFT_PAUSE;
     softPauseStart    = millis();
