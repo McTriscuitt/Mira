@@ -23,19 +23,23 @@ Arduino Nano ESP32-S3 (ABX00083). All logic is 3.3 V.
 
 ---
 
-### Button (active LOW, internal pull-up)
+### Buttons (active LOW, internal pull-up)
 
-One leg to the assigned Arduino pin, other leg to GND. No external resistors.
+Two tactile buttons. For each, one leg to the assigned Arduino pin, other leg to GND. No external resistors needed.
 
-| Function | Arduino Pin | GPIO | Short press | Long press (700ms) |
-|----------|-------------|------|-------------|-------------------|
-| BTN_MODE | D9 | GPIO18 | If NORMAL → SOFT_PAUSE; else → NORMAL | Hard off toggle |
+| Function | Arduino Pin | GPIO | Short press | Long press (700 ms) |
+|----------|-------------|------|-------------|---------------------|
+| BTN_MODE  | D9  | GPIO18 | If NORMAL → SOFT_PAUSE; else → NORMAL | Hard off toggle (HARD_OFF ↔ LOCKED_OUT) |
+| BTN_CYCLE | D10 | GPIO21 | Advance to next state in enum order via `forceState()` | — (long press not used) |
 
 **Firmware setup:**
 ```cpp
-pinMode(BTN_MODE, INPUT_PULLUP);
+pinMode(BTN_MODE,  INPUT_PULLUP);
+pinMode(BTN_CYCLE, INPUT_PULLUP);
 // Pressed = LOW, released = HIGH
 ```
+
+Both buttons are polled every 50 ms inside the non-blocking wait loop between lux ticks via `pollButton()`; events are dispatched by `handleButtonEvents()` (BTN_MODE) and `handleCycleButton()` (BTN_CYCLE).
 
 ---
 
@@ -53,7 +57,7 @@ pinMode(BTN_MODE, INPUT_PULLUP);
 | D7 | GPIO10 | 🔲 Free | |
 | D8 | GPIO17 | 🔲 Free | |
 | D9 | GPIO18 | ✅ In use | BTN_MODE |
-| D10 | GPIO21 | 🔲 Free | |
+| D10 | GPIO21 | ✅ In use | BTN_CYCLE |
 | D11 | GPIO38 | 🔲 Free | |
 | D12 | GPIO47 | 🔲 Free | (SPI CIPO — available if SPI not used) |
 | D13 | GPIO48 | ⚠️ Avoid | LED_BUILTIN + SPI SCK — driving it toggles the built-in LED |
@@ -103,11 +107,8 @@ was not pursued. No display is planned for the current design.
 
 ### 3-Button Scheme (abandoned alongside LCD)
 
-A Mode / Confirm / Cycle button scheme was designed for a config screen that depended on
-the LCD. With the LCD abandoned, the config screen was dropped and the scheme was
-simplified to a single button. Per-weekday DAY_TYPES configuration is handled by the
-web dashboard instead.
+A Mode / Confirm / Cycle button scheme was originally designed for a config screen that depended on the LCD. With the LCD abandoned, the config screen was dropped. The current design uses two buttons (BTN_MODE for NORMAL/pause/hard-off, BTN_CYCLE to walk through the state enum) — see the Buttons table above. Per-weekday DAY_TYPES configuration was also dropped; a single `WAKE_RAMP_TICKS` is used instead.
 
 ---
 
-*Last updated: April 2026*
+*Last updated: May 2026 (added BTN_CYCLE on D10/GPIO21)*

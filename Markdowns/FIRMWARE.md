@@ -21,7 +21,7 @@ The system includes 2 buttons for manual control.
 
 ## Hardware Status
 
-All hardware has arrived as of April 2026. The VEML7700 sensor, Nano ESP32-S3, and single tactile button (D9) are physically connected and confirmed working. The LCD was attempted and abandoned — see Deprioritized section.
+All hardware has arrived and is wired up: VEML7700 lux sensor, Nano ESP32-S3, and two tactile buttons (BTN_MODE on D9, BTN_CYCLE on D10). The HD44780 LCD was attempted and abandoned (3.3 V logic incompatible with 5 V VDD) — see "Abandoned Hardware" in `PIN_ASSIGNMENTS.md`.
 
 ---
 
@@ -84,24 +84,34 @@ Both active LOW, internal pull-up.
 | Parameter | Value |
 |---|---|
 | Bridge IP | 192.168.1.186 |
-| API Username | vaEUEcUhwdlUGtwhKiS8pEXSWw8hV0DOd-3Kfzud |
-| API Version | Local HTTP API v1 |
-| Base URL | `http://192.168.1.186/api/vaEUEcUhwdlUGtwhKiS8pEXSWw8hV0DOd-3Kfzud` |
+| API Version | Local v2 HTTPS (CLIP API) |
+| Base URL | `https://192.168.1.186/clip/v2` (`HUE_V2_BASE_URL` in `config.h`) |
+| Auth header | `hue-application-key: <HUE_API_KEY>` |
+| TLS | `WiFiClientSecure` with bridge cert pinned via NVS — see "TLS / Cert Rotation" |
+| Event stream | `https://192.168.1.186/eventstream/clip/v2` — see `SSE.md` |
+
+The bridge application key and bulb UUIDs are kept in `config.h` (not committed publicly) and are referenced by name throughout the firmware.
 
 ### Light IDs
 
-| Hue ID | Name | Role |
+Lights are addressed by their v2 UUIDs (stable Zigbee identities). A small `lightCache[4]` indexed by `LIGHT_BEDSIDE / LIGHT_DESK / LIGHT_CEIL_1 / LIGHT_CEIL_2` (defined in `config.h`) mirrors the bridge's current state via SSE.
+
+| Cache index | UUID define (in `config.h`) | Role |
 |---|---|---|
-| 3 | Bedside | Bedside lamp |
-| 4 | Desk | Desk lamp |
-| 1 | Ceiling_1 | Overhead 1 |
-| 2 | Ceiling_2 | Overhead 2 |
+| `LIGHT_BEDSIDE = 0` | `LIGHT_UUID_BEDSIDE` | Bedside lamp |
+| `LIGHT_DESK    = 1` | `LIGHT_UUID_DESK`    | Desk lamp |
+| `LIGHT_CEIL_1  = 2` | `LIGHT_UUID_CEIL_1`  | Overhead 1 |
+| `LIGHT_CEIL_2  = 3` | `LIGHT_UUID_CEIL_2`  | Overhead 2 |
+
+UUIDs were discovered once via `GET https://192.168.1.186/clip/v2/resource/light` and hardcoded. They only change if a bulb is factory-reset and re-paired.
 
 ### Bulb Capabilities
-- Color temp range: ct 153–447 mirek (≈2200K–6500K)
-- Brightness: bri 0–254 (effective min ~2, night bedside target ~25)
-- All changes use `transitiontime` (units of 100ms) for smooth fading
-- Use `colormode: ct` for all commands (not xy or hue/sat)
+
+- Color temp range: `mirek` 153–447 (~2200 K warm — ~6500 K cool)
+- Brightness: `dimming.brightness` is a `float` percent 0.0–100.0 (Hue v2 native units)
+- All transitions use `dynamics.duration` in **milliseconds** (e.g. `30000` for a 30 s ramp matching the poll interval, `1000` for a snap)
+- `setLight()` writes white/ct mode (`color_temperature.mirek`)
+- `setLightColor()` writes color mode (`color.xy`), converting v1 HSB to CIE xy internally; used only for the startup purple flourish
 
 ---
 
@@ -109,10 +119,10 @@ Both active LOW, internal pull-up.
 
 ### Lux Polling
 - Polls VEML7700 every 30 s via `readLux(VEML_LUX_AUTO)`
-- Each lux reading maps to a `LightTarget {uint8_t bri, uint16_t ct}` via `luxToTarget()` in `src/lightcurve.h`
-- Curve is a 4-segment piecewise function — see `LIGHTCURVE.md` for shape, constants, and tuning guide
-- Only sends Hue API update if change exceeds `STATE_TOLERANCE` (default: ±3 units)
-- All updates use `transitiontime` for smooth fading
+- Each lux reading maps to a `LightTarget {float bri, uint16_t ct}` via `luxToTarget()` in `src/lightcurve.h`
+- Curve is a 4-segment piecewise function with an intentional discontinuity at 200 lux — see `LIGHTCURVE.md` for shape, constants, and tuning guide
+- `tickNormal` only sends a Hue PUT when the new target drifts by more than `STATE_TOLERANCE_BRI` (1.2 %) or `STATE_TOLERANCE_CT` (3 mirek) from the last commanded `sentTarget`
+- All updates pass `dynamics.duration` in ms — `30000` to match the 30 s poll interval (seamless gradient), `1000` for snap-style state-machine PUTs
 
 ### Turn-on / Turn-off Order
 - **Turn on:** Bedside (3) → Desk (4) → Overhead 1+2 (1, 2)
@@ -127,42 +137,42 @@ Both active LOW, internal pull-up.
 
 #### Morning Lockout *(implemented)*
 - `state = LOCKED_OUT` at boot — suppresses all auto-on
-- `checkBedsideState(lux)` runs every tick in LOCKED_OUT (and NORMAL, WIND_DOWN)
+- `checkBedsideState(lux)` runs every tick in LOCKED_OUT, NORMAL, and WIND_DOWN
 - Rising-edge detection: `!lastBedsideOn && bedside.on` in LOCKED_OUT → `triggerWake(lux)`
-- Re-arms when all 4 lights confirmed off AND `hour >= LOCKOUT_RESET_HOUR` (9 PM); resets `stableLuxCount`, `windDownStep`
-- Falling-edge detection uses 3 extra GETs (desk, ceil1, ceil2) only on the tick bedside turns off — not every tick
+- Re-arms when all 4 lights confirmed off (via `cachedLight()`) AND `hour >= LOCKOUT_RESET_HOUR` (9 PM, `LOCKOUT_RESET_HOUR = 21`); resets `stableLuxCount`, `windDownStep`
+- Edge detection uses the SSE-synced `lightCache[]` — no per-tick HTTP GETs
 
 #### Wake Sequence *(implemented)*
-- `triggerWake(lux)` calls `getLightState(LIGHT_BEDSIDE)` to read the actual bedside bri/ct at trigger time; seeds `wakeStartTarget` from that reading (or floor values if bulb is off); `wakeEndTarget = luxToTarget(ambientLux)`; sets `state = WAKE`
+- `triggerWake(lux)` reads `cachedLight(LIGHT_BEDSIDE)` for the bulb's current bri/ct at trigger time; seeds `wakeStartTarget` from that (or floor values if the bulb is off); `wakeEndTarget = luxToTarget(ambientLux)`; sets `state = WAKE`
 - `tickWakeRamp(lux)` linearly interpolates bri and ct from `wakeStartTarget` → `wakeEndTarget` per tick; sets all active bulbs each step
-- Sequential turn-on: bedside + desk (every tick), overheads only when `lux >= S3_LUX_HI && rampBri >= S2_BRI_LO`
-- `transitiontime = 300` (30 s) — matches poll interval exactly for a seamless continuous gradient
-- `WAKE_RAMP_TICKS = 40` ticks (20 min); ramp ends at `t >= 1.0`; sets `state = NORMAL`
+- Sequential turn-on: bedside + desk every tick; overheads added when `lux >= S3_LUX_HI && rampBri >= S2_BRI_LO`
+- `dynamics.duration = 30000` (30 s) — matches poll interval for a seamless continuous gradient
+- `WAKE_RAMP_TICKS = 40` ticks (20 min); ramp ends at `t >= 1.0`; hands off to `state = NORMAL`
 
 #### Daytime Auto Cycling *(implemented)*
 - Continuous lux → bri + ct updates across all active bulbs in NORMAL state
-- ±3 unit tolerance prevents unnecessary API calls
+- Drift tolerance prevents unnecessary PUTs: `STATE_TOLERANCE_BRI = 1.2 %`, `STATE_TOLERANCE_CT = 3` mirek
+- Override detection runs asynchronously inside the SSE handler — see `SSE.md`
 
 #### Evening Phases (lux-driven, not time-driven)
 
 All phase triggers are based on lux readings, not time of day — adapts to seasonal sunset variation automatically.
 
 1. **Transition** *(implemented)* — as lux falls from daytime, all 4 bulbs dim gradually per `luxToTarget()`
-2. **Overhead off** *(implemented)* — lux drops through **300 lux** → CEIL_1+2 turn off; bedside+desk jump from bri≈160 → bri≈200 to compensate (intentional discontinuity at lightcurve seg 2/3 boundary)
-3. **Post-dark lockout** *(deprioritized)* — lux drops to ≤10 lux → ~2 hr hold; deemed unnecessary
-4. **Stable dark detection** *(implemented)* — lux stable within 2–8 lux for 30 min (60 readings), hour ≥ 21 — weighted counter increments when in range, decrements (floor 0) otherwise
-5. **Wind-down** *(implemented)* — 60-min linear dim on bedside+desk from current bri → floor (bri=50, ct=400); `transitiontime=300` matches poll interval for seamless gradient; desk turns off at step 120; bedside holds at floor until manual off; `state = LOCKED_OUT` on completion
-6. **Morning lockout** — re-arms when all lights confirmed off after 9 PM
+2. **Overhead off** *(implemented)* — lux drops through **200 lux** (`S3_LUX_HI`) → CEIL_1+2 turn off; bedside+desk jump from bri ≈ 78.7 % → bri ≈ 63 % to compensate (intentional discontinuity at lightcurve seg 2/3 boundary — see `LIGHTCURVE.md`)
+3. **Stable dark detection** *(implemented)* — lux stable within `[2, 8]` for 30 min (60 readings), hour ≥ 21 — weighted counter increments in range, decrements toward floor 0 otherwise
+4. **Wind-down** *(implemented)* — 60-min linear dim on bedside+desk from current bri → floor (`S4_FLOOR_BRI ≈ 19.7 %`, `CT_WARM = 400` mirek); `dynamics.duration = 30000` matches poll interval for seamless gradient; desk turns off at step 120; bedside holds at floor until manual off; `state = LOCKED_OUT` on completion
+5. **Morning lockout** — re-arms when all lights confirmed off after 9 PM
 
 ---
 
 ## Override System
 
 ### Soft Pause *(implemented)*
-- **Auto-trigger (SSE, trajectory-matched):** `handleLightUpdate()` runs on every incoming SSE light event. Each outgoing PUT calls `noteRecentPut(idx, on, bri, ct, durationMs)` *before* the HTTP request, snapshotting `(priorBri/Ct from cache, targetBri/Ct, postedAtMs, durationMs)` into `recentPuts[idx]`. The handler then calls `eventMatchesRecentPut(...)` for each incoming event — on-trajectory (within `[min(prior, target), max(prior, target)] ± TRAJECTORY_TOLERANCE_*`, entry not expired past `postedAtMs + durationMs + RECENT_PUT_GRACE_MS`) → echo, ignored. Off-trajectory → external change, sets `state = SOFT_PAUSE` and `softPauseStart = millis()`. Closed-loop: depends only on what we told the bridge, not on bridge-supplied metadata. Per-light: an in-flight bedside PUT can't mask a real override on the overheads. Replaces the previous polling-based `checkOverride()` and time-window `muteOverride()` mechanisms.
-- **Button trigger:** Short press when in NORMAL state
-- **Behavior:** System skips all `setLight()` calls while paused
-- **Auto-resume:** `tickSoftPause()` resumes to NORMAL after `SOFT_PAUSE_MS` (60 min); resets `sentTarget = {-1.0f, 0}` sentinel to force first PUT after resume; syncs `overheadsOn` and `lastBedsideOn` from cache to prevent stale edge-detection state after user manual changes during the pause window. Override detection is also suppressed for the duration of the 10-min resume ramp via the `pauseResumeActive` flag.
+- **Auto-trigger:** SSE-driven, per-light trajectory-matched override detection in `handleLightUpdate()`. See `SSE.md` for the full mechanism. On an off-trajectory event for a light Mira expects to be on, sets `state = SOFT_PAUSE` and `softPauseStart = millis()`.
+- **Button trigger:** BTN_MODE short press when in NORMAL.
+- **Behavior:** `tickSoftPause()` is a no-op until expiry — system skips all `setLight()` calls while paused.
+- **Auto-resume:** Resumes to NORMAL after `SOFT_PAUSE_MS` (60 min). Resets `sentTarget = {-1.0f, 0}` sentinel to force a fresh PUT, syncs `overheadsOn` and `lastBedsideOn` from cache, then runs a 10-min interpolation ramp (`PAUSE_RESUME_TICKS = 20`) from the pre-pause target to current ambient. Override detection is suppressed for the entire resume ramp via the `pauseResumeActive` flag.
 
 ### Hard Off *(implemented)*
 - **Trigger:** Button long press (700ms)
@@ -193,14 +203,14 @@ Short press only. Advances `(int)state + 1) % 6` through the state enum order an
 
 | Target state | What forceState does |
 |---|---|
-| LOCKED_OUT | Resets `stableLuxCount = 0`, `windDownStep = 0`; syncs `lastBedsideOn` from bridge |
-| NORMAL | Resets `sentTarget` to sentinel, resets `stableLuxCount = 0`; syncs `overheadsOn` and `lastBedsideOn` from bridge cache. (No transition-time mute is needed — override discrimination is per-PUT via the `recentPuts[]` trajectory ring; see "Override detection" in CLAUDE.md.) |
-| WAKE | Calls `triggerWake(lastLux)` (reads actual bedside state via `getLightState`, seeds ramp) |
-| WIND_DOWN | Seeds `windDownStartBri` from `lastTarget` (or `luxToTarget(lastLux)` if sentinel), resets `windDownStep = 0` |
+| LOCKED_OUT | Resets `stableLuxCount = 0`, `windDownStep = 0`; syncs `lastBedsideOn` from `cachedLight(LIGHT_BEDSIDE).on` |
+| NORMAL | Resets `sentTarget = {-1.0f, 0}` sentinel; resets `stableLuxCount = 0`; syncs `overheadsOn` and `lastBedsideOn` from cache. No transition-time mute is needed — override discrimination is per-PUT via the `recentPuts[]` trajectory ring (see `SSE.md`). |
+| WAKE | Calls `triggerWake(lastLux)` (reads bedside via `cachedLight()`, seeds ramp) |
+| WIND_DOWN | Seeds `windDownStartBri` from `sentTarget.bri` (or `luxToTarget(lastLux).bri` if sentinel), resets `windDownStep = 0` |
 | SOFT_PAUSE | Sets `softPauseStart = millis()` |
 | HARD_OFF | Sets state only |
 
-Discord is logged for all transitions except WAKE (`triggerWake` already logs it). `lastLux` is a global updated every tick so `forceState` can call `triggerWake` from the wait loop.
+A log entry is sent for all transitions except WAKE (`triggerWake` already logs it). `lastLux` is a global updated every tick so `forceState` can call `triggerWake` from the wait loop.
 
 ---
 
@@ -215,38 +225,86 @@ See `DASHBOARD.md` for full feature specs, design system, and implementation not
 ## Configuration Constants (actual `src/config.h`)
 
 ```cpp
-#define STATE_TOLERANCE      3          // bri/ct units — update suppression + override detection
-#define LOCKOUT_RESET_HOUR   23         // 24h hour after which all-lights-off re-arms lockout
+#define STATE_TOLERANCE_BRI  1.2f       // percent — tickNormal drift threshold (NOT used for override comparison)
+#define STATE_TOLERANCE_CT   3          // mirek — tickNormal drift threshold
+#define LOCKOUT_RESET_HOUR   21         // 24h hour after which all-lights-off re-arms lockout
 #define SOFT_PAUSE_MS        3600000UL  // soft pause auto-resume (60 min)
-#define WAKE_RAMP_TICKS          40     // 20 min ÷ 30 s/tick
+#define WAKE_RAMP_TICKS      40         // 20 min ÷ 30 s/tick
+#define PAUSE_RESUME_TICKS   20         // 10 min — soft-pause resume ramp
+#define DEBOUNCE_MS          50UL
+#define LONG_PRESS_MS        700UL
 ```
+
+Echo-discrimination tolerances and SSE timing constants live in `src/main.cpp` near the SSE globals (`TRAJECTORY_TOLERANCE_BRI = 5.0f`, `TRAJECTORY_TOLERANCE_CT = 15`, `RECENT_PUT_GRACE_MS = 5000UL`, `SSE_RECONNECT_DELAY_MS = 5000UL`, `SSE_STALE_TIMEOUT_MS = 600000UL`) — see `SSE.md`.
 
 ---
 
-## Hue API Usage
+## Hue API Usage (v2 HTTPS)
 
-### Set light state
+### Set light state — CT mode (`setLight()`)
 ```
-PUT http://192.168.1.186/api/vaEUEcUhwdlUGtwhKiS8pEXSWw8hV0DOd-3Kfzud/lights/{id}/state
+PUT https://192.168.1.186/clip/v2/resource/light/<uuid>
 Content-Type: application/json
+hue-application-key: <HUE_API_KEY>
 
 {
-  "on": true,
-  "bri": 200,
-  "ct": 300,
-  "transitiontime": 10
+  "on":                { "on": true },
+  "dimming":           { "brightness": 47.4 },
+  "color_temperature": { "mirek": 361 },
+  "dynamics":          { "duration": 30000 }
 }
 ```
 
-### Get light state (for override detection)
+### Set light state — Color mode (`setLightColor()`)
+
+Used only for the startup purple flourish. Internally converts v1 HSB (hue 0–65535, sat 0–254) to CIE xy via `_hsbToXY()`.
+
 ```
-GET http://192.168.1.186/api/vaEUEcUhwdlUGtwhKiS8pEXSWw8hV0DOd-3Kfzud/lights/{id}
+PUT https://192.168.1.186/clip/v2/resource/light/<uuid>
+Content-Type: application/json
+hue-application-key: <HUE_API_KEY>
+
+{
+  "on":       { "on": true },
+  "dimming":  { "brightness": 78.7 },
+  "color":    { "xy": { "x": 0.2845, "y": 0.1234 } },
+  "dynamics": { "duration": 1000 }
+}
 ```
 
-### transitiontime units
-- Value is in units of 100ms
-- `transitiontime: 10` = 1 second fade
-- `transitiontime: 200` = 20 second fade
+### Get light state — bootstrap only
+```
+GET https://192.168.1.186/clip/v2/resource/light
+hue-application-key: <HUE_API_KEY>
+```
+
+Called once at startup by `bootstrapLightStates()` to seed `lightCache[]`. After that, the cache is kept fresh via the SSE event stream — no per-tick GETs.
+
+### SSE event stream
+```
+GET https://192.168.1.186/eventstream/clip/v2
+hue-application-key: <HUE_API_KEY>
+```
+
+Long-lived HTTPS connection. Drained by `sseTick()` in the wait loop. See `SSE.md` for the full protocol, cache semantics, echo discrimination, and override detection flow.
+
+### dynamics.duration units
+
+- Value is in **milliseconds** (v2 — replaces the v1 `transitiontime` field which was in 100 ms ticks)
+- `30000` = 30 s ramp (matches the 30 s poll interval — seamless gradient)
+- `1000` = 1 s snap (state-machine PUTs, overhead on/off)
+
+---
+
+## TLS / Cert Rotation
+
+All v2 calls and the SSE stream use `WiFiClientSecure.setCACert(_bridgeCertPem.c_str())` with the bridge's self-signed certificate pinned via NVS. `ensureBridgeCert()` runs at startup (after NTP sync) and handles cert lifecycle automatically:
+
+1. Load PEM + expiry epoch from NVS (`Preferences` namespace `"mira"`, keys `hueCert` / `hueCertExpiry`)
+2. If stored cert is present and not within 30 days of expiry, verify it with a quick `setCACert` connection probe. If the probe succeeds, use the stored cert and we're done.
+3. Otherwise (no stored cert, expired, near-expiry, or probe failure): fetch a fresh cert using `setInsecure()` for that single call, parse `notAfter` via `mbedtls/x509_crt.h`, and store the new PEM + expiry epoch to NVS.
+
+The single insecure fetch is acceptable risk — local LAN only, only when no valid cert is stored. After that fetch, every Hue connection (PUTs, bootstrap GET, SSE stream) uses the pinned cert.
 
 ---
 
@@ -262,12 +320,15 @@ lib_deps =
     adafruit/Adafruit VEML7700 Library
     adafruit/Adafruit BusIO
     arduino-libraries/NTPClient
+    bblanchon/ArduinoJson
 ```
 
 ### Built-in (no lib_deps entry needed)
 - `WiFi.h` — ESP32 Arduino core
 - `HTTPClient.h` — ESP32 Arduino core
-- `Preferences.h` — NVS flash storage; used for last-state bri/ct only
+- `WiFiClientSecure.h` — HTTPS via the bridge cert pinned in NVS
+- `mbedtls/x509_crt.h` — used by `ensureBridgeCert()` to parse the bridge certificate's `notAfter` expiry timestamp
+- `Preferences.h` — NVS flash storage; stores the bridge TLS cert PEM + expiry epoch (`hueCert`/`hueCertExpiry`) and last-state bri/ct
 - `Wire.h` — I2C (Arduino core)
 
 ---
