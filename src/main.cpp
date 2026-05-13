@@ -90,7 +90,13 @@ struct RecentPut {
     unsigned long postedAtMs = 0;
     unsigned long durationMs = 0;
 };
-RecentPut recentPuts[4];
+// 3-slot ring per light. Lets multiple in-flight PUTs (a wake-ramp tick with
+// 30 s dynamics overlapping a state-transition PUT, or a lux-driven PUT firing
+// right after an overhead toggle) keep their trajectories live simultaneously
+// so a late echo from any of them can still match. noteRecentPut() prefers an
+// inactive/expired slot; if all three are live, the oldest is overwritten.
+const int RECENT_PUT_RING_SIZE = 3;
+RecentPut recentPuts[4][RECENT_PUT_RING_SIZE];
 const unsigned long RECENT_PUT_GRACE_MS = 5000UL; // post-ramp slack for late echoes (Zigbee mesh can be slow)
 // Trajectory-match tolerances, intentionally wider than STATE_TOLERANCE_*:
 // - STATE_TOLERANCE_* sizes "is the curve drifted enough to send a new PUT?"
@@ -101,6 +107,58 @@ const unsigned long RECENT_PUT_GRACE_MS = 5000UL; // post-ramp slack for late ec
 //   double-digit percent or 50+ mirek, well outside this window.
 const float TRAJECTORY_TOLERANCE_BRI = 5.0f;
 const int   TRAJECTORY_TOLERANCE_CT  = 15;
+
+// ── Echo-discrimination diagnostics ─────────────────────────────────────────
+// Every SSE light event is classified into one of these outcomes. Counts are
+// kept since boot and included in the override-fire dashboard dump so we can
+// see the *distribution* of decisions, not just the one that fired SOFT_PAUSE.
+// Uncomment ECHO_TRACE for verbose per-event Serial output during tuning.
+// #define ECHO_TRACE 1
+
+enum class EchoOutcome : uint8_t {
+    UnknownUuid = 0,    // event for a UUID outside lightCache[]
+    NoFields,           // event payload had no on/bri/ct
+    SkipState,          // state != NORMAL — override only checked in NORMAL
+    SkipPauseResume,    // pauseResumeActive — resume ramp suppresses detection
+    SkipOffLight,       // expectedOn == false for this idx
+    EchoMatch,          // trajectory match against a live recentPuts slot
+    NoOpEcho,           // trajectory missed but event delta from cache is <= TRAJECTORY_TOLERANCE_*
+    Override            // off-trajectory and off-cache → fires SOFT_PAUSE
+};
+const int ECHO_OUTCOME_COUNT = 8;
+
+static const char* echoOutcomeName(EchoOutcome o) {
+    switch (o) {
+        case EchoOutcome::UnknownUuid:     return "unknown-uuid";
+        case EchoOutcome::NoFields:        return "no-fields";
+        case EchoOutcome::SkipState:       return "skip-state";
+        case EchoOutcome::SkipPauseResume: return "skip-pauseresume";
+        case EchoOutcome::SkipOffLight:    return "skip-offlight";
+        case EchoOutcome::EchoMatch:       return "echo-match";
+        case EchoOutcome::NoOpEcho:        return "noop-echo";
+        case EchoOutcome::Override:        return "OVERRIDE";
+        default:                           return "?";
+    }
+}
+
+struct SseEventRecord {
+    unsigned long timeMs         = 0;
+    int           idx            = -1;
+    bool          hasOn          = false;
+    bool          evOn           = false;
+    bool          hasBri         = false;
+    float         evBri          = 0.0f;
+    bool          hasCt          = false;
+    int           evCt           = 0;
+    bool          cacheOnBefore  = false;
+    float         cacheBriBefore = 0.0f;
+    int           cacheCtBefore  = 0;
+    EchoOutcome   outcome        = EchoOutcome::NoFields;
+};
+const int      SSE_EVENT_RING_SIZE = 16;
+SseEventRecord sseEventRing[SSE_EVENT_RING_SIZE];
+int            sseEventRingHead = 0;
+unsigned long  echoOutcomeCounts[ECHO_OUTCOME_COUNT] = {0};
 
 // SSE event stream — persistent HTTPS connection over which the bridge pushes state changes.
 WiFiClientSecure sseClient;
@@ -269,7 +327,25 @@ LightState cachedLight(int idx) {
 // event lands.
 static void noteRecentPut(int idx, bool on, float bri, int ct, unsigned long durationMs) {
     if (idx < 0 || idx >= 4) return;
-    RecentPut& r = recentPuts[idx];
+    // Slot selection: prefer the first inactive/expired slot so live trajectories
+    // from earlier PUTs (e.g. a wake-ramp tick still settling) aren't stomped. If
+    // every slot is currently live, overwrite the oldest — that's the entry whose
+    // remaining grace contributes least.
+    int  slot      = 0;
+    bool foundFree = false;
+    for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
+        const RecentPut& r = recentPuts[idx][s];
+        bool expired = r.active && (millis() - r.postedAtMs > r.durationMs + RECENT_PUT_GRACE_MS);
+        if (!r.active || expired) { slot = s; foundFree = true; break; }
+    }
+    if (!foundFree) {
+        unsigned long oldestAge = 0;
+        for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
+            unsigned long age = millis() - recentPuts[idx][s].postedAtMs;
+            if (age > oldestAge) { oldestAge = age; slot = s; }
+        }
+    }
+    RecentPut& r = recentPuts[idx][slot];
     r.active     = true;
     r.onTarget   = on;
     r.priorBri   = lightCache[idx].bri;
@@ -287,24 +363,28 @@ static bool eventMatchesRecentPut(int idx,
                                   bool hasBri, float  evBri,
                                   bool hasCt,  int    evCt) {
     if (idx < 0 || idx >= 4) return false;
-    RecentPut& r = recentPuts[idx];
-    if (!r.active) return false;
-    if (millis() - r.postedAtMs > r.durationMs + RECENT_PUT_GRACE_MS) {
-        r.active = false;
-        return false;
+    // Try every live slot; first match wins. Auto-expire stale entries inline.
+    for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
+        RecentPut& r = recentPuts[idx][s];
+        if (!r.active) continue;
+        if (millis() - r.postedAtMs > r.durationMs + RECENT_PUT_GRACE_MS) {
+            r.active = false;
+            continue;
+        }
+        if (hasOn && evOn != r.onTarget) continue;
+        if (hasBri) {
+            float lo = fminf(r.priorBri, r.targetBri) - TRAJECTORY_TOLERANCE_BRI;
+            float hi = fmaxf(r.priorBri, r.targetBri) + TRAJECTORY_TOLERANCE_BRI;
+            if (evBri < lo || evBri > hi) continue;
+        }
+        if (hasCt) {
+            int lo = min(r.priorCt, r.targetCt) - TRAJECTORY_TOLERANCE_CT;
+            int hi = max(r.priorCt, r.targetCt) + TRAJECTORY_TOLERANCE_CT;
+            if (evCt < lo || evCt > hi) continue;
+        }
+        return true;
     }
-    if (hasOn && evOn != r.onTarget) return false;
-    if (hasBri) {
-        float lo = fminf(r.priorBri, r.targetBri) - TRAJECTORY_TOLERANCE_BRI;
-        float hi = fmaxf(r.priorBri, r.targetBri) + TRAJECTORY_TOLERANCE_BRI;
-        if (evBri < lo || evBri > hi) return false;
-    }
-    if (hasCt) {
-        int lo = min(r.priorCt, r.targetCt) - TRAJECTORY_TOLERANCE_CT;
-        int hi = max(r.priorCt, r.targetCt) + TRAJECTORY_TOLERANCE_CT;
-        if (evCt < lo || evCt > hi) return false;
-    }
-    return true;
+    return false;
 }
 
 // ── One-time bootstrap of the light cache ───────────────────────────────────
@@ -340,8 +420,6 @@ static void bootstrapLightStates() {
                       String(uuid).substring(0, 8).c_str());
     }
 }
-
-
 
 void setRGB(bool r, bool g, bool b) {
     // Nano ESP32-S3 onboard RGB LED — active LOW (LOW = on, HIGH = off)
@@ -539,68 +617,211 @@ void sendDashboardStatus(float lux) {
 // drain the socket from the main wait loop, parse `data:` lines as JSON arrays,
 // update the cache, and trigger SOFT_PAUSE on a real manual override.
 
-// Apply a single light update event to the cache; check override if in NORMAL.
-// Override is evaluated ONLY against fields present in this event — not against
-// cache-merged state. The bridge splits state changes across multiple events
-// (e.g. a `dimming` event followed by a separate `color_temperature` event),
-// so the cache is a Frankenstein of new + stale fields between arrivals, and
-// using cached fields would generate false positives every time a partial event
-// landed during a steady-state lux-driven PUT.
+// Append a classified SSE event to the rolling ring. Called exactly once per
+// event in handleLightUpdate() regardless of outcome. The ring is dumped on
+// override-fire so the conditions leading up to a misfire are visible without
+// a serial connection.
+static void recordSseEvent(int idx,
+                           bool  hasOn,  bool  evOn,
+                           bool  hasBri, float evBri,
+                           bool  hasCt,  int   evCt,
+                           bool  cacheOnBefore,
+                           float cacheBriBefore,
+                           int   cacheCtBefore,
+                           EchoOutcome outcome) {
+    SseEventRecord& r = sseEventRing[sseEventRingHead];
+    r.timeMs         = millis();
+    r.idx            = idx;
+    r.hasOn          = hasOn;  r.evOn  = evOn;
+    r.hasBri         = hasBri; r.evBri = evBri;
+    r.hasCt          = hasCt;  r.evCt  = evCt;
+    r.cacheOnBefore  = cacheOnBefore;
+    r.cacheBriBefore = cacheBriBefore;
+    r.cacheCtBefore  = cacheCtBefore;
+    r.outcome        = outcome;
+    sseEventRingHead = (sseEventRingHead + 1) % SSE_EVENT_RING_SIZE;
+    echoOutcomeCounts[(int)outcome]++;
+#ifdef ECHO_TRACE
+    Serial.printf(
+        "SSE evt idx=%d on=%c%d bri=%c%.2f ct=%c%d  cacheBefore[on=%d bri=%.2f ct=%d]  -> %s\n",
+        idx,
+        hasOn  ? '+' : ' ', evOn  ? 1 : 0,
+        hasBri ? '+' : ' ', evBri,
+        hasCt  ? '+' : ' ', evCt,
+        cacheOnBefore ? 1 : 0, cacheBriBefore, cacheCtBefore,
+        echoOutcomeName(outcome));
+#endif
+}
+
+// Format and ship an extended diagnostic dump on override-fire. Includes the
+// triggering event, pre-event cache, every active recentPuts slot for this
+// light, the last few classified SSE events for this idx, and cumulative
+// outcome counters since boot. Sent to both Serial and the dashboard so the
+// conditions are captured without needing a USB connection.
+static void dumpOverrideDiagnostic(int idx,
+                                   bool  hasOn,  bool  evOn,
+                                   bool  hasBri, float evBri,
+                                   bool  hasCt,  int   evCt,
+                                   bool  cacheOnBefore,
+                                   float cacheBriBefore,
+                                   int   cacheCtBefore) {
+    String d;
+    d.reserve(896);
+    d += "Override fire idx=" + String(idx) + "\n";
+    d += "  evt:";
+    if (hasOn)  d += " on="  + String(evOn ? 1 : 0);
+    if (hasBri) d += " bri=" + String(evBri, 2);
+    if (hasCt)  d += " ct="  + String(evCt);
+    d += "\n  cacheBefore: on=" + String(cacheOnBefore ? 1 : 0)
+       + " bri=" + String(cacheBriBefore, 2)
+       + " ct="  + String(cacheCtBefore);
+
+    int activeSlots = 0;
+    for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
+        const RecentPut& r = recentPuts[idx][s];
+        if (!r.active) continue;
+        activeSlots++;
+        unsigned long age = millis() - r.postedAtMs;
+        d += "\n  recent[" + String(s) + "]"
+           + " on="          + String(r.onTarget ? 1 : 0)
+           + " priorBri="    + String(r.priorBri, 2)
+           + " targetBri="   + String(r.targetBri, 2)
+           + " priorCt="     + String(r.priorCt)
+           + " targetCt="    + String(r.targetCt)
+           + " age="         + String(age) + "/" + String(r.durationMs)
+           + "+grace="       + String(RECENT_PUT_GRACE_MS);
+    }
+    if (activeSlots == 0) d += "\n  recent: (all slots inactive/expired)";
+
+    d += "\n  history(idx=" + String(idx) + "):";
+    int dumped = 0;
+    for (int i = 1; i <= SSE_EVENT_RING_SIZE && dumped < 6; i++) {
+        int slot = (sseEventRingHead - i + SSE_EVENT_RING_SIZE) % SSE_EVENT_RING_SIZE;
+        const SseEventRecord& r = sseEventRing[slot];
+        if (r.timeMs == 0) continue;
+        if (r.idx    != idx) continue;
+        unsigned long ago = millis() - r.timeMs;
+        d += "\n    t-" + String(ago) + "ms";
+        if (r.hasOn)  d += " on="  + String(r.evOn ? 1 : 0);
+        if (r.hasBri) d += " bri=" + String(r.evBri, 2);
+        if (r.hasCt)  d += " ct="  + String(r.evCt);
+        d += " (cache on=" + String(r.cacheOnBefore ? 1 : 0)
+           + " bri=" + String(r.cacheBriBefore, 2)
+           + " ct="  + String(r.cacheCtBefore) + ") -> "
+           + echoOutcomeName(r.outcome);
+        dumped++;
+    }
+    if (dumped == 0) d += "\n    (no prior history for this idx)";
+
+    d += "\n  counts:";
+    for (int i = 0; i < ECHO_OUTCOME_COUNT; i++) {
+        d += " " + String(echoOutcomeName((EchoOutcome)i)) + "=" + String(echoOutcomeCounts[i]);
+    }
+
+    Serial.println(d);
+    sendLog(d);
+}
+
+// Apply a single light update event to the cache; classify into an EchoOutcome;
+// fire SOFT_PAUSE only on Override. Ordering: (1) snapshot pre-event cache so
+// the diagnostic record shows what we thought before the event landed,
+// (2) classify, (3) update cache, (4) record into ring, (5) dump + soft pause
+// only if Override.
+//
+// The override decision is still based on fields present in *this* event only,
+// not on cache-merged state. The bridge splits combined state changes across
+// multiple events (a dimming event followed by a separate color_temperature
+// event), so for a single event the cache is a Frankenstein of new + stale
+// fields; mixing cached fields into the trajectory comparison would generate
+// false positives every time a partial event landed during a steady-state PUT.
+//
+// New: a no-op event filter runs *after* the trajectory check. If the event's
+// values are within TRAJECTORY_TOLERANCE_* of the pre-event cache, the event
+// is reporting state we already think is true — a late settling echo whose
+// recentPuts slot already expired. Closes the timing gap that previously
+// caused SOFT_PAUSE misfires on "skipping PUT" ticks where nothing refreshed
+// the slot before the bridge's confirmation event arrived.
 static void handleLightUpdate(JsonObjectConst upd) {
     const char* uuid = upd["id"];
     int idx = idxByUuid(uuid);
-    if (idx < 0) return;
+    if (idx < 0) {
+        recordSseEvent(-1, false, false, false, 0.0f, false, 0,
+                       false, 0.0f, 0, EchoOutcome::UnknownUuid);
+        return;
+    }
 
     JsonVariantConst onField  = upd["on"]["on"];
     JsonVariantConst briField = upd["dimming"]["brightness"];
     JsonVariantConst ctField  = upd["color_temperature"]["mirek"];
-    bool hasOn  = !onField.isNull();
-    bool hasBri = !briField.isNull();
-    bool hasCt  = !ctField.isNull();
-    if (!hasOn && !hasBri && !hasCt) return;
+    bool  hasOn  = !onField.isNull();
+    bool  hasBri = !briField.isNull();
+    bool  hasCt  = !ctField.isNull();
+    bool  evOn   = hasOn  ? onField.as<bool>()   : false;
+    float evBri  = hasBri ? briField.as<float>() : 0.0f;
+    int   evCt   = hasCt  ? ctField.as<int>()    : 0;
 
-    if (hasOn)  lightCache[idx].on  = onField.as<bool>();
-    if (hasBri) lightCache[idx].bri = briField.as<float>();
-    if (hasCt)  lightCache[idx].ct  = ctField.as<int>();
+    bool  cacheOnBefore  = lightCache[idx].on;
+    float cacheBriBefore = lightCache[idx].bri;
+    int   cacheCtBefore  = lightCache[idx].ct;
 
-    if (state != State::NORMAL) return;
-    if (pauseResumeActive)      return;
-
-    bool expectedOn;
-    switch (idx) {
-        case LIGHT_BEDSIDE:
-        case LIGHT_DESK:    expectedOn = true;        break;
-        case LIGHT_CEIL_1:
-        case LIGHT_CEIL_2:  expectedOn = overheadsOn; break;
-        default:            return;
+    if (!hasOn && !hasBri && !hasCt) {
+        recordSseEvent(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
+                       cacheOnBefore, cacheBriBefore, cacheCtBefore,
+                       EchoOutcome::NoFields);
+        return;
     }
-    if (!expectedOn) return;
 
-    // Echo discrimination: if this event lies on the trajectory of a recent PUT
-    // for this light, it's our own echo — ignore it. Anything off-trajectory is
-    // an external change by construction.
-    bool  evOn  = hasOn  ? onField.as<bool>()   : false;
-    float evBri = hasBri ? briField.as<float>() : 0.0f;
-    int   evCt  = hasCt  ? ctField.as<int>()    : 0;
-    if (eventMatchesRecentPut(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt)) return;
+    EchoOutcome decision;
+    if (state != State::NORMAL) {
+        decision = EchoOutcome::SkipState;
+    } else if (pauseResumeActive) {
+        decision = EchoOutcome::SkipPauseResume;
+    } else {
+        bool expectedOn;
+        switch (idx) {
+            case LIGHT_BEDSIDE:
+            case LIGHT_DESK:    expectedOn = true;        break;
+            case LIGHT_CEIL_1:
+            case LIGHT_CEIL_2:  expectedOn = overheadsOn; break;
+            default:            expectedOn = false;       break;
+        }
+        if (!expectedOn) {
+            decision = EchoOutcome::SkipOffLight;
+        } else if (eventMatchesRecentPut(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt)) {
+            decision = EchoOutcome::EchoMatch;
+        } else {
+            // Trajectory check missed. Fall back to a no-op check: is the event
+            // reporting state already-consistent with our pre-event cache, within
+            // the same tolerance the trajectory check uses? If so, it's a late
+            // settling echo of a now-expired PUT, not a user override.
+            bool isNoOp = true;
+            if (hasOn  && evOn != cacheOnBefore)                                    isNoOp = false;
+            if (hasBri && fabsf(evBri - cacheBriBefore) > TRAJECTORY_TOLERANCE_BRI) isNoOp = false;
+            if (hasCt  && abs(evCt   - cacheCtBefore)    > TRAJECTORY_TOLERANCE_CT) isNoOp = false;
+            decision = isNoOp ? EchoOutcome::NoOpEcho : EchoOutcome::Override;
+        }
+    }
 
-    // Diagnostic dump: capture the exact misfire conditions. Cheap, fires only
-    // immediately before SOFT_PAUSE entry; useful for tuning trajectory windows
-    // and identifying real-vs-spurious overrides during the SSE rollout.
-    const RecentPut& r = recentPuts[idx];
-    unsigned long age = millis() - r.postedAtMs;
-    Serial.printf(
-        "Override fire: idx=%d  event[hasOn=%d evOn=%d hasBri=%d evBri=%.2f hasCt=%d evCt=%d]  "
-        "recent[active=%d onTarget=%d priorBri=%.2f targetBri=%.2f priorCt=%d targetCt=%d age=%lu/%lu+grace=%lu]\n",
-        idx,
-        hasOn?1:0, evOn?1:0, hasBri?1:0, evBri, hasCt?1:0, evCt,
-        r.active?1:0, r.onTarget?1:0, r.priorBri, r.targetBri, r.priorCt, r.targetCt,
-        age, r.durationMs, RECENT_PUT_GRACE_MS);
+    // Cache write happens after the override decision so cacheBefore stays
+    // meaningful for the diagnostic record and for the no-op filter above. The
+    // override check itself doesn't use the cache, so this reorder is
+    // semantically neutral for the trajectory path.
+    if (hasOn)  lightCache[idx].on  = evOn;
+    if (hasBri) lightCache[idx].bri = evBri;
+    if (hasCt)  lightCache[idx].ct  = evCt;
+
+    recordSseEvent(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
+                   cacheOnBefore, cacheBriBefore, cacheCtBefore, decision);
+
+    if (decision != EchoOutcome::Override) return;
 
     state             = State::SOFT_PAUSE;
     softPauseStart    = millis();
     pauseResumeActive = false;
     Serial.println("SSE override — soft pause.");
+
+    dumpOverrideDiagnostic(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
+                           cacheOnBefore, cacheBriBefore, cacheCtBefore);
     sendLog("Manual override — soft pause — " + getTimeString());
 }
 
