@@ -53,7 +53,7 @@ ButtonState btnCycle;
 float lastLux = 1.0f; // last lux reading — used by cycle button to seed triggerWake() from the wait loop
 
 enum class State { LOCKED_OUT, NORMAL, WAKE, WIND_DOWN, SOFT_PAUSE, HARD_OFF };
-State state = State::LOCKED_OUT;
+State state = State::NORMAL;
 
 // Wind-down state
 int   stableLuxCount  = 0;      // weighted counter: increments when lux in [2, 8] after 9 PM, decrements otherwise (floor 0)
@@ -73,13 +73,15 @@ bool        pauseResumeActive      = false;
 int         pauseResumeStep        = 0;
 LightTarget pauseResumeStartTarget = {0, 0}; // bri/ct snapshot at soft pause entry — interpolated on resume
 
-// Recent-PUT trajectory record — one slot per light index. Replaces the old
-// time-window override mute. Each outgoing PUT snapshots its (prior, target)
-// trajectory here so the SSE handler can discriminate self-PUT echoes (events
-// that land on the trajectory) from external overrides (events that don't).
-// Closed-loop: depends only on what we just told the bridge, not on bridge
-// metadata. Per-light, so an in-flight bedside PUT doesn't mask a real override
-// on the overheads.
+// Recent-PUT trajectory record — per-light ring (slot count below). Replaces
+// the old time-window override mute. Each outgoing PUT snapshots its
+// (prior, target) trajectory into one slot so the SSE handler can discriminate
+// self-PUT echoes (events that land on the trajectory) from external overrides
+// (events that don't). Closed-loop: depends only on what we just told the
+// bridge, not on bridge metadata. Per-light, so an in-flight bedside PUT can't
+// mask a real override on the overheads. A no-op event filter in
+// handleLightUpdate() catches late settling echoes that arrive after the slot's
+// grace expires (see Markdowns/SSE.md).
 struct RecentPut {
     bool          active     = false;
     bool          onTarget   = false;

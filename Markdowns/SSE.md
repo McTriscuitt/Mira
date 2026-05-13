@@ -69,13 +69,18 @@ CachedLight lightCache[4];      // indexed by LIGHT_BEDSIDE / LIGHT_DESK / LIGHT
 
 ---
 
-## Echo Discrimination — the `recentPuts[]` Ring
+## Echo Discrimination — the `recentPuts[][]` Ring + No-Op Filter
 
 The hard problem: when Mira PUTs a state change, the bridge echoes it back over SSE as an event. Naïvely, every Mira PUT would trigger SOFT_PAUSE. The old approach used a flat time-window mute (`muteOverride()` / `MUTE_AFTER_TRANSITION_MS = 5000UL`) — every PUT silenced override detection for ~5 s. That worked, but missed real overrides during the mute window and didn't degrade per-light.
 
-Current approach: a per-light **trajectory ring** records every outgoing PUT. Incoming events are matched against the trajectory their target light is currently on; on-trajectory → echo, off-trajectory → external override.
+Current approach: every incoming event is classified into one of eight `EchoOutcome` buckets. The override path is reached only when the event is *both* off-trajectory of every live `recentPuts` slot *and* off-cache by more than `TRAJECTORY_TOLERANCE_*`. Anything else is an echo (or a skip) and does not trigger SOFT_PAUSE.
 
-### Struct
+Two layers do the work:
+
+1. **Trajectory ring (`recentPuts[4][3]`)** — every outgoing PUT writes one slot per light. An incoming event matches if its on/bri/ct values lie within `[min(prior, target), max(prior, target)] ± TRAJECTORY_TOLERANCE_*` for any live slot. Three slots per light let overlapping in-flight PUTs (e.g. wake-ramp tick + state-change PUT) keep their trajectories live simultaneously.
+2. **No-op event filter** — if the trajectory check fails, before declaring `Override` the handler checks whether the event's values are within `TRAJECTORY_TOLERANCE_*` of the **pre-event cache**. If so, the bridge is reporting state we already think is true — a late settling echo whose slot expired before the event arrived. Classify as `NoOpEcho`. Closes the timing gap on "skipping PUT" ticks where nothing refreshed the slot.
+
+### Struct + Ring
 
 ```cpp
 struct RecentPut {
@@ -88,14 +93,19 @@ struct RecentPut {
     unsigned long postedAtMs = 0;
     unsigned long durationMs = 0;
 };
-RecentPut recentPuts[4];
+const int RECENT_PUT_RING_SIZE = 3;
+RecentPut recentPuts[4][RECENT_PUT_RING_SIZE];
 ```
 
 ### Write — `noteRecentPut(idx, on, bri, ct, durationMs)`
 
 Called from `setLight()` and `setLightColor()` **before** the HTTP PUT goes out. The bridge can emit an SSE echo faster than `HTTPClient::PUT()` returns, so the entry must already exist when the event arrives. Counter-intuitive but correct.
 
+Slot selection: prefer the first inactive/expired slot so live trajectories from earlier PUTs aren't stomped. If every slot is currently live, overwrite the oldest — that's the entry whose remaining grace contributes least.
+
 ```cpp
+// (slot selection: first inactive/expired wins; else oldest)
+RecentPut& r = recentPuts[idx][slot];
 r.active     = true;
 r.onTarget   = on;
 r.priorBri   = lightCache[idx].bri;   // snapshot pre-PUT cache value
@@ -108,28 +118,60 @@ r.durationMs = durationMs;
 
 ### Read — `eventMatchesRecentPut(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt)`
 
-For each field the event carries, check if the value lies within the expected trajectory `[min(prior, target), max(prior, target)] ± TRAJECTORY_TOLERANCE_*`. Auto-expires entries past `postedAtMs + durationMs + RECENT_PUT_GRACE_MS`. Returns `true` if every present field is in range — then it's an echo, ignore. Returns `false` otherwise — that's an external change.
+Iterates every live slot for `idx`; first match wins. For each present field the event carries, check if the value lies within the expected trajectory `[min(prior, target), max(prior, target)] ± TRAJECTORY_TOLERANCE_*`. Auto-expires entries past `postedAtMs + durationMs + RECENT_PUT_GRACE_MS` inline.
 
 ```cpp
-if (!r.active) return false;
-if (millis() - r.postedAtMs > r.durationMs + RECENT_PUT_GRACE_MS) { r.active = false; return false; }
-if (hasOn  && evOn != r.onTarget) return false;
-if (hasBri) {
-    float lo = fminf(r.priorBri, r.targetBri) - TRAJECTORY_TOLERANCE_BRI;
-    float hi = fmaxf(r.priorBri, r.targetBri) + TRAJECTORY_TOLERANCE_BRI;
-    if (evBri < lo || evBri > hi) return false;
+for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
+    RecentPut& r = recentPuts[idx][s];
+    if (!r.active) continue;
+    if (millis() - r.postedAtMs > r.durationMs + RECENT_PUT_GRACE_MS) {
+        r.active = false;
+        continue;
+    }
+    if (hasOn && evOn != r.onTarget) continue;
+    if (hasBri) {
+        float lo = fminf(r.priorBri, r.targetBri) - TRAJECTORY_TOLERANCE_BRI;
+        float hi = fmaxf(r.priorBri, r.targetBri) + TRAJECTORY_TOLERANCE_BRI;
+        if (evBri < lo || evBri > hi) continue;
+    }
+    if (hasCt) {
+        int lo = min(r.priorCt, r.targetCt) - TRAJECTORY_TOLERANCE_CT;
+        int hi = max(r.priorCt, r.targetCt) + TRAJECTORY_TOLERANCE_CT;
+        if (evCt < lo || evCt > hi) continue;
+    }
+    return true; // any live slot's trajectory matched
 }
-if (hasCt) {
-    int lo = min(r.priorCt, r.targetCt) - TRAJECTORY_TOLERANCE_CT;
-    int hi = max(r.priorCt, r.targetCt) + TRAJECTORY_TOLERANCE_CT;
-    if (evCt < lo || evCt > hi) return false;
-}
-return true;
+return false;
 ```
+
+### No-Op Event Filter
+
+If `eventMatchesRecentPut()` returns false, the handler runs a second check before declaring an override. The question: did this event represent a state change *at all*? If the event's values are within `TRAJECTORY_TOLERANCE_*` of the **pre-event cache** (snapshotted just before the cache write), the bridge is reporting state effectively identical to what we already think is true — a late settling echo, not a user override.
+
+```cpp
+bool isNoOp = true;
+if (hasOn  && evOn != cacheOnBefore)                                    isNoOp = false;
+if (hasBri && fabsf(evBri - cacheBriBefore) > TRAJECTORY_TOLERANCE_BRI) isNoOp = false;
+if (hasCt  && abs(evCt   - cacheCtBefore)    > TRAJECTORY_TOLERANCE_CT) isNoOp = false;
+decision = isNoOp ? EchoOutcome::NoOpEcho : EchoOutcome::Override;
+```
+
+This closes a timing gap that the trajectory check alone left open: when `tickNormal` decides "no change — skipping PUT", nothing refreshes the `recentPuts` slot, and the bridge's late settling confirmation event (often ~30+ s after the previous PUT) could land after the slot's `durationMs + grace` had expired. The trajectory check would miss it, and the event — typically a 1–2 mirek confirmation — would fire SOFT_PAUSE.
+
+The semantic threshold for "real override" is unchanged: `TRAJECTORY_TOLERANCE_BRI` (5%) and `TRAJECTORY_TOLERANCE_CT` (15 mirek). Anywhere a value lands within either a recent PUT's trajectory **or** the pre-event cache counts as an echo. A real user override is double-digit-percent bri or 50+ mirek, comfortably outside both windows.
 
 ### Why Trajectory, Not Endpoint
 
 A Hue PUT with `dynamics.duration > 0` ramps the bulb over time, and the bridge emits intermediate echoes during the ramp. A `1000 ms` PUT from `bri=80` → `bri=45` produces echoes reporting `bri=78, 70, 60, 50, 45` (approximate). Matching against just the target endpoint `45` would mark all the mid-ramp echoes as overrides. Matching against the full `[45, 80]` interval (plus tolerance) absorbs them naturally — and any value *outside* that interval (e.g. the user dragging the bulb to `bri=20` during our ramp) still trips override correctly. The trajectory framing turns a hard timing problem into a simple set-membership check.
+
+### Why a Ring, Not a Single Slot
+
+Two scenarios where overlapping PUTs collide on a single-slot design:
+
+- A wake-ramp tick PUT with `dynamics.duration=30000` is still settling when the next tick fires its own PUT. With one slot, the second `noteRecentPut()` overwrites the first; a late echo of the first PUT then has no live trajectory to match.
+- A lux-driven PUT fires immediately after an overhead-toggle PUT (e.g. `S3_LUX_HI` crossing turns on `LIGHT_CEIL_1` + `LIGHT_CEIL_2` and the same tick adjusts `LIGHT_BEDSIDE`). On the bedside slot this is fine; on the overheads, multiple settling echoes can collide.
+
+Three slots cover the common cases without growing the trajectory window so wide it masks small real overrides.
 
 ### Two-Tier Tolerance
 
@@ -137,32 +179,100 @@ A Hue PUT with `dynamics.duration > 0` ramps the bulb over time, and the bridge 
 |---|---|---|
 | `STATE_TOLERANCE_BRI` | `1.2f` (percent) | `tickNormal` drift check — "is the lux curve drifted enough to send a new PUT?" |
 | `STATE_TOLERANCE_CT` | `3` (mirek) | Same for ct |
-| `TRAJECTORY_TOLERANCE_BRI` | `5.0f` (percent) | `eventMatchesRecentPut` — "is this echo within the slop we expect from Zigbee/bulb-side step quantization?" |
+| `TRAJECTORY_TOLERANCE_BRI` | `5.0f` (percent) | `eventMatchesRecentPut` + no-op filter — "is this echo within the slop we expect from Zigbee/bulb-side step quantization?" |
 | `TRAJECTORY_TOLERANCE_CT` | `15` (mirek) | Same for ct |
 | `RECENT_PUT_GRACE_MS` | `5000UL` | Slack past `durationMs` for late echoes from slow mesh settles |
 
-The original implementation reused `STATE_TOLERANCE_*` for both jobs. Wrong. The drift check wants tight thresholds so small lux changes still trigger PUTs; the echo discriminator needs wider thresholds because bulbs snap to discrete bri/ct steps (~1–3% bri, 5–10 mirek slop) and the cached `priorBri`/`priorCt` may itself be one quantization step off the bulb's true pre-PUT state. The fix: split the constants. A real user-driven override is double-digit-percent bri or 50+ mirek, comfortably outside the trajectory window.
+The original implementation reused `STATE_TOLERANCE_*` for both jobs. Wrong. The drift check wants tight thresholds so small lux changes still trigger PUTs; the echo discriminator needs wider thresholds because bulbs snap to discrete bri/ct steps (~1–3% bri, 5–10 mirek slop) and the cached `priorBri`/`priorCt` may itself be one quantization step off the bulb's true pre-PUT state. The fix: split the constants. A real user-driven override is double-digit-percent bri or 50+ mirek, comfortably outside the trajectory window. The no-op filter uses the same `TRAJECTORY_TOLERANCE_*` so the user-override threshold is identical regardless of which path catches the echo.
 
 ---
 
 ## Override Detection Flow
 
-`handleLightUpdate(JsonObjectConst upd)` runs once per `light`-type event in the parsed SSE payload. Sequence:
+`handleLightUpdate(JsonObjectConst upd)` runs once per `light`-type event in the parsed SSE payload. Classification produces an `EchoOutcome` (see Diagnostics below); only `Override` triggers SOFT_PAUSE. Sequence:
 
-1. Resolve the event's `id` to a `lightCache[]` index via `idxByUuid()`. Unknown UUID → return.
-2. Extract `on.on`, `dimming.brightness`, and `color_temperature.mirek`. If all three are absent → return.
-3. **Write to cache** for whichever fields are present.
-4. Guard: if `state != NORMAL` → return. (Override detection is a NORMAL-only behavior.)
-5. Guard: if `pauseResumeActive` → return. (The resume ramp is itself a series of self-PUTs; we suppress detection for its duration.)
-6. Compute `expectedOn` per light index:
-   - `LIGHT_BEDSIDE` / `LIGHT_DESK` → always `true`
-   - `LIGHT_CEIL_1` / `LIGHT_CEIL_2` → `overheadsOn` flag
-   - Anything else → return.
-7. If `!expectedOn` → return. (We don't trigger override for lights we don't expect to be on.)
-8. Echo discrimination: `eventMatchesRecentPut(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt)`. If `true` → echo, return.
-9. Off-trajectory event reached. Dump a diagnostic `Serial.printf("Override fire: ...")` with the event vs `RecentPut` state side-by-side, then set `state = SOFT_PAUSE`, `softPauseStart = millis()`, `pauseResumeActive = false`. `sendLog("Manual override — soft pause — ...")`.
+1. Resolve the event's `id` to a `lightCache[]` index via `idxByUuid()`. Unknown UUID → `UnknownUuid`, return.
+2. Extract `on.on`, `dimming.brightness`, and `color_temperature.mirek`. If all three are absent → `NoFields`, return.
+3. **Snapshot pre-event cache values** (`cacheOnBefore`, `cacheBriBefore`, `cacheCtBefore`). These are preserved through the rest of the function for the diagnostic record and the no-op filter.
+4. Classify into `EchoOutcome`:
+   - `state != NORMAL` → `SkipState`
+   - `pauseResumeActive` → `SkipPauseResume` (resume ramp is itself self-PUTs; suppress)
+   - `expectedOn` is false for this idx (`LIGHT_CEIL_*` when `overheadsOn == false`) → `SkipOffLight`
+   - `eventMatchesRecentPut()` returns true → `EchoMatch`
+   - No-op filter passes (event values within `TRAJECTORY_TOLERANCE_*` of `cacheBefore`) → `NoOpEcho`
+   - None of the above → `Override`
+5. **Write to cache** for whichever fields are present. (After classification so `cacheBefore` stays meaningful.)
+6. `recordSseEvent()` appends the classified event to the diagnostic ring.
+7. If `decision != Override` → return.
+8. Set `state = SOFT_PAUSE`, `softPauseStart = millis()`, `pauseResumeActive = false`. Call `dumpOverrideDiagnostic()` (ships a full multi-line dump to the dashboard via `sendLog`). Then `sendLog("Manual override — soft pause — ...")`.
 
-The diagnostic dump only fires on the override path, so it's free in steady state and invaluable when a misfire needs root-causing.
+The override decision is still based on fields present in *this* event only — never on cache-merged state — because the bridge splits combined state changes across multiple events (a `dimming` event followed by a separate `color_temperature` event) and mixing cached fields into the trajectory comparison would generate false positives on every partial event.
+
+---
+
+## Diagnostics — Event Ring, Outcome Counters, Override-Fire Dump
+
+Echo discrimination is only as good as our ability to inspect it when it misclassifies. Three diagnostic surfaces are always on:
+
+### `EchoOutcome` — every event is classified
+
+Every call into `handleLightUpdate()` ends in exactly one outcome. The enum is the single vocabulary for what happened on each event:
+
+| Outcome | Meaning |
+|---|---|
+| `UnknownUuid` | Event for a UUID outside `lightCache[]`. Not actionable. |
+| `NoFields` | Event payload had no `on` / `dimming` / `color_temperature`. Heartbeat-ish. |
+| `SkipState` | `state != NORMAL`. Override detection is NORMAL-only. |
+| `SkipPauseResume` | `pauseResumeActive` — resume ramp is itself self-PUTs. |
+| `SkipOffLight` | `expectedOn == false` for this idx (off overhead). |
+| `EchoMatch` | Trajectory check against a live `recentPuts` slot matched. |
+| `NoOpEcho` | Trajectory missed, but event values are within tolerance of pre-event cache. |
+| `Override` | Off-trajectory and off-cache — fires SOFT_PAUSE. |
+
+### `sseEventRing[16]` — last 16 classified events
+
+```cpp
+struct SseEventRecord {
+    unsigned long timeMs;
+    int           idx;
+    bool          hasOn;   bool  evOn;
+    bool          hasBri;  float evBri;
+    bool          hasCt;   int   evCt;
+    bool          cacheOnBefore;
+    float         cacheBriBefore;
+    int           cacheCtBefore;
+    EchoOutcome   outcome;
+};
+const int      SSE_EVENT_RING_SIZE = 16;
+SseEventRecord sseEventRing[SSE_EVENT_RING_SIZE];
+int            sseEventRingHead = 0;
+```
+
+`recordSseEvent()` appends one record per call into `handleLightUpdate()`. The pre-event cache snapshot is captured *before* the cache write so the record reflects the delta between what we thought was true and what the event reported. This is what makes post-hoc root-causing possible: when an override fires, you can see whether the cache was poisoned, whether earlier events were misclassified, whether the bridge was emitting many small confirmations, or whether a real drastic delta arrived.
+
+### `echoOutcomeCounts[]` — cumulative since boot
+
+`unsigned long echoOutcomeCounts[ECHO_OUTCOME_COUNT] = {0};` increments on every event. Included in the override-fire dump as a one-line histogram. High `NoOpEcho` counts confirm the late-settling-echo pattern was widespread before the filter was added; high `EchoMatch` counts show the ring is doing its job; any nonzero `Override` is genuinely worth investigating.
+
+### `dumpOverrideDiagnostic()` — dashboard-bound full dump on Override
+
+When `decision == Override`, the handler ships a multi-line message to the dashboard via `sendLog()` containing:
+
+- The triggering event's `hasOn/evOn`, `hasBri/evBri`, `hasCt/evCt`
+- `cacheBefore` (the pre-event cache snapshot)
+- Every active `recentPuts[idx][s]` slot's full state and age vs `durationMs + grace`
+- The last 6 ring entries with `idx == idx` of the override, each annotated with its outcome
+- The full outcome histogram since boot
+
+The dump fires only on the override path, so it's free in steady state. The dashboard log row is one event but the message contains embedded newlines — paste it back into a debugging conversation and the conditions are fully reconstructable without a USB cable.
+
+### `ECHO_TRACE` — verbose per-event Serial output
+
+```cpp
+// #define ECHO_TRACE 1
+```
+
+Uncomment near the `EchoOutcome` enum to enable per-event Serial logging during tuning. Format: `SSE evt idx=N on=±X bri=±Y.YY ct=±Z cacheBefore[...] -> <outcome>`. Off by default because steady-state operation emits dozens of events per minute.
 
 ---
 
@@ -197,11 +307,14 @@ The 10-minute stale timeout is intentional — Hue v2 doesn't send keepalive fra
 All defined inline in `src/main.cpp` near the globals, not in `config.h`:
 
 ```cpp
-const unsigned long SSE_RECONNECT_DELAY_MS  = 5000UL;     // gap between reconnect attempts
-const unsigned long SSE_STALE_TIMEOUT_MS    = 600000UL;   // 10 min — no keepalive, long silence is normal
-const float         TRAJECTORY_TOLERANCE_BRI = 5.0f;      // echo discrimination width, percent
-const int           TRAJECTORY_TOLERANCE_CT  = 15;        // echo discrimination width, mirek
-const unsigned long RECENT_PUT_GRACE_MS     = 5000UL;     // late-echo slack past dynamics.duration
+const unsigned long SSE_RECONNECT_DELAY_MS   = 5000UL;    // gap between reconnect attempts
+const unsigned long SSE_STALE_TIMEOUT_MS     = 600000UL;  // 10 min — no keepalive, long silence is normal
+const float         TRAJECTORY_TOLERANCE_BRI = 5.0f;      // echo discrimination width, percent — used by both trajectory and no-op filter
+const int           TRAJECTORY_TOLERANCE_CT  = 15;        // echo discrimination width, mirek — used by both trajectory and no-op filter
+const unsigned long RECENT_PUT_GRACE_MS      = 5000UL;    // late-echo slack past dynamics.duration
+const int           RECENT_PUT_RING_SIZE     = 3;         // slots per light in the trajectory ring
+const int           SSE_EVENT_RING_SIZE      = 16;        // classified-event diagnostic ring depth
+const int           ECHO_OUTCOME_COUNT       = 8;         // size of echoOutcomeCounts[] histogram
 ```
 
 `STATE_TOLERANCE_BRI` and `STATE_TOLERANCE_CT` live in `config.h` because they affect `tickNormal`'s drift check, not SSE.
