@@ -94,16 +94,17 @@ The bridge application key and bulb UUIDs are kept in `config.h` (not committed 
 
 ### Light IDs
 
-Lights are addressed by their v2 UUIDs (stable Zigbee identities). A small `lightCache[4]` indexed by `LIGHT_BEDSIDE / LIGHT_DESK / LIGHT_CEIL_1 / LIGHT_CEIL_2` (defined in `config.h`) mirrors the bridge's current state via SSE.
+Lights are addressed by their v2 UUIDs (stable Zigbee identities). A small `lightCache[LIGHT_COUNT]` (`LIGHT_COUNT = 5`) indexed by `LIGHT_CHEST / LIGHT_DRESSER / LIGHT_CEIL_1 / LIGHT_CEIL_2 / LIGHT_FLOOR` (defined in `config.h`) mirrors the bridge's current state via SSE. `idxByUuid()` resolves a UUID back to its index; `lightName(idx)` maps an index to a friendly label for logging.
 
 | Cache index | UUID define (in `config.h`) | Role |
 |---|---|---|
-| `LIGHT_BEDSIDE = 0` | `LIGHT_UUID_BEDSIDE` | Bedside lamp |
-| `LIGHT_DESK    = 1` | `LIGHT_UUID_DESK`    | Desk lamp |
+| `LIGHT_CHEST   = 0` | `LIGHT_UUID_CHEST`   | Chest lamp (renamed from bedside) |
+| `LIGHT_DRESSER = 1` | `LIGHT_UUID_DRESSER` | Dresser lamp (renamed from desk) |
 | `LIGHT_CEIL_1  = 2` | `LIGHT_UUID_CEIL_1`  | Overhead 1 |
 | `LIGHT_CEIL_2  = 3` | `LIGHT_UUID_CEIL_2`  | Overhead 2 |
+| `LIGHT_FLOOR   = 4` | `LIGHT_UUID_FLOOR`   | Signe floor lamp — wake start-point + wind-down night-light anchor |
 
-UUIDs were discovered once via `GET https://192.168.1.186/clip/v2/resource/light` and hardcoded. They only change if a bulb is factory-reset and re-paired.
+Chest/dresser are the **same physical bulbs** as the old bedside/desk (label-only rename); the floor lamp is a new Signe gradient lamp. UUIDs were discovered once via `GET https://<bridge>/clip/v2/resource/light` and hardcoded. They only change if a bulb is factory-reset and re-paired.
 
 ### Bulb Capabilities
 
@@ -125,8 +126,8 @@ UUIDs were discovered once via `GET https://192.168.1.186/clip/v2/resource/light
 - All updates pass `dynamics.duration` in ms — `30000` to match the 30 s poll interval (seamless gradient), `1000` for snap-style state-machine PUTs
 
 ### Turn-on / Turn-off Order
-- **Turn on:** Bedside (3) → Desk (4) → Overhead 1+2 (1, 2)
-- **Turn off:** Overhead 1+2 (1, 2) → Desk (4) → Bedside (3)
+- **Turn on (wake):** Floor (tick 0, leads) → Chest + Dresser (`rampBri ≥ 40% && lux ≥ 200`) → Overhead 1+2 (`rampBri ≥ 63% && lux ≥ 600`)
+- **Turn off (wind-down):** Overhead 1+2 (start) → Chest (midpoint, step 60) → Dresser (end, step 120); Floor holds at floor brightness as the night-light anchor
 
 ### State Machine
 
@@ -137,15 +138,15 @@ UUIDs were discovered once via `GET https://192.168.1.186/clip/v2/resource/light
 
 #### Morning Lockout *(implemented)*
 - `state = LOCKED_OUT` at boot — suppresses all auto-on
-- `checkBedsideState(lux)` runs every tick in LOCKED_OUT, NORMAL, and WIND_DOWN
-- Rising-edge detection: `!lastBedsideOn && bedside.on` in LOCKED_OUT → `triggerWake(lux)`
-- Re-arms when all 4 lights confirmed off (via `cachedLight()`) AND `hour >= LOCKOUT_RESET_HOUR` (9 PM, `LOCKOUT_RESET_HOUR = 21`); resets `stableLuxCount`, `windDownStep`
+- `checkFloorState(lux)` runs every tick in LOCKED_OUT, NORMAL, and WIND_DOWN
+- Rising-edge detection: `!lastFloorOn && floorLamp.on` in LOCKED_OUT → `triggerWake(lux)` (the **floor lamp** is the morning trigger — flipping it on is what wakes the system)
+- Re-arms when the floor lamp goes off and chest/dresser/ceiling are confirmed off (via `cachedLight()`) AND `hour >= LOCKOUT_RESET_HOUR` (9 PM, `LOCKOUT_RESET_HOUR = 21`); resets `stableLuxCount`, `windDownStep`
 - Edge detection uses the SSE-synced `lightCache[]` — no per-tick HTTP GETs
 
 #### Wake Sequence *(implemented)*
-- `triggerWake(lux)` reads `cachedLight(LIGHT_BEDSIDE)` for the bulb's current bri/ct at trigger time; seeds `wakeStartTarget` from that (or floor values if the bulb is off); `wakeEndTarget = luxToTarget(ambientLux)`; sets `state = WAKE`
-- `tickWakeRamp(lux)` linearly interpolates bri and ct from `wakeStartTarget` → `wakeEndTarget` per tick; sets all active bulbs each step
-- Sequential turn-on: bedside + desk every tick; overheads added when `lux >= S3_LUX_HI && rampBri >= S2_BRI_LO`
+- `triggerWake(lux)` reads `cachedLight(LIGHT_FLOOR)` for the floor lamp's current bri/ct at trigger time; seeds `wakeStartTarget` from that (or floor values if the bulb is off); `wakeEndTarget = luxToTarget(ambientLux)`; sets `state = WAKE`
+- `tickWakeRamp(lux)` linearly interpolates bri and ct from `wakeStartTarget` → `wakeEndTarget` per tick
+- Sequential turn-on (sunrise staircase): floor lamp every tick (leads from tick 0); chest + dresser join when `lux >= WAKE_SECONDARY_LUX (200) && rampBri >= WAKE_SECONDARY_BRI (40%)`; overheads added when `lux >= WAKE_OVERHEAD_LUX (600) && rampBri >= S2_BRI_LO (63%)`
 - `dynamics.duration = 30000` (30 s) — matches poll interval for a seamless continuous gradient
 - `WAKE_RAMP_TICKS = 40` ticks (20 min); ramp ends at `t >= 1.0`; hands off to `state = NORMAL`
 
@@ -158,11 +159,11 @@ UUIDs were discovered once via `GET https://192.168.1.186/clip/v2/resource/light
 
 All phase triggers are based on lux readings, not time of day — adapts to seasonal sunset variation automatically.
 
-1. **Transition** *(implemented)* — as lux falls from daytime, all 4 bulbs dim gradually per `luxToTarget()`
-2. **Overhead off** *(implemented)* — lux drops through **200 lux** (`S3_LUX_HI`) → CEIL_1+2 turn off; bedside+desk jump from bri ≈ 78.7 % → bri ≈ 63 % to compensate (intentional discontinuity at lightcurve seg 2/3 boundary — see `LIGHTCURVE.md`)
+1. **Transition** *(implemented)* — as lux falls from daytime, floor+chest+dresser dim gradually per `luxToTarget()`
+2. **Overhead off** *(implemented)* — lux drops through **200 lux** (`S3_LUX_HI`) → CEIL_1+2 turn off; floor+chest+dresser jump from bri ≈ 78.7 % → bri ≈ 63 % to compensate (intentional discontinuity at lightcurve seg 2/3 boundary — see `LIGHTCURVE.md`)
 3. **Stable dark detection** *(implemented)* — lux stable within `[2, 8]` for 30 min (60 readings), hour ≥ 21 — weighted counter increments in range, decrements toward floor 0 otherwise
-4. **Wind-down** *(implemented)* — 60-min linear dim on bedside+desk from current bri → floor (`S4_FLOOR_BRI ≈ 19.7 %`, `CT_WARM = 400` mirek); `dynamics.duration = 30000` matches poll interval for seamless gradient; desk turns off at step 120; bedside holds at floor until manual off; `state = LOCKED_OUT` on completion
-5. **Morning lockout** — re-arms when all lights confirmed off after 9 PM
+4. **Wind-down** *(implemented)* — 60-min linear dim on floor+chest+dresser from current bri → floor (`S4_FLOOR_BRI ≈ 19.7 %`, `CT_WARM = 400` mirek); `dynamics.duration = 30000` matches poll interval for seamless gradient; **chest turns off at the midpoint (step 60, cache-guarded against dashboard step-seeks), dresser turns off at step 120**; the floor lamp holds at floor brightness as the night-light anchor until manual off; `state = LOCKED_OUT` on completion
+5. **Morning lockout** — re-arms when the floor lamp + chest/dresser/ceiling are all confirmed off after 9 PM
 
 ---
 
@@ -172,7 +173,7 @@ All phase triggers are based on lux readings, not time of day — adapts to seas
 - **Auto-trigger:** SSE-driven, per-light trajectory-matched override detection in `handleLightUpdate()`. See `SSE.md` for the full mechanism. On an off-trajectory event for a light Mira expects to be on, sets `state = SOFT_PAUSE` and `softPauseStart = millis()`.
 - **Button trigger:** BTN_MODE short press when in NORMAL.
 - **Behavior:** `tickSoftPause()` is a no-op until expiry — system skips all `setLight()` calls while paused.
-- **Auto-resume:** Resumes to NORMAL after `SOFT_PAUSE_MS` (60 min). Resets `sentTarget = {-1.0f, 0}` sentinel to force a fresh PUT, syncs `overheadsOn` and `lastBedsideOn` from cache, then runs a 10-min interpolation ramp (`PAUSE_RESUME_TICKS = 20`) from the pre-pause target to current ambient. Override detection is suppressed for the entire resume ramp via the `pauseResumeActive` flag.
+- **Auto-resume:** Resumes to NORMAL after `SOFT_PAUSE_MS` (60 min). Resets `sentTarget = {-1.0f, 0}` sentinel to force a fresh PUT, syncs `overheadsOn` and `lastFloorOn` from cache, then runs a 10-min interpolation ramp (`PAUSE_RESUME_TICKS = 20`) from the pre-pause target to current ambient. Override detection is suppressed for the entire resume ramp via the `pauseResumeActive` flag.
 
 ### Hard Off *(implemented)*
 - **Trigger:** Button long press (700ms)
@@ -192,7 +193,7 @@ Two tactile buttons, both active LOW, internal pull-up. Both polled every 50ms i
 
 | Press type | Action |
 |---|---|
-| Short press | If not NORMAL → go to NORMAL (resets `sentTarget` to sentinel; syncs `overheadsOn` and `lastBedsideOn` from cache); if already NORMAL → SOFT_PAUSE |
+| Short press | If not NORMAL → go to NORMAL (resets `sentTarget` to sentinel; syncs `overheadsOn` and `lastFloorOn` from cache); if already NORMAL → SOFT_PAUSE |
 | Long press (700ms) | Hard off toggle (HARD_OFF ↔ LOCKED_OUT) |
 
 ### BTN_CYCLE — D10 (GPIO21)
@@ -203,9 +204,9 @@ Short press only. Advances `(int)state + 1) % 6` through the state enum order an
 
 | Target state | What forceState does |
 |---|---|
-| LOCKED_OUT | Resets `stableLuxCount = 0`, `windDownStep = 0`; syncs `lastBedsideOn` from `cachedLight(LIGHT_BEDSIDE).on` |
-| NORMAL | Resets `sentTarget = {-1.0f, 0}` sentinel; resets `stableLuxCount = 0`; syncs `overheadsOn` and `lastBedsideOn` from cache. No transition-time mute is needed — override discrimination is per-PUT via the `recentPuts[]` trajectory ring (see `SSE.md`). |
-| WAKE | Calls `triggerWake(lastLux)` (reads bedside via `cachedLight()`, seeds ramp) |
+| LOCKED_OUT | Resets `stableLuxCount = 0`, `windDownStep = 0`; syncs `lastFloorOn` from `cachedLight(LIGHT_FLOOR).on` |
+| NORMAL | Resets `sentTarget = {-1.0f, 0}` sentinel; resets `stableLuxCount = 0`; syncs `overheadsOn` and `lastFloorOn` from cache. No transition-time mute is needed — override discrimination is per-PUT via the `recentPuts[]` trajectory ring (see `SSE.md`). |
+| WAKE | Calls `triggerWake(lastLux)` (reads the floor lamp via `cachedLight()`, seeds ramp) |
 | WIND_DOWN | Seeds `windDownStartBri` from `sentTarget.bri` (or `luxToTarget(lastLux).bri` if sentinel), resets `windDownStep = 0` |
 | SOFT_PAUSE | Sets `softPauseStart = millis()` |
 | HARD_OFF | Sets state only |

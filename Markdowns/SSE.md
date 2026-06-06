@@ -58,10 +58,10 @@ struct CachedLight {
     int   ct          = 0;      // mirek
     bool  initialized = false;
 };
-CachedLight lightCache[4];      // indexed by LIGHT_BEDSIDE / LIGHT_DESK / LIGHT_CEIL_1 / LIGHT_CEIL_2
+CachedLight lightCache[LIGHT_COUNT]; // LIGHT_CHEST / LIGHT_DRESSER / LIGHT_CEIL_1 / LIGHT_CEIL_2 / LIGHT_FLOOR
 ```
 
-**Read path:** `cachedLight(idx)` returns a `LightState` copy. Used by `triggerWake()`, `checkBedsideState()`, all state-transition resync points (`overheadsOn = cachedLight(LIGHT_CEIL_1).on`, `lastBedsideOn = cachedLight(LIGHT_BEDSIDE).on`), the setup flourish (`saved = cachedLight(LIGHT_BEDSIDE)`), and `noteRecentPut()` for the trajectory `priorBri`/`priorCt`.
+**Read path:** `cachedLight(idx)` returns a `LightState` copy. Used by `triggerWake()`, `checkFloorState()`, all state-transition resync points (`overheadsOn = cachedLight(LIGHT_CEIL_1).on`, `lastFloorOn = cachedLight(LIGHT_FLOOR).on`), the setup flourish (`saved = cachedLight(LIGHT_CHEST)`), and `noteRecentPut()` for the trajectory `priorBri`/`priorCt`.
 
 **Write path:** `handleLightUpdate()` writes `on`, `bri`, and/or `ct` from incoming SSE events. Each event may carry any subset of the three fields — the bridge splits state changes across multiple events (e.g. a `dimming` event followed by a separate `color_temperature` event), so writes are field-by-field, not whole-record replacements.
 
@@ -77,7 +77,7 @@ Current approach: every incoming event is classified into one of eight `EchoOutc
 
 Two layers do the work:
 
-1. **Trajectory ring (`recentPuts[4][3]`)** — every outgoing PUT writes one slot per light. An incoming event matches if its on/bri/ct values lie within `[min(prior, target), max(prior, target)] ± TRAJECTORY_TOLERANCE_*` for any live slot. Three slots per light let overlapping in-flight PUTs (e.g. wake-ramp tick + state-change PUT) keep their trajectories live simultaneously.
+1. **Trajectory ring (`recentPuts[LIGHT_COUNT][3]`)** — every outgoing PUT writes one slot per light. An incoming event matches if its on/bri/ct values lie within `[min(prior, target), max(prior, target)] ± TRAJECTORY_TOLERANCE_*` for any live slot. Three slots per light let overlapping in-flight PUTs (e.g. wake-ramp tick + state-change PUT) keep their trajectories live simultaneously.
 2. **No-op event filter** — if the trajectory check fails, before declaring `Override` the handler checks whether the event's values are within `TRAJECTORY_TOLERANCE_*` of the **pre-event cache**. If so, the bridge is reporting state we already think is true — a late settling echo whose slot expired before the event arrived. Classify as `NoOpEcho`. Closes the timing gap on "skipping PUT" ticks where nothing refreshed the slot.
 
 ### Struct + Ring
@@ -94,7 +94,7 @@ struct RecentPut {
     unsigned long durationMs = 0;
 };
 const int RECENT_PUT_RING_SIZE = 3;
-RecentPut recentPuts[4][RECENT_PUT_RING_SIZE];
+RecentPut recentPuts[LIGHT_COUNT][RECENT_PUT_RING_SIZE];
 ```
 
 ### Write — `noteRecentPut(idx, on, bri, ct, durationMs)`
@@ -169,7 +169,7 @@ A Hue PUT with `dynamics.duration > 0` ramps the bulb over time, and the bridge 
 Two scenarios where overlapping PUTs collide on a single-slot design:
 
 - A wake-ramp tick PUT with `dynamics.duration=30000` is still settling when the next tick fires its own PUT. With one slot, the second `noteRecentPut()` overwrites the first; a late echo of the first PUT then has no live trajectory to match.
-- A lux-driven PUT fires immediately after an overhead-toggle PUT (e.g. `S3_LUX_HI` crossing turns on `LIGHT_CEIL_1` + `LIGHT_CEIL_2` and the same tick adjusts `LIGHT_BEDSIDE`). On the bedside slot this is fine; on the overheads, multiple settling echoes can collide.
+- A lux-driven PUT fires immediately after an overhead-toggle PUT (e.g. `S3_LUX_HI` crossing turns on `LIGHT_CEIL_1` + `LIGHT_CEIL_2` and the same tick adjusts `LIGHT_FLOOR`). On the floor slot this is fine; on the overheads, multiple settling echoes can collide.
 
 Three slots cover the common cases without growing the trajectory window so wide it masks small real overrides.
 
@@ -207,6 +207,39 @@ The original implementation reused `STATE_TOLERANCE_*` for both jobs. Wrong. The
 8. Set `state = SOFT_PAUSE`, `softPauseStart = millis()`, `pauseResumeActive = false`. Call `dumpOverrideDiagnostic()` (ships a full multi-line dump to the dashboard via `sendLog`). Then `sendLog("Manual override — soft pause — ...")`.
 
 The override decision is still based on fields present in *this* event only — never on cache-merged state — because the bridge splits combined state changes across multiple events (a `dimming` event followed by a separate `color_temperature` event) and mixing cached fields into the trajectory comparison would generate false positives on every partial event.
+
+### Mid-Batch Abort
+
+The state flip in step 8 happens synchronously inside `handleLightUpdate()`, which is called from `sseTick()`, which is called from the **tail** of every `setLight()` and `setLightColor()` (after the PUT returns, before the function returns). That tail-drain is what gives the override its low latency — but it also means the flip can land **between** PUTs in a chained tick.
+
+The vulnerable callers are the multi-PUT batches:
+
+- `tickNormal`'s `if (shouldUpdate)` block — up to 4 PUTs (floor, chest, dresser, ceil_1)
+- `tickNormal`'s overhead-off PUT when crossing `S3_LUX_HI` descending
+- `tickNormal`'s pause-resume ramp (floor + chest + dresser, plus overheads)
+- `tickWakeRamp` — floor leads, chest+dresser and overheads gated per their thresholds
+- `tickWindDown` — floor + chest + dresser (chest off at step 60, dresser off at step 120)
+
+If the user changed e.g. the chest-lamp brightness via the Hue app between PUT #1 (floor) and PUT #2 (chest), the bridge would echo chest back with the user's value, `eventMatchesRecentPut()` would miss (the value is outside the trajectory), the no-op filter would miss (the value is outside `TRAJECTORY_TOLERANCE_BRI` of the pre-event cache), and the override would fire. State is now SOFT_PAUSE — but `tickNormal` (or whoever) has no idea, and proceeds to PUT #2..#4 to the curve-derived target the user just overrode.
+
+The fix is a guard at the top of both PUT helpers, *before* `noteRecentPut()` and the HTTP request:
+
+```cpp
+void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
+    // Mid-batch abort. setLight() tail-calls sseTick() which can flip state
+    // to SOFT_PAUSE on an Override. Without this, the rest of a chained
+    // tickNormal/tickWakeRamp/tickWindDown batch keeps PUTting after the
+    // user's manual change has already preempted the system.
+    if (state == State::SOFT_PAUSE || state == State::HARD_OFF) return;
+    ...
+}
+```
+
+Bailing *before* `noteRecentPut()` is important — if we recorded a trajectory slot and then skipped the actual PUT, an unrelated future event for the same bulb could match against an orphan slot during its `durationMs + RECENT_PUT_GRACE_MS` lifetime, silently classifying a real override as `EchoMatch`.
+
+The guard is also valid for `HARD_OFF` for the same reason (HARD_OFF means "the firmware is taking no automated action on bulbs at all"). The boot purple flourish is unaffected — `setup()` runs the flourish in `State::NORMAL` (the static initializer at module scope) and `sseConnect()` doesn't open until after the flourish, so no override can fire during it.
+
+Trade-off: the partial batch leaves some bulbs at their pre-PUT state and others at the new curve target — the lights are temporarily inconsistent. That's the right behavior given the user's manual change explicitly disagreed with the system's curve target; SOFT_PAUSE is about to hold things steady for 60 min anyway. Cosmetic side-effect: `tickNormal`'s post-batch `Serial.println("Bulbs updated.")` and `sendLog("Lux: ... → bri=... ct=...")` still fire even though only some bulbs were PUT. The "Manual override — soft pause" log immediately follows, so the sequence is still readable; cleaning up the cosmetic gap is a low-priority follow-up.
 
 ---
 

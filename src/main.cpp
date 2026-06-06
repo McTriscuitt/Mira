@@ -35,7 +35,7 @@ struct CachedLight {
     int   ct          = 0;
     bool  initialized = false;
 };
-CachedLight lightCache[4]; // indexed by LIGHT_BEDSIDE / LIGHT_DESK / LIGHT_CEIL_1 / LIGHT_CEIL_2
+CachedLight lightCache[LIGHT_COUNT]; // indexed by LIGHT_CHEST / LIGHT_DRESSER / LIGHT_CEIL_1 / LIGHT_CEIL_2 / LIGHT_FLOOR
 
 struct ButtonState {
     bool debounced       = false;
@@ -78,7 +78,7 @@ LightTarget pauseResumeStartTarget = {0, 0}; // bri/ct snapshot at soft pause en
 // (prior, target) trajectory into one slot so the SSE handler can discriminate
 // self-PUT echoes (events that land on the trajectory) from external overrides
 // (events that don't). Closed-loop: depends only on what we just told the
-// bridge, not on bridge metadata. Per-light, so an in-flight bedside PUT can't
+// bridge, not on bridge metadata. Per-light, so an in-flight chest-lamp PUT can't
 // mask a real override on the overheads. A no-op event filter in
 // handleLightUpdate() catches late settling echoes that arrive after the slot's
 // grace expires (see Markdowns/SSE.md).
@@ -98,7 +98,7 @@ struct RecentPut {
 // so a late echo from any of them can still match. noteRecentPut() prefers an
 // inactive/expired slot; if all three are live, the oldest is overwritten.
 const int RECENT_PUT_RING_SIZE = 3;
-RecentPut recentPuts[4][RECENT_PUT_RING_SIZE];
+RecentPut recentPuts[LIGHT_COUNT][RECENT_PUT_RING_SIZE];
 const unsigned long RECENT_PUT_GRACE_MS = 5000UL; // post-ramp slack for late echoes (Zigbee mesh can be slow)
 // Trajectory-match tolerances, intentionally wider than STATE_TOLERANCE_*:
 // - STATE_TOLERANCE_* sizes "is the curve drifted enough to send a new PUT?"
@@ -170,8 +170,8 @@ unsigned long sseLastConnectMs = 0;
 const unsigned long SSE_RECONNECT_DELAY_MS = 5000UL;
 const unsigned long SSE_STALE_TIMEOUT_MS   = 600000UL; // Hue v2 sends no keepalive; only reconnect on long silence
 
-// Bedside edge detection
-bool lastBedsideOn = false;  // previous bedside poll — detects manual on/off flips
+// Floor-lamp edge detection
+bool lastFloorOn = false;  // previous floor-lamp poll — detects manual on/off flips (wake trigger + lockout re-arm)
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", UTC_OFFSET_SEC);
@@ -225,13 +225,13 @@ static bool _fetchAndStoreBridgeCert() {
     WiFiClientSecure client;
     client.setInsecure();
     client.setTimeout(10);
-    if (!client.connect("192.168.1.186", 443)) {
+    if (!client.connect(HUE_BRIDGE_HOST, 443)) {
         Serial.println("Cert fetch: connect failed");
         return false;
     }
     // Send a minimal GET so the TLS handshake completes and the peer cert is available.
     client.print("GET /clip/v2/resource/light HTTP/1.0\r\n"
-                 "Host: 192.168.1.186\r\n"
+                 "Host: " HUE_BRIDGE_HOST "\r\n"
                  "hue-application-key: " HUE_API_KEY "\r\n"
                  "Connection: close\r\n\r\n");
     // Drain just enough to ensure the handshake finished.
@@ -302,16 +302,30 @@ static void ensureBridgeCert() {
 // Map a v2 UUID string to its lightCache[] index. Returns -1 for unknown UUIDs.
 static int idxByUuid(const char* uuid) {
     if (!uuid) return -1;
-    if (strcmp(uuid, LIGHT_UUID_BEDSIDE) == 0) return LIGHT_BEDSIDE;
-    if (strcmp(uuid, LIGHT_UUID_DESK)    == 0) return LIGHT_DESK;
+    if (strcmp(uuid, LIGHT_UUID_CHEST)   == 0) return LIGHT_CHEST;
+    if (strcmp(uuid, LIGHT_UUID_DRESSER) == 0) return LIGHT_DRESSER;
     if (strcmp(uuid, LIGHT_UUID_CEIL_1)  == 0) return LIGHT_CEIL_1;
-    if (strcmp(uuid, LIGHT_UUID_CEIL_2)  == 0) return LIGHT_CEIL_2;
+    // if (strcmp(uuid, LIGHT_UUID_CEIL_2)  == 0) return LIGHT_CEIL_2;
+    if (strcmp(uuid, LIGHT_UUID_FLOOR)   == 0) return LIGHT_FLOOR;
     return -1;
+}
+
+// Friendly name for a lightCache[] index — used in Serial/diagnostic output so
+// logs read "Floor" instead of an opaque UUID prefix.
+static const char* lightName(int idx) {
+    switch (idx) {
+        case LIGHT_CHEST:   return "Chest";
+        case LIGHT_DRESSER: return "Dresser";
+        case LIGHT_CEIL_1:  return "Ceiling_1";
+        case LIGHT_CEIL_2:  return "Ceiling_2";
+        case LIGHT_FLOOR:   return "Floor";
+        default:            return "Unknown";
+    }
 }
 
 // Read the cached state for a bulb. Replaces the old HTTP-polling getLightState().
 LightState cachedLight(int idx) {
-    if (idx < 0 || idx >= 4) return {false, 0.0f, 0};
+    if (idx < 0 || idx >= LIGHT_COUNT) return {false, 0.0f, 0};
     const CachedLight& c = lightCache[idx];
     return {c.on, c.bri, c.ct};
 }
@@ -323,12 +337,20 @@ LightState cachedLight(int idx) {
 // don't. Matching on trajectory (not just endpoint) absorbs the bridge's
 // intermediate ramp echoes without needing to time-window them.
 
+// Forward declaration: setLight*/setLightColor drain pending SSE bytes after
+// each PUT so a chain of sequential blocking PUTs doesn't let earlier echoes
+// rot in the socket buffer until the wait loop next runs sseTick.
+static void sseTick();
+
 // Snapshot an outgoing PUT's trajectory. Called from setLight*/setLightColor
 // *before* the HTTP request goes out — the bridge can echo back faster than
 // HTTPClient::PUT() returns, so the entry must already exist when the SSE
-// event lands.
-static void noteRecentPut(int idx, bool on, float bri, int ct, unsigned long durationMs) {
-    if (idx < 0 || idx >= 4) return;
+// event lands. Returns the slot index it wrote to (or -1 for invalid idx) so
+// the caller can refresh postedAtMs after the blocking PUT returns; the
+// blocking time spent in TLS handshake + roundtrip would otherwise eat the
+// grace window before the echo can be drained.
+static int noteRecentPut(int idx, bool on, float bri, int ct, unsigned long durationMs) {
+    if (idx < 0 || idx >= LIGHT_COUNT) return -1;
     // Slot selection: prefer the first inactive/expired slot so live trajectories
     // from earlier PUTs (e.g. a wake-ramp tick still settling) aren't stomped. If
     // every slot is currently live, overwrite the oldest — that's the entry whose
@@ -356,6 +378,7 @@ static void noteRecentPut(int idx, bool on, float bri, int ct, unsigned long dur
     r.targetCt   = ct;
     r.postedAtMs = millis();
     r.durationMs = durationMs;
+    return slot;
 }
 
 // Does an incoming SSE event lie on the trajectory of the most recent PUT for
@@ -364,7 +387,7 @@ static bool eventMatchesRecentPut(int idx,
                                   bool hasOn,  bool   evOn,
                                   bool hasBri, float  evBri,
                                   bool hasCt,  int    evCt) {
-    if (idx < 0 || idx >= 4) return false;
+    if (idx < 0 || idx >= LIGHT_COUNT) return false;
     // Try every live slot; first match wins. Auto-expire stale entries inline.
     for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
         RecentPut& r = recentPuts[idx][s];
@@ -417,9 +440,8 @@ static void bootstrapLightStates() {
         lightCache[idx].bri = light["dimming"]["brightness"].as<float>();
         lightCache[idx].ct  = light["color_temperature"]["mirek"]        | 0;
         lightCache[idx].initialized = true;
-        Serial.printf("Bootstrap idx=%d on=%d bri=%.1f ct=%d (%s)\n",
-                      idx, lightCache[idx].on, lightCache[idx].bri, lightCache[idx].ct,
-                      String(uuid).substring(0, 8).c_str());
+        Serial.printf("Bootstrap %s — on=%d bri=%.1f ct=%d\n",
+                      lightName(idx), lightCache[idx].on, lightCache[idx].bri, lightCache[idx].ct);
     }
 }
 
@@ -475,12 +497,21 @@ static void _hsbToXY(int hueV1, int satV1, float& x, float& y) {
 
 // v2 HTTPS color PUT (HSB color mode). bri is percent 0.0–100.0. durationMs in ms.
 void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, int durationMs) {
+    // Mid-batch abort. Each setLight*() tail-calls sseTick() to drain echoes,
+    // and an Override classification there flips state to SOFT_PAUSE. Without
+    // this guard, the remaining PUTs in a chain (tickNormal's 4-bulb batch,
+    // tickWakeRamp, tickWindDown) still drive the bulbs to the *pre-override*
+    // target — contradicting the user's manual change that just fired the
+    // override. Bail before noteRecentPut() so we don't leave an orphan
+    // trajectory slot with no matching PUT.
+    if (state == State::SOFT_PAUSE || state == State::HARD_OFF) return;
+
     // Record trajectory so SSE echoes are recognized as ours. Color mode doesn't
     // change CT meaningfully — pass through the cached value so the ct check is a
     // self-match.
     int idx = idxByUuid(uuid);
     int ctTarget = (idx >= 0) ? lightCache[idx].ct : 0;
-    noteRecentPut(idx, on, bri, ctTarget, (unsigned long)durationMs);
+    int slot = noteRecentPut(idx, on, bri, ctTarget, (unsigned long)durationMs);
 
     float cx, cy;
     _hsbToXY(hueV1, satV1, cx, cy);
@@ -501,14 +532,38 @@ void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, i
     body += "}";
 
     int code = http.PUT(body);
-    Serial.println("setLightColor(" + String(uuid).substring(0,8) + "…) → HTTP " + code);
+    Serial.println("setLightColor(" + String(lightName(idx)) + ") → HTTP " + code);
     http.end();
+
+    // Restart the trajectory grace window from now: the http.PUT block ate up
+    // TLS handshake + roundtrip time. priorBri was correctly snapshotted before
+    // the PUT (so the bridge can echo back without losing the race), but the
+    // grace budget should count from when the PUT actually went out, otherwise
+    // a chain of sequential setLight calls can let the first slot expire before
+    // its echo is drained from the SSE socket.
+    if (idx >= 0 && slot >= 0) recentPuts[idx][slot].postedAtMs = millis();
+
+    // Drain any echoes that piled up at the SSE socket while http.PUT was
+    // blocking. Without this, all four PUTs in a tickNormal chain finish before
+    // the first one's echo is processed; combined with the postedAtMs refresh
+    // above, this keeps each slot's age small relative to its grace window.
+    sseTick();
 }
 
 // v2 HTTPS white/CT PUT. bri is percent 0.0–100.0. durationMs in ms.
 void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
+    // Mid-batch abort. Each setLight*() tail-calls sseTick() to drain echoes,
+    // and an Override classification there flips state to SOFT_PAUSE. Without
+    // this guard, the remaining PUTs in a chain (tickNormal's 4-bulb batch,
+    // tickWakeRamp, tickWindDown) still drive the bulbs to the *pre-override*
+    // target — contradicting the user's manual change that just fired the
+    // override. Bail before noteRecentPut() so we don't leave an orphan
+    // trajectory slot with no matching PUT.
+    if (state == State::SOFT_PAUSE || state == State::HARD_OFF) return;
+
     // Record trajectory so the SSE echo of this PUT is recognized as ours.
-    noteRecentPut(idxByUuid(uuid), on, bri, ct, (unsigned long)durationMs);
+    int idx  = idxByUuid(uuid);
+    int slot = noteRecentPut(idx, on, bri, ct, (unsigned long)durationMs);
 
     WiFiClientSecure client;
     client.setInsecure();
@@ -526,8 +581,22 @@ void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
     body += "}";
 
     int code = http.PUT(body);
-    Serial.println("setLight(" + String(uuid).substring(0,8) + "…) → HTTP " + code);
+    Serial.println("setLight(" + String(lightName(idx)) + ") → HTTP " + code);
     http.end();
+
+    // Restart the trajectory grace window from now: the http.PUT block ate up
+    // TLS handshake + roundtrip time. priorBri was correctly snapshotted before
+    // the PUT (so the bridge can echo back without losing the race), but the
+    // grace budget should count from when the PUT actually went out, otherwise
+    // a chain of sequential setLight calls can let the first slot expire before
+    // its echo is drained from the SSE socket.
+    if (idx >= 0 && slot >= 0) recentPuts[idx][slot].postedAtMs = millis();
+
+    // Drain any echoes that piled up at the SSE socket while http.PUT was
+    // blocking. Without this, all four PUTs in a tickNormal chain finish before
+    // the first one's echo is processed; combined with the postedAtMs refresh
+    // above, this keeps each slot's age small relative to its grace window.
+    sseTick();
 }
 
 String getTimeString() {
@@ -678,13 +747,20 @@ static void dumpOverrideDiagnostic(int idx,
        + " bri=" + String(cacheBriBefore, 2)
        + " ct="  + String(cacheCtBefore);
 
-    int activeSlots = 0;
+    // Print every slot that has ever been written (postedAtMs > 0), regardless
+    // of active flag — eventMatchesRecentPut clears active on expiration sweep,
+    // so an "inactive" slot may still hold the trajectory we just posted. Tag
+    // each as ACTIVE / EXPIRED / CLEARED so we can see whether the slot existed
+    // at all and how stale it was when the override decision ran.
+    int touchedSlots = 0;
     for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
         const RecentPut& r = recentPuts[idx][s];
-        if (!r.active) continue;
-        activeSlots++;
+        if (r.postedAtMs == 0) continue;
+        touchedSlots++;
         unsigned long age = millis() - r.postedAtMs;
-        d += "\n  recent[" + String(s) + "]"
+        bool          past = age > r.durationMs + RECENT_PUT_GRACE_MS;
+        const char*   tag  = r.active ? (past ? "EXPIRED" : "ACTIVE") : "CLEARED";
+        d += "\n  recent[" + String(s) + "] " + tag
            + " on="          + String(r.onTarget ? 1 : 0)
            + " priorBri="    + String(r.priorBri, 2)
            + " targetBri="   + String(r.targetBri, 2)
@@ -693,7 +769,7 @@ static void dumpOverrideDiagnostic(int idx,
            + " age="         + String(age) + "/" + String(r.durationMs)
            + "+grace="       + String(RECENT_PUT_GRACE_MS);
     }
-    if (activeSlots == 0) d += "\n  recent: (all slots inactive/expired)";
+    if (touchedSlots == 0) d += "\n  recent: (no slots ever written for this idx)";
 
     d += "\n  history(idx=" + String(idx) + "):";
     int dumped = 0;
@@ -781,10 +857,12 @@ static void handleLightUpdate(JsonObjectConst upd) {
     } else {
         bool expectedOn;
         switch (idx) {
-            case LIGHT_BEDSIDE:
-            case LIGHT_DESK:    expectedOn = true;        break;
+            case LIGHT_CHEST:
+            case LIGHT_DRESSER:
+            case LIGHT_FLOOR:   expectedOn = true;        break;
             case LIGHT_CEIL_1:
-            case LIGHT_CEIL_2:  expectedOn = overheadsOn; break;
+            // case LIGHT_CEIL_2:
+                                expectedOn = overheadsOn; break;
             default:            expectedOn = false;       break;
         }
         if (!expectedOn) {
@@ -992,11 +1070,17 @@ void tickWakeRamp(float lux) {
     rampBri = constrain(rampBri, 1.0f, 100.0f);
     rampCt  = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
 
-    setLight(LIGHT_UUID_BEDSIDE, true, rampBri, rampCt, 30000);
-    setLight(LIGHT_UUID_DESK,    true, rampBri, rampCt, 30000);
-    if (lux >= S3_LUX_HI && rampBri >= S2_BRI_LO) {
+    // Sunrise staircase. Floor lamp leads — on from tick 0, ramps the whole way.
+    setLight(LIGHT_UUID_FLOOR, true, rampBri, rampCt, 30000);
+    // Chest + dresser join once the ramp is meaningfully lit and the morning is bright.
+    if (lux >= WAKE_SECONDARY_LUX && rampBri >= WAKE_SECONDARY_BRI) {
+        setLight(LIGHT_UUID_CHEST,   true, rampBri, rampCt, 30000);
+        setLight(LIGHT_UUID_DRESSER, true, rampBri, rampCt, 30000);
+    }
+    // Overheads come last, and only on a bright morning (higher lux gate than above).
+    if (lux >= WAKE_OVERHEAD_LUX && rampBri >= S2_BRI_LO) {
         setLight(LIGHT_UUID_CEIL_1, true, rampBri, rampCt, 30000);
-        setLight(LIGHT_UUID_CEIL_2, true, rampBri, rampCt, 30000);
+        //setLight(LIGHT_UUID_CEIL_2, true, rampBri, rampCt, 30000);
         overheadsOn = true;
     }
 
@@ -1020,7 +1104,7 @@ void tickWindDown() {
 
     if (overheadsOn) {
         setLight(LIGHT_UUID_CEIL_1, false, 0, 0, 1000);
-        setLight(LIGHT_UUID_CEIL_2, false, 0, 0, 1000);
+        //setLight(LIGHT_UUID_CEIL_2, false, 0, 0, 1000);
         overheadsOn = false;
     }
 
@@ -1033,14 +1117,28 @@ void tickWindDown() {
         sendLog("Wind-down " + String(windDownStep / 2) + "/60 min — bri=" + String(wdBri, 1) + "% — " + getTimeString());
     }
 
-    setLight(LIGHT_UUID_BEDSIDE, true, wdBri, wdCt, 30000);
+    // Floor lamp is the night-light anchor — dims to the floor and stays on.
+    setLight(LIGHT_UUID_FLOOR, true, wdBri, wdCt, 30000);
+
+    // Chest collapses inward first: dims for the first half, then off for the
+    // second half (step ≥ 60 / 30 min). Guarding on the cache (rather than a
+    // one-shot at == 60) means a dashboard step-seek that jumps past 60 still
+    // turns it off, and once it's off the echo keeps us from re-PUTting each tick.
+    if (windDownStep < 60) {
+        setLight(LIGHT_UUID_CHEST, true, wdBri, wdCt, 30000);
+    } else if (cachedLight(LIGHT_CHEST).on) {
+        setLight(LIGHT_UUID_CHEST, false, 0, 0, 10000);
+    }
+
+    // Dresser dims the full hour, off at the end (step 120 / 60 min), handing off
+    // to LOCKED_OUT with only the floor lamp left glowing at the floor.
     if (windDownStep < 120) {
-        setLight(LIGHT_UUID_DESK, true, wdBri, wdCt, 30000);
+        setLight(LIGHT_UUID_DRESSER, true, wdBri, wdCt, 30000);
     } else {
-        setLight(LIGHT_UUID_DESK, false, wdBri, wdCt, 10000);
+        setLight(LIGHT_UUID_DRESSER, false, 0, 0, 10000);
         state = State::LOCKED_OUT;
         saveLastState(S4_FLOOR_BRI, (uint16_t)CT_WARM);
-        Serial.println("Wind-down complete. Desk off, bedside at floor.");
+        Serial.println("Wind-down complete. Chest + dresser off, floor lamp at floor.");
         sendLog("Wind-down complete — " + getTimeString());
     }
     sentTarget = {wdBri, (uint16_t)wdCt};
@@ -1058,7 +1156,7 @@ void tickNormal(float lux, LightTarget target) {
     bool newOverheadsOn = lux > S3_LUX_HI;
     if (overheadsOn && !newOverheadsOn) {
         setLight(LIGHT_UUID_CEIL_1, false, 0, 0, 500);
-        setLight(LIGHT_UUID_CEIL_2, false, 0, 0, 500);
+        // setLight(LIGHT_UUID_CEIL_2, false, 0, 0, 500);
         shouldUpdate = true;
     } else if (!overheadsOn && newOverheadsOn) {
         shouldUpdate = true;
@@ -1073,11 +1171,12 @@ void tickNormal(float lux, LightTarget target) {
         int   rampCt  = (int)(pauseResumeStartTarget.ct  + t * (target.ct  - pauseResumeStartTarget.ct));
         rampBri       = constrain(rampBri, 1.0f, 100.0f);
         rampCt        = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
-        setLight(LIGHT_UUID_BEDSIDE, true, rampBri, rampCt, 30000);
-        setLight(LIGHT_UUID_DESK,    true, rampBri, rampCt, 30000);
+        setLight(LIGHT_UUID_FLOOR,   true, rampBri, rampCt, 30000);
+        setLight(LIGHT_UUID_CHEST,   true, rampBri, rampCt, 30000);
+        setLight(LIGHT_UUID_DRESSER, true, rampBri, rampCt, 30000);
         if (overheadsOn) {
             setLight(LIGHT_UUID_CEIL_1, true, rampBri, rampCt, 30000);
-            setLight(LIGHT_UUID_CEIL_2, true, rampBri, rampCt, 30000);
+            // setLight(LIGHT_UUID_CEIL_2, true, rampBri, rampCt, 30000);
         }
         sentTarget = {rampBri, (uint16_t)rampCt};
         saveLastState(rampBri, (uint16_t)rampCt);
@@ -1106,11 +1205,12 @@ void tickNormal(float lux, LightTarget target) {
     }
 
     if (shouldUpdate) {
-        setLight(LIGHT_UUID_BEDSIDE, true, target.bri, target.ct, 1000);
-        setLight(LIGHT_UUID_DESK,    true, target.bri, target.ct, 1000);
+        setLight(LIGHT_UUID_FLOOR,   true, target.bri, target.ct, 1000);
+        setLight(LIGHT_UUID_CHEST,   true, target.bri, target.ct, 1000);
+        setLight(LIGHT_UUID_DRESSER, true, target.bri, target.ct, 1000);
         if (overheadsOn) {
             setLight(LIGHT_UUID_CEIL_1, true, target.bri, target.ct, 1000);
-            setLight(LIGHT_UUID_CEIL_2, true, target.bri, target.ct, 1000);
+            // setLight(LIGHT_UUID_CEIL_2, true, target.bri, target.ct, 1000);
         }
         sentTarget = target;
         saveLastState(target.bri, target.ct);
@@ -1130,7 +1230,7 @@ void tickSoftPause() {
         pauseResumeActive      = true;
         pauseResumeStep        = 0;
         overheadsOn            = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
-        lastBedsideOn          = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
+        lastFloorOn          = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
         state                  = State::NORMAL;
         Serial.println("Soft pause expired — beginning 10-min resume ramp.");
         sendLog("Soft pause expired — resuming — " + getTimeString());
@@ -1138,9 +1238,11 @@ void tickSoftPause() {
 }
 
 void triggerWake(float ambientLux) {
-    LightState bedside = cachedLight(LIGHT_BEDSIDE);
-    float    startBri  = (bedside.on && bedside.bri > 0.0f) ? bedside.bri : S4_FLOOR_BRI;
-    uint16_t startCt   = (bedside.ct  > 0) ? (uint16_t)bedside.ct  : (uint16_t)CT_WARM;
+    // The floor lamp is the wake "start point" — the user physically flips it on,
+    // and that rising edge is what fires this. Seed the ramp from its actual state.
+    LightState floorLamp = cachedLight(LIGHT_FLOOR);
+    float    startBri  = (floorLamp.on && floorLamp.bri > 0.0f) ? floorLamp.bri : S4_FLOOR_BRI;
+    uint16_t startCt   = (floorLamp.ct  > 0) ? (uint16_t)floorLamp.ct  : (uint16_t)CT_WARM;
     wakeStartTarget    = {startBri, startCt};
     wakeEndTarget      = luxToTarget(ambientLux);
     wakeStep           = 0;
@@ -1150,25 +1252,30 @@ void triggerWake(float ambientLux) {
     sendLog("Wake sequence started — " + getTimeString());
 }
 
-void checkBedsideState(float lux) {
-    LightState bedside = cachedLight(LIGHT_BEDSIDE);
+void checkFloorState(float lux) {
+    LightState floorLamp = cachedLight(LIGHT_FLOOR);
 
-    if (state == State::LOCKED_OUT && !lastBedsideOn && bedside.on) {
+    // Rising edge of the floor lamp while locked out = "good morning" → start wake.
+    if (state == State::LOCKED_OUT && !lastFloorOn && floorLamp.on) {
         triggerWake(lux);
     }
 
-    if (lastBedsideOn && !bedside.on && timeClient.getHours() >= LOCKOUT_RESET_HOUR) {
-        LightState desk  = cachedLight(LIGHT_DESK);
-        LightState ceil1 = cachedLight(LIGHT_CEIL_1);
-        LightState ceil2 = cachedLight(LIGHT_CEIL_2);
-        if (!desk.on && !ceil1.on && !ceil2.on) {
+    // Floor lamp just switched off after the reset hour, with nothing else on →
+    // re-arm the morning lockout. (Chest + dresser are off by end of wind-down;
+    // the floor lamp is the last light the user kills before sleep.)
+    if (lastFloorOn && !floorLamp.on && timeClient.getHours() >= LOCKOUT_RESET_HOUR) {
+        LightState chest   = cachedLight(LIGHT_CHEST);
+        LightState dresser = cachedLight(LIGHT_DRESSER);
+        LightState ceil1   = cachedLight(LIGHT_CEIL_1);
+        // LightState ceil2 = cachedLight(LIGHT_CEIL_2);
+        if (!chest.on && !dresser.on && !ceil1.on) {
             state          = State::LOCKED_OUT;
             stableLuxCount = 0;
             windDownStep   = 0;
         }
     }
 
-    lastBedsideOn = bedside.on;
+    lastFloorOn = floorLamp.on;
 }
 
 void pollButton(ButtonState& btn, int pin) {
@@ -1203,14 +1310,14 @@ void forceState(State next) {
         case State::LOCKED_OUT:
             stableLuxCount = 0;
             windDownStep   = 0;
-            lastBedsideOn  = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
+            lastFloorOn  = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
             state          = State::LOCKED_OUT;
             break;
         case State::NORMAL:
             sentTarget        = {-1.0f, 0};
             stableLuxCount    = 0;
             overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
-            lastBedsideOn     = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
+            lastFloorOn     = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
             state             = State::NORMAL;
             break;
         case State::WAKE:
@@ -1253,7 +1360,7 @@ void handleButtonEvents() {
             sendLog("Hard off — " + getTimeString());
         } else {
             state         = State::LOCKED_OUT;
-            lastBedsideOn = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
+            lastFloorOn = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
             Serial.println("Button long press — hard off cleared.");
             sendLog("Hard off cleared — " + getTimeString());
         }
@@ -1275,7 +1382,7 @@ void handleButtonEvents() {
             sentTarget        = {-1.0f, 0};
             stableLuxCount    = 0;
             overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
-            lastBedsideOn     = cachedLight(LIGHT_BEDSIDE).on; // sync from actual bridge state
+            lastFloorOn     = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
             Serial.println("Button short press — NORMAL (was " + prev + ").");
             sendLog("Returned to NORMAL by button — " + getTimeString());
         }
@@ -1312,12 +1419,12 @@ void setup() {
     setRGB(false, false, false); // LED off — boot complete
 
     // Startup flash — deep purple, then restore previous state
-    LightState saved = cachedLight(LIGHT_BEDSIDE);
-    setLightColor(LIGHT_UUID_BEDSIDE, true, 78.7f, 48000, 200, 1000); // fade in purple over 1s
+    LightState saved = cachedLight(LIGHT_CHEST);
+    setLightColor(LIGHT_UUID_CHEST, true, 78.7f, 48000, 200, 1000); // fade in purple over 1s
     delay(3000);                                                        // hold for 3s
-    setLight(LIGHT_UUID_BEDSIDE, saved.on, saved.bri, saved.ct, 1000); // restore over 1s
+    setLight(LIGHT_UUID_CHEST, saved.on, saved.bri, saved.ct, 1000); // restore over 1s
 
-    lastBedsideOn = cachedLight(LIGHT_BEDSIDE).on; // seed edge detection — prevents false wake trigger on first tick
+    lastFloorOn = cachedLight(LIGHT_FLOOR).on; // seed edge detection — prevents false wake trigger on first tick
     overheadsOn   = cachedLight(LIGHT_CEIL_1).on;  // seed from actual state — prevents false override and bad dashboard reporting
 
     sseConnect(); // open the persistent SSE event stream — drained in the wait loop each tick
@@ -1345,11 +1452,11 @@ void loop() {
 
     switch (state) {
         case State::LOCKED_OUT:
-            checkBedsideState(lux);
+            checkFloorState(lux);
             break;
 
         case State::NORMAL:
-            checkBedsideState(lux);
+            checkFloorState(lux);
             tickNormal(lux, target);
             break;
 
@@ -1358,7 +1465,7 @@ void loop() {
             break;
 
         case State::WIND_DOWN:
-            checkBedsideState(lux);
+            checkFloorState(lux);
             tickWindDown();
             break;
 

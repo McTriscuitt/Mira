@@ -22,10 +22,10 @@ Color temp is derived globally from normalized brightness: high bri → cool ct,
 
 The curve maps to different active bulb sets depending on which side of 200 lux the system is on:
 
-- **Above 200 lux (seg 1 + seg 2):** all four bulbs active — bedside, desk, overhead 1, overhead 2
-- **Below 200 lux (seg 3 + seg 4):** overheads off — bedside and desk only
+- **Above 200 lux (seg 1 + seg 2):** all bulbs active — floor, chest, dresser, overhead 1, overhead 2
+- **Below 200 lux (seg 3 + seg 4):** overheads off — floor, chest, dresser only
 
-The overhead cutoff at 200 lux (`S3_LUX_HI`) is part of the evening wind-down sequence. As lux drops through 200, the two overhead bulbs turn off and the bedside/desk lamps bump up in brightness to partially compensate. This produces the intentional upward jump in bri at the seg 2/3 boundary (~63.0 % → ~78.7 %).
+The overhead cutoff at 200 lux (`S3_LUX_HI`) is part of the evening wind-down sequence. As lux drops through 200, the two overhead bulbs turn off and the floor/chest/dresser lamps bump up in brightness to partially compensate. This produces the intentional upward jump in bri at the seg 2/3 boundary (~63.0 % → ~78.7 %).
 
 The overhead on/off logic is handled by the system state machine in `tickNormal()`, not by `luxToTarget()`. `luxToTarget()` only returns the correct bri/ct for whichever bulbs are currently active.
 
@@ -56,11 +56,11 @@ bri (%)
                            lamps jump from ~63 % → ~79 %
 ```
 
-- Segment 4 (0–10 lux): log rise from floor (~19.7 % → ~59.1 %) — deep night, bedside + desk only
-- Segment 3 (10–200 lux): hyperbolic plateau crawl (~59.1 % → ~78.7 %) — evening wind-down, bedside + desk only
+- Segment 4 (0–10 lux): log rise from floor (~19.7 % → ~59.1 %) — deep night, floor + chest + dresser only
+- Segment 3 (10–200 lux): hyperbolic plateau crawl (~59.1 % → ~78.7 %) — evening wind-down, floor + chest + dresser only
 - Discontinuity at 200 lux: as lux drops through 200, overheads off, bri jumps ~63 % → ~79 %
-- Segment 2 (200–500 lux): parabolic rise (~63.0 % → ~86.6 %) — transition zone, all four bulbs
-- Segment 1 (500–3000 lux): log rise to peak (~86.6 % → 100.0 %) — full daytime, all four bulbs
+- Segment 2 (200–500 lux): parabolic rise (~63.0 % → ~86.6 %) — transition zone, all bulbs
+- Segment 1 (500–3000 lux): log rise to peak (~86.6 % → 100.0 %) — full daytime, all bulbs
 
 ---
 
@@ -69,26 +69,26 @@ bri (%)
 All brightness constants are in percent (0.0–100.0) — Hue API v2 native units.
 
 ```cpp
-// Segment 4: night log rise (0 → 10 lux) — bedside + desk only
+// Segment 4: night log rise (0 → 10 lux) — floor + chest + dresser only
 constexpr float S4_LUX_HI    = 10.0f;
 constexpr float S4_LOG_BASE  = 20.0f;
 constexpr float S4_FLOOR_BRI = 19.7f;   // ~50/254 in v1 units — night floor
 constexpr float S4_BRI_HI    = 59.1f;   // ~150/254 — locked to S3_BRI_LO
 
-// Segment 3: plateau crawl (10 → 200 lux) — bedside + desk only
+// Segment 3: plateau crawl (10 → 200 lux) — floor + chest + dresser only
 constexpr float S3_LUX_HI      = 200.0f;
 constexpr float S3_CRAWL_POWER = 0.50f;
 constexpr float S3_BRI_HI      = 78.7f;  // ~200/254 — bri just after overheads turn off
 
-// Segment 2: parabolic rise (200 → 500 lux) — all four bulbs
+// Segment 2: parabolic rise (200 → 500 lux) — all bulbs
 // NOTE: S2_BRI_LO != S3_BRI_HI — intentional discontinuity at 200 lux.
 // As lux drops through 200: overheads cut, lamps jump from ~63 % → ~79 % to compensate.
 constexpr float S2_LUX_HI     = 500.0f;
 constexpr float S2_PARA_POWER = 5.0f;
-constexpr float S2_BRI_LO     = 63.0f;   // ~160/254 — seg2 bottom — all four bulbs at this level
+constexpr float S2_BRI_LO     = 63.0f;   // ~160/254 — seg2 bottom — all bulbs at this level
 constexpr float S2_BRI_HI     = 86.6f;   // ~220/254 — locked to S1_BRI_LO
 
-// Segment 1: daytime log rise (500 → 3000 lux) — all four bulbs
+// Segment 1: daytime log rise (500 → 3000 lux) — all bulbs
 constexpr float S1_LUX_HI   = 3000.0f;
 constexpr float S1_LOG_BASE = 4.5f;
 constexpr float S1_BRI_HI   = 100.0f;   // 100 % — max brightness
