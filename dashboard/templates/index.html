@@ -550,11 +550,13 @@
         const stableCount = stableSeekPending
           ? (_pendingCommand.value ?? 0)
           : (data.stable_lux_count ?? 0);
-        slider.max   = 59;
-        slider.value = stableCount;
-        text.textContent = `stable lux: ${stableCount} / 59`;
-        sliderWrap.classList.remove('hidden');
-        if (finishBtn) { finishBtn.style.display = ''; finishBtn.textContent = 'reset'; }
+        if (stableCount > 0) {
+          slider.max   = 59;
+          slider.value = stableCount;
+          text.textContent = `stable lux: ${stableCount} / 59`;
+          sliderWrap.classList.remove('hidden');
+          if (finishBtn) { finishBtn.style.display = ''; finishBtn.textContent = 'reset'; }
+        }
         if (isPending || stableSeekPending) detail.textContent = 'pending';
       } else if (displayState === 'LOCKED_OUT') {
         nameEl.textContent = 'Locked out';
