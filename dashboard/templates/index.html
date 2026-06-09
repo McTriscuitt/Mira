@@ -197,6 +197,9 @@
     @media (hover: hover) {
       .finish-btn:hover { border-color: #666; color: #e0e0e0; }
     }
+    /* Touch devices get no :hover — :active fires on touchstart so the press
+       still gives visual feedback. Keep outside the hover media query. */
+    .finish-btn:active { border-color: #777; color: #e0e0e0; background: #1a1a1a; }
 
     /* --- Controls --- */
     .controls {
@@ -224,6 +227,34 @@
     }
     .btn:active { background: #1a1a1a; }
     .btn.btn-active { border-color: #777; color: #e0e0e0; background: #1e1e1e; }
+
+    /* --- Lights-in-cycle chips --- */
+    .lights-section { text-align: center; margin-bottom: 48px; }
+    .lights-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: #555;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .lights-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .light-chip {
+      background: none;
+      border: 1px solid #2a2a2a;
+      color: #555;
+      font-family: inherit;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      padding: 8px 16px;
+      cursor: pointer;
+      min-height: 36px;
+      transition: border-color 0.15s, color 0.15s, opacity 0.15s;
+    }
+    @media (hover: hover) { .light-chip:hover { border-color: #555; color: #e0e0e0; } }
+    .light-chip:active { background: #1a1a1a; }
+    /* lit = participating in the cycle; dimmed = excluded */
+    .light-chip.in-cycle { border-color: #777; color: #e0e0e0; background: #1e1e1e; }
+    .light-chip.excluded { border-color: #1c1c1c; color: #3c3c3c; opacity: 0.6; }
 
     /* --- Log --- */
     .log-section {
@@ -318,10 +349,6 @@
         <div class="stat-value" id="val-ct">—</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Overhead Lights</div>
-        <div class="stat-value" id="val-overhead">—</div>
-      </div>
-      <div class="stat">
         <div class="stat-label">Last seen</div>
         <div class="stat-value" id="val-ts" style="font-size:14px; padding-top:4px;">—</div>
       </div>
@@ -332,6 +359,7 @@
       <div class="progress-slider-wrap hidden" id="progress-slider-wrap">
         <input type="range" id="progress-slider" min="0" max="100" value="0"{% if role == 'demo' %} disabled style="pointer-events:none"{% endif %}>
         <span class="progress-text" id="progress-text">—</span>
+        {% if role != 'demo' %}<button class="finish-btn" id="extend-btn" style="display:none">+10 min</button>{% endif %}
         {% if role != 'demo' %}<button class="finish-btn" id="finish-btn">finish</button>{% endif %}
       </div>
       <div class="progress-text" id="progress-detail"></div>
@@ -346,6 +374,16 @@
       <button class="btn" data-action="HARD_OFF"   onclick="hardOffClick()">Hard off</button>
     </div>
     {% endif %}
+
+    <div class="lights-section">
+      <div class="lights-label">Lights in cycle</div>
+      <div class="lights-row" id="lights-row"{% if role == 'demo' %} style="pointer-events:none;opacity:0.75"{% endif %}>
+        <button class="light-chip" data-light="4" onclick="toggleLight(4)">Floor</button>
+        <button class="light-chip" data-light="0" onclick="toggleLight(0)">Chest</button>
+        <button class="light-chip" data-light="1" onclick="toggleLight(1)">Dresser</button>
+        <button class="light-chip" data-light="2" onclick="toggleLight(2)">Ceiling</button>
+      </div>
+    </div>
 
     {% if role != 'demo' %}
     <div class="lux-curve-section">
@@ -414,13 +452,13 @@
       document.getElementById('val-lux').textContent = Math.round(data.lux);
       document.getElementById('val-bri').textContent = sentinel ? '—' : `${data.bri?.toFixed(1) ?? '—'}%`;
       document.getElementById('val-ct').textContent = sentinel ? '—' : data.ct;
-      document.getElementById('val-overhead').textContent = sentinel ? '—' : (data.overhead_on ? 'on' : 'off');
       document.getElementById('val-ts').textContent = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—';
       if (_pendingCommand && data.pending_command_id !== _pendingCommand.id) {
         _pendingCommand = null;
       }
       _updateButtonStates();
       renderProgress(data);
+      renderLightChips(data);
       updateLetterOpacity(document.querySelectorAll('.bg-letter'), data.lux);
       drawLuxWidget(data.lux, data.state);
     }
@@ -446,37 +484,65 @@
       const slider     = document.getElementById('progress-slider');
       const text       = document.getElementById('progress-text');
       const detail     = document.getElementById('progress-detail');
+      const finishBtn  = document.getElementById('finish-btn');
+      const extendBtn  = document.getElementById('extend-btn');
 
       sliderWrap.classList.add('hidden');
       detail.textContent = '';
+      // Buttons are per-state: finish for wind-down/wake, extend for soft pause.
+      // Reset both each render so a state change can't leave a stale one showing.
+      if (finishBtn) finishBtn.style.display = 'none';
+      if (extendBtn) extendBtn.style.display = 'none';
 
       const isPending = _pendingCommand && STATE_CMDS.has(_pendingCommand.action);
       const displayState = isPending ? _pendingCommand.action : data.state;
+      // A step-seek (the finish button or a slider drag) is a non-state command that
+      // still only takes effect on the firmware's next poll. Surface it as "pending"
+      // and pin the slider to the requested step so it doesn't snap back mid-wait.
+      const windSeekPending = _pendingCommand && _pendingCommand.action === 'SET_WIND_DOWN_STEP';
+      const wakeSeekPending = _pendingCommand && _pendingCommand.action === 'SET_WAKE_STEP';
 
       if (displayState === 'WIND_DOWN') {
         nameEl.textContent = 'Wind-down';
-        const step = isPending ? (_pendingCommand.value ?? 0) : data.wind_down_step;
+        let step = data.wind_down_step;
+        if (isPending)             step = _pendingCommand.value ?? 0;
+        else if (windSeekPending)  step = _pendingCommand.value ?? step;
         slider.max   = 120;
         slider.value = step;
         text.textContent = `${Math.round(step / 2)} / 60 min`;
         sliderWrap.classList.remove('hidden');
-        if (isPending) detail.textContent = 'pending';
+        if (finishBtn) finishBtn.style.display = '';
+        if (isPending || windSeekPending) detail.textContent = 'pending';
 
       } else if (displayState === 'WAKE') {
         nameEl.textContent = 'Waking up';
         const total = data.wake_total || 40;
-        const step  = isPending ? (_pendingCommand.value ?? 0) : data.wake_step;
+        let step = data.wake_step;
+        if (isPending)             step = _pendingCommand.value ?? 0;
+        else if (wakeSeekPending)  step = _pendingCommand.value ?? step;
         slider.max   = total;
         slider.value = step;
         text.textContent = `${step} / ${total} steps`;
         sliderWrap.classList.remove('hidden');
-        if (isPending) detail.textContent = 'pending';
+        if (finishBtn) finishBtn.style.display = '';
+        if (isPending || wakeSeekPending) detail.textContent = 'pending';
 
       } else if (displayState === 'SOFT_PAUSE') {
         nameEl.textContent = 'Paused';
-        detail.textContent = isPending
-          ? 'pending'
-          : `${Math.round(data.soft_pause_remaining_s / 60)} min remaining`;
+        if (isPending) {
+          // Pause queued but firmware hasn't entered it yet — no remaining time to scrub.
+          detail.textContent = 'pending';
+        } else {
+          // Slider scrubs minutes remaining; max grows past 60 once extended so the
+          // thumb never pins. Extend button bumps the displayed value by 10 and
+          // resends an absolute target (see extend-btn handler).
+          const remMin = Math.max(0, Math.round((data.soft_pause_remaining_s ?? 0) / 60));
+          slider.max   = Math.max(60, remMin);
+          slider.value = remMin;
+          text.textContent = `${remMin} min remaining`;
+          sliderWrap.classList.remove('hidden');
+          if (extendBtn) extendBtn.style.display = '';
+        }
 
       } else if (displayState === 'NORMAL') {
         nameEl.textContent = 'Normal';
@@ -501,6 +567,8 @@
         sendCommand('SET_WIND_DOWN_STEP', val);
       } else if (_lastData.state === 'WAKE') {
         sendCommand('SET_WAKE_STEP', val);
+      } else if (_lastData.state === 'SOFT_PAUSE') {
+        sendCommand('SET_SOFT_PAUSE_REMAINING', val);
       }
     });
 
@@ -513,6 +581,8 @@
         document.getElementById('progress-text').textContent = `${Math.round(val / 2)} / 60 min`;
       } else if (activeState === 'WAKE') {
         document.getElementById('progress-text').textContent = `${val} / ${_lastData.wake_total || 40} steps`;
+      } else if (activeState === 'SOFT_PAUSE') {
+        document.getElementById('progress-text').textContent = `${val} min remaining`;
       }
     });
 
@@ -527,11 +597,57 @@
       }
     });
 
+    document.getElementById('extend-btn')?.addEventListener('click', function () {
+      if (!_lastData || _lastData.state !== 'SOFT_PAUSE') return;
+      const slider = document.getElementById('progress-slider');
+      // Absolute target = currently displayed remaining + 10. Sending the absolute
+      // value (not a relative +10) means rapid taps converge: each tap cancels the
+      // prior pending command, and the last absolute value is the correct total.
+      const next = (parseInt(slider.value) || 0) + 10;
+      slider.max = Math.max(parseInt(slider.max) || 60, next);
+      slider.value = next;
+      document.getElementById('progress-text').textContent = `${next} min remaining`;
+      sendCommand('SET_SOFT_PAUSE_REMAINING', next);
+    });
+
     function _updateButtonStates() {
       document.querySelectorAll('.btn[data-action]').forEach(btn => {
         const active = _pendingCommand && STATE_CMDS.has(_pendingCommand.action)
           && btn.dataset.action === _pendingCommand.action;
         btn.classList.toggle('btn-active', active);
+      });
+    }
+
+    // Maps a chip's data-light (firmware LIGHT_* cache index) to the /api/status
+    // excluded key. Ceiling 2 is unused, so it has no chip.
+    const LIGHT_NAMES = { 4: 'floor', 0: 'chest', 1: 'dresser', 2: 'ceiling' };
+
+    function renderLightChips(data) {
+      const excl = (data && data.excluded) || {};
+      document.querySelectorAll('.light-chip').forEach(chip => {
+        const name = LIGHT_NAMES[parseInt(chip.dataset.light)];
+        const isExcluded = !!excl[name];
+        chip.classList.toggle('excluded', isExcluded);
+        chip.classList.toggle('in-cycle', !isExcluded);
+      });
+    }
+
+    function toggleLight(idx) {
+      if (READONLY || !_lastData) return;
+      const name = LIGHT_NAMES[idx];
+      const currentlyExcluded = !!(_lastData.excluded && _lastData.excluded[name]);
+      const action = currentlyExcluded ? 'INCLUDE_LIGHT' : 'EXCLUDE_LIGHT';
+      // Optimistic flip so the chip responds instantly; status polling reconciles
+      // it with firmware truth on the next tick.
+      if (_lastData.excluded) _lastData.excluded[name] = !currentlyExcluded;
+      renderLightChips(_lastData);
+      // Fire-and-forget — deliberately NOT sendCommand(): its cancel-prior-pending
+      // logic would let a second light toggle cancel the first. Each toggle is an
+      // independent absolute action keyed to one light, so just queue it.
+      fetch('/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, value: idx })
       });
     }
 
@@ -602,10 +718,10 @@
       calc(lux) {
         lux = Math.max(0, Math.min(lux, 3000));
         let bri;
-        if      (lux <= 10)  { bri = 19.7 + 39.4 * this._log(lux/10, 20); }
-        else if (lux <= 200) { const t=(lux-10)/190;   bri = 59.1 + 19.6 * this._crawl(t, 0.5); }
-        else if (lux <= 500) { const t=(lux-200)/300;  bri = 63.0 + 23.6 * t**5; }
-        else                 { const t=(lux-500)/2500; bri = 86.6 + 13.4 * this._log(t, 4.5); }
+        if      (lux <= 10)  { bri = 19.7 + 39.4 * this._log(lux/10, 20); }                       // →59.1
+        else if (lux <= 250) { const t=(lux-10)/240;   bri = 59.1 + 19.6 * this._crawl(t, 0.5); } // →78.7 (floor+dresser)
+        else if (lux <= 500) { const t=(lux-250)/250;  bri = 70.0 + 15.0 * t**5; }                // 70→85 (+chest, disc. at 250)
+        else                 { const t=(lux-500)/2500; bri = 69.0 + 31.0 * this._log(t, 4.5); }   // 69→100 (+overheads, disc. at 500)
         const n = (bri - 19.7) / 80.3;
         return { bri, ct: Math.round(400 - 120*n) };
       }
@@ -628,37 +744,37 @@
       ctx.fillStyle = '#141414';
       ctx.fillRect(0, 0, W, H);
 
-      // Segment 4+3 (lux 0–200, bedside+desk only)
-      ctx.beginPath();
-      for (let l = 0; l <= 200; l += 2) {
-        const { bri } = _LC.calc(l);
-        l === 0 ? ctx.moveTo(lx(l), by(bri)) : ctx.lineTo(lx(l), by(bri));
+      // Helper: trace the curve across a lux band, brighter stroke = more bulbs on.
+      function band(loLux, hiLux, stepLux, color) {
+        ctx.beginPath();
+        let first = true;
+        for (let l = loLux; l <= hiLux; l += stepLux) {
+          const { bri } = _LC.calc(l);
+          if (first) { ctx.moveTo(lx(l), by(bri)); first = false; }
+          else ctx.lineTo(lx(l), by(bri));
+        }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
       }
-      ctx.strokeStyle = '#3e3e3e';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // Dashed connector at the 200-lux discontinuity (overheads on)
-      ctx.setLineDash([2, 3]);
-      ctx.beginPath();
-      ctx.moveTo(lx(200), by(78.7));
-      ctx.lineTo(lx(200), by(63.0));
-      ctx.strokeStyle = '#2a2a2a';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Segment 2+1 (lux 200–3000, all 4 bulbs)
-      ctx.beginPath();
-      let first = true;
-      for (let l = 200; l <= 3000; l += 18) {
-        const { bri } = _LC.calc(l);
-        if (first) { ctx.moveTo(lx(l), by(bri)); first = false; }
-        else ctx.lineTo(lx(l), by(bri));
+      // Helper: dashed vertical riser at a discontinuity (bulb joins/leaves).
+      function disc(luxAt, briTop, briBot) {
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(lx(luxAt), by(briTop));
+        ctx.lineTo(lx(luxAt), by(briBot));
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
-      ctx.strokeStyle = '#5c5c5c';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+
+      // Three bands: floor+dresser (0–250), +chest (250–500), +overheads (500–3000).
+      band(0,   250,  2,  '#3e3e3e');
+      disc(250, 78.7, 70.0);                 // chest joins
+      band(250, 500,  4,  '#4d4d4d');
+      disc(500, 85.0, 69.0);                 // overheads join
+      band(500, 3000, 18, '#5c5c5c');
 
       // Current lux dot — hollow when lights are off/inactive
       if (currentLux != null) {

@@ -47,6 +47,11 @@ class StatusSnapshot(db.Model):
     wake_step = db.Column(db.Integer)
     wake_total = db.Column(db.Integer)
     soft_pause_remaining_s = db.Column(db.Integer)
+    # Per-light cycle exclusion (dashboard "lights in cycle" chips)
+    excl_floor = db.Column(db.Boolean)
+    excl_chest = db.Column(db.Boolean)
+    excl_dresser = db.Column(db.Boolean)
+    excl_ceiling = db.Column(db.Boolean)
 
 
 class Command(db.Model):
@@ -82,6 +87,10 @@ with app.app_context():
             ('status_snapshots', 'wake_step',             'INTEGER'),
             ('status_snapshots', 'wake_total',            'INTEGER'),
             ('status_snapshots', 'soft_pause_remaining_s','INTEGER'),
+            ('status_snapshots', 'excl_floor',            'BOOLEAN'),
+            ('status_snapshots', 'excl_chest',            'BOOLEAN'),
+            ('status_snapshots', 'excl_dresser',          'BOOLEAN'),
+            ('status_snapshots', 'excl_ceiling',          'BOOLEAN'),
             ('commands',         'value',                 'INTEGER'),
         ]:
             conn.execute(text(
@@ -125,6 +134,7 @@ def ingest_status():
     if not _esp32_authed():
         return jsonify({'error': 'unauthorized'}), 401
     d = request.json
+    excl = d.get('excluded') or {}
     db.session.add(StatusSnapshot(
         state=d['state'],
         lux=d.get('lux'),
@@ -135,6 +145,10 @@ def ingest_status():
         wake_step=d.get('wake_step'),
         wake_total=d.get('wake_total'),
         soft_pause_remaining_s=d.get('soft_pause_remaining_s'),
+        excl_floor=excl.get('floor', False),
+        excl_chest=excl.get('chest', False),
+        excl_dresser=excl.get('dresser', False),
+        excl_ceiling=excl.get('ceiling', False),
     ))
     db.session.commit()
     return jsonify({'ok': True})
@@ -248,6 +262,12 @@ def latest_status():
         'wake_total': snap.wake_total,
         'soft_pause_remaining_s': snap.soft_pause_remaining_s,
         'pending_command_id': pending.id if pending else None,
+        'excluded': {
+            'floor':   bool(snap.excl_floor),
+            'chest':   bool(snap.excl_chest),
+            'dresser': bool(snap.excl_dresser),
+            'ceiling': bool(snap.excl_ceiling),
+        },
     }
     if session.get('role') != 'demo':
         result['timestamp'] = snap.timestamp.isoformat() + 'Z'

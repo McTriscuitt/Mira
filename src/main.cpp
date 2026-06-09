@@ -26,6 +26,19 @@ Adafruit_VEML7700 veml;
 Preferences prefs;
 LightTarget sentTarget = {-1.0f, 0}; // sentinel: forces first update to always send (-1/0 are outside valid ranges)
 bool overheadsOn = false;
+// Chest is now a conditionally-driven lamp like the overheads: on only above the
+// S3_LUX_HI (250) curve breakpoint, off below it (floor+dresser carry the dim band).
+// Firmware *intent*, not physical state — edge-detected in tickNormal and synced from
+// cache on every NORMAL/LOCKED_OUT re-entry, exactly like overheadsOn.
+bool chestOn = true;
+
+// Per-light cycle exclusion (dashboard-toggled, separate from soft pause). A light
+// marked excluded is turned off once and then dropped from every driving state's PUTs
+// until it's re-included or the daily lockout re-arm clears it. Exclusion does NOT
+// suppress override detection — a manual Hue-app change to an excluded light still
+// fires the global soft pause (see expectedOn handling in handleLightUpdate). Indexed
+// by the LIGHT_* cache indices.
+bool excludedLight[LIGHT_COUNT] = {false};
 
 // Phase 3 — light state cache. Mirror of bridge state; bootstrapped via v2 GET at startup,
 // kept in sync by SSE events. Replaces the old per-tick HTTP polling of getLightState().
@@ -67,6 +80,14 @@ LightTarget wakeEndTarget   = {0, 0};
 
 // Soft pause state
 unsigned long softPauseStart = 0;
+// Live (mutable) pause length. Seeded to SOFT_PAUSE_MS on every soft-pause entry,
+// then adjustable at runtime: the dashboard "extend" button grows it (+10 min/press)
+// and the remaining-time slider rewrites it. Kept separate from the fixed
+// SOFT_PAUSE_MS so an extend past 60 min just enlarges the target rather than
+// pushing softPauseStart into the future (which would wrap the unsigned millis()
+// subtraction and fire an immediate resume). tickSoftPause()/sendDashboardStatus()
+// measure against this, not the constant.
+unsigned long softPauseDurationMs = SOFT_PAUSE_MS;
 
 // Soft pause resume ramp
 bool        pauseResumeActive      = false;
@@ -320,6 +341,19 @@ static const char* lightName(int idx) {
         case LIGHT_CEIL_2:  return "Ceiling_2";
         case LIGHT_FLOOR:   return "Floor";
         default:            return "Unknown";
+    }
+}
+
+// Inverse of idxByUuid(): map a cache index to its v2 UUID for outgoing PUTs.
+// Used by the cycle-exclusion enforcement (turn an excluded light off by index).
+static const char* lightUuid(int idx) {
+    switch (idx) {
+        case LIGHT_CHEST:   return LIGHT_UUID_CHEST;
+        case LIGHT_DRESSER: return LIGHT_UUID_DRESSER;
+        case LIGHT_CEIL_1:  return LIGHT_UUID_CEIL_1;
+        case LIGHT_CEIL_2:  return LIGHT_UUID_CEIL_2;
+        case LIGHT_FLOOR:   return LIGHT_UUID_FLOOR;
+        default:            return nullptr;
     }
 }
 
@@ -674,8 +708,14 @@ void sendDashboardStatus(float lux) {
     doc["wake_step"]      = wakeStep;
     doc["wake_total"]     = WAKE_RAMP_TICKS;
     long pauseRemaining = (state == State::SOFT_PAUSE) ?
-        max(0L, ((long)SOFT_PAUSE_MS - (long)(millis() - softPauseStart)) / 1000L) : 0L;
+        max(0L, ((long)softPauseDurationMs - (long)(millis() - softPauseStart)) / 1000L) : 0L;
     doc["soft_pause_remaining_s"] = pauseRemaining;
+    // Cycle-exclusion state for the dashboard's "lights in cycle" chips.
+    JsonObject excl = doc["excluded"].to<JsonObject>();
+    excl["floor"]   = excludedLight[LIGHT_FLOOR];
+    excl["chest"]   = excludedLight[LIGHT_CHEST];
+    excl["dresser"] = excludedLight[LIGHT_DRESSER];
+    excl["ceiling"] = excludedLight[LIGHT_CEIL_1];
     String body;
     serializeJson(doc, body);
     int code = http.POST(body);
@@ -796,8 +836,11 @@ static void dumpOverrideDiagnostic(int idx,
         d += " " + String(echoOutcomeName((EchoOutcome)i)) + "=" + String(echoOutcomeCounts[i]);
     }
 
+    // Verbose dump goes to Serial only — the dashboard event log gets just the
+    // concise "Manual override — soft pause" line from handleLightUpdate(). The
+    // multi-line diagnostic (recentPuts slots, event history, outcome histogram)
+    // was cluttering the dashboard, so it's Serial-only now.
     Serial.println(d);
-    sendLog(d);
 }
 
 // Apply a single light update event to the cache; classify into an EchoOutcome;
@@ -857,14 +900,19 @@ static void handleLightUpdate(JsonObjectConst upd) {
     } else {
         bool expectedOn;
         switch (idx) {
-            case LIGHT_CHEST:
             case LIGHT_DRESSER:
             case LIGHT_FLOOR:   expectedOn = true;        break;
+            case LIGHT_CHEST:   expectedOn = chestOn;     break;
             case LIGHT_CEIL_1:
             // case LIGHT_CEIL_2:
                                 expectedOn = overheadsOn; break;
             default:            expectedOn = false;       break;
         }
+        // Cycle-excluded lights stay override-watched: Mira no longer drives them, but
+        // a manual Hue-app change must still fire the global soft pause. Forcing
+        // expectedOn true means the change is classified (echo vs override) rather than
+        // skipped as an "off light". Mira's own exclusion-off PUT is still an EchoMatch.
+        if (excludedLight[idx]) expectedOn = true;
         if (!expectedOn) {
             decision = EchoOutcome::SkipOffLight;
         } else if (eventMatchesRecentPut(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt)) {
@@ -895,9 +943,10 @@ static void handleLightUpdate(JsonObjectConst upd) {
 
     if (decision != EchoOutcome::Override) return;
 
-    state             = State::SOFT_PAUSE;
-    softPauseStart    = millis();
-    pauseResumeActive = false;
+    state               = State::SOFT_PAUSE;
+    softPauseStart      = millis();
+    softPauseDurationMs = SOFT_PAUSE_MS;
+    pauseResumeActive   = false;
     Serial.println("SSE override — soft pause.");
 
     dumpOverrideDiagnostic(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
@@ -1043,6 +1092,30 @@ void pollDashboardCommand() {
         wakeStep = cmdValue;
         Serial.println("Wake seek → step " + String(wakeStep));
     }
+    // Soft-pause remaining-time control (slider scrub + "+10 min" extend button).
+    // cmdValue is the absolute minutes-remaining target from *now*. Recomputed as
+    // (already-elapsed + requested remaining) so softPauseStart stays put and the
+    // unsigned millis() math never wraps — extends past 60 min just enlarge the
+    // target. Dragging to 0 ends the pause on the next tickSoftPause() (elapsed >=
+    // duration → resume ramp). The extend button is absolute (displayed + 10) on
+    // the dashboard side, so rapid taps converge instead of cancelling to +10.
+    else if (cmd == "SET_SOFT_PAUSE_REMAINING" && state == State::SOFT_PAUSE && cmdValue >= 0) {
+        softPauseDurationMs = (millis() - softPauseStart) + (unsigned long)cmdValue * 60000UL;
+        Serial.println("Soft pause remaining → " + String(cmdValue) + " min");
+    }
+    // Cycle-exclusion toggles (cmdValue = LIGHT_* cache index). Setting the flag is
+    // all that's needed: tickNormal enforces the off (cache-guarded) and every driving
+    // state skips excluded lights. INCLUDE resets sentTarget to the sentinel so the next
+    // NORMAL tick re-PUTs the re-admitted light at the current curve target.
+    else if (cmd == "EXCLUDE_LIGHT" && cmdValue >= 0 && cmdValue < LIGHT_COUNT) {
+        excludedLight[cmdValue] = true;
+        Serial.println("Excluded " + String(lightName(cmdValue)) + " from cycle");
+    }
+    else if (cmd == "INCLUDE_LIGHT" && cmdValue >= 0 && cmdValue < LIGHT_COUNT) {
+        excludedLight[cmdValue] = false;
+        sentTarget = {-1.0f, 0};  // force a refresh so the light re-joins next tick
+        Serial.println("Re-included " + String(lightName(cmdValue)) + " into cycle");
+    }
 
     if (cmdId >= 0) {
         HTTPClient ack;
@@ -1060,6 +1133,32 @@ void saveLastState(float bri, uint16_t ct) {
     prefs.end();
 }
 
+// Cycle PUT: send to a light only if it's still part of the cycle. Cycle-excluded
+// lights receive nothing from any driving state (NORMAL / WAKE / WIND_DOWN); their
+// single turn-off is handled by enforceExclusions(). Centralizing the check here keeps
+// every driving state's PUT logic uniform.
+static inline void cyclePut(int idx, bool on, float bri, int ct, int durationMs) {
+    if (idx < 0 || idx >= LIGHT_COUNT) return;
+    if (excludedLight[idx]) return;
+    const char* uuid = lightUuid(idx);
+    if (uuid) setLight(uuid, on, bri, ct, durationMs);
+}
+
+// Turn off any excluded light that's still on, once. Cache-guarded so the resulting
+// SSE echo (which updates the cache to off) prevents a repeat off-PUT next tick.
+// Called at the top of tickNormal so an exclusion toggled during any state — including
+// a soft pause, where the command's PUT would have been guarded out — is enforced as
+// soon as NORMAL is running again.
+static void enforceExclusions() {
+    for (int i = 0; i < LIGHT_COUNT; i++) {
+        if (i == LIGHT_CEIL_2) continue;            // unused bulb
+        if (excludedLight[i] && cachedLight(i).on) {
+            const char* uuid = lightUuid(i);
+            if (uuid) setLight(uuid, false, 0, 0, 1000);
+        }
+    }
+}
+
 void tickWakeRamp(float lux) {
     wakeStep++;
     float t = min(wakeStep / (float)WAKE_RAMP_TICKS, 1.0f);
@@ -1071,16 +1170,18 @@ void tickWakeRamp(float lux) {
     rampCt  = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
 
     // Sunrise staircase. Floor lamp leads — on from tick 0, ramps the whole way.
-    setLight(LIGHT_UUID_FLOOR, true, rampBri, rampCt, 30000);
+    // (cyclePut skips any light the user has excluded from the cycle.)
+    cyclePut(LIGHT_FLOOR, true, rampBri, rampCt, 30000);
     // Chest + dresser join once the ramp is meaningfully lit and the morning is bright.
     if (lux >= WAKE_SECONDARY_LUX && rampBri >= WAKE_SECONDARY_BRI) {
-        setLight(LIGHT_UUID_CHEST,   true, rampBri, rampCt, 30000);
-        setLight(LIGHT_UUID_DRESSER, true, rampBri, rampCt, 30000);
+        cyclePut(LIGHT_CHEST,   true, rampBri, rampCt, 30000);
+        cyclePut(LIGHT_DRESSER, true, rampBri, rampCt, 30000);
+        chestOn = true;  // keep the NORMAL chest-edge flag consistent with what wake lit
     }
     // Overheads come last, and only on a bright morning (higher lux gate than above).
     if (lux >= WAKE_OVERHEAD_LUX && rampBri >= S2_BRI_LO) {
-        setLight(LIGHT_UUID_CEIL_1, true, rampBri, rampCt, 30000);
-        //setLight(LIGHT_UUID_CEIL_2, true, rampBri, rampCt, 30000);
+        cyclePut(LIGHT_CEIL_1, true, rampBri, rampCt, 30000);
+        //cyclePut(LIGHT_CEIL_2, true, rampBri, rampCt, 30000);
         overheadsOn = true;
     }
 
@@ -1103,8 +1204,8 @@ void tickWindDown() {
     windDownStep++;
 
     if (overheadsOn) {
-        setLight(LIGHT_UUID_CEIL_1, false, 0, 0, 1000);
-        //setLight(LIGHT_UUID_CEIL_2, false, 0, 0, 1000);
+        cyclePut(LIGHT_CEIL_1, false, 0, 0, 1000);
+        //cyclePut(LIGHT_CEIL_2, false, 0, 0, 1000);
         overheadsOn = false;
     }
 
@@ -1118,24 +1219,25 @@ void tickWindDown() {
     }
 
     // Floor lamp is the night-light anchor — dims to the floor and stays on.
-    setLight(LIGHT_UUID_FLOOR, true, wdBri, wdCt, 30000);
+    // (cyclePut skips any light excluded from the cycle.)
+    cyclePut(LIGHT_FLOOR, true, wdBri, wdCt, 30000);
 
     // Chest collapses inward first: dims for the first half, then off for the
     // second half (step ≥ 60 / 30 min). Guarding on the cache (rather than a
     // one-shot at == 60) means a dashboard step-seek that jumps past 60 still
     // turns it off, and once it's off the echo keeps us from re-PUTting each tick.
     if (windDownStep < 60) {
-        setLight(LIGHT_UUID_CHEST, true, wdBri, wdCt, 30000);
+        cyclePut(LIGHT_CHEST, true, wdBri, wdCt, 30000);
     } else if (cachedLight(LIGHT_CHEST).on) {
-        setLight(LIGHT_UUID_CHEST, false, 0, 0, 10000);
+        cyclePut(LIGHT_CHEST, false, 0, 0, 10000);
     }
 
     // Dresser dims the full hour, off at the end (step 120 / 60 min), handing off
     // to LOCKED_OUT with only the floor lamp left glowing at the floor.
     if (windDownStep < 120) {
-        setLight(LIGHT_UUID_DRESSER, true, wdBri, wdCt, 30000);
+        cyclePut(LIGHT_DRESSER, true, wdBri, wdCt, 30000);
     } else {
-        setLight(LIGHT_UUID_DRESSER, false, 0, 0, 10000);
+        cyclePut(LIGHT_DRESSER, false, 0, 0, 10000);
         state = State::LOCKED_OUT;
         saveLastState(S4_FLOOR_BRI, (uint16_t)CT_WARM);
         Serial.println("Wind-down complete. Chest + dresser off, floor lamp at floor.");
@@ -1148,20 +1250,39 @@ void tickNormal(float lux, LightTarget target) {
     // Override detection now happens asynchronously inside the SSE handler
     // (handleLightUpdate), so tickNormal is no longer responsible for polling.
 
+    // Turn off (once) any light the user has excluded from the cycle, before the
+    // edge/update logic runs. cyclePut() below then skips those lights entirely.
+    enforceExclusions();
+
     // Compute shouldUpdate here, not in loop(), so a forceState()-driven
     // sentTarget reset (via pollDashboardCommand earlier this tick) is reflected.
     bool shouldUpdate = fabsf(target.bri - sentTarget.bri) > STATE_TOLERANCE_BRI
                      || abs(target.ct - sentTarget.ct)    > STATE_TOLERANCE_CT;
 
-    bool newOverheadsOn = lux > S3_LUX_HI;
+    // Overhead edge — now at S2_LUX_HI (500). Off as lux drops below 500, on above.
+    bool newOverheadsOn = lux > S2_LUX_HI;
     if (overheadsOn && !newOverheadsOn) {
-        setLight(LIGHT_UUID_CEIL_1, false, 0, 0, 500);
-        // setLight(LIGHT_UUID_CEIL_2, false, 0, 0, 500);
+        cyclePut(LIGHT_CEIL_1, false, 0, 0, 500);
+        // cyclePut(LIGHT_CEIL_2, false, 0, 0, 500);
         shouldUpdate = true;
     } else if (!overheadsOn && newOverheadsOn) {
         shouldUpdate = true;
     }
     overheadsOn = newOverheadsOn;
+
+    // Chest edge — at S3_LUX_HI (250), same pattern as the overheads. Below 250 the
+    // chest cuts and the curve's discontinuity steps floor+dresser up to compensate;
+    // above 250 it re-joins (turned on in the shouldUpdate block below). The off-PUT
+    // fires only on the on→off transition, so a user who manually lit the chest in the
+    // dim band keeps it (chestOn is already false → no repeated off-PUT).
+    bool newChestOn = lux > S3_LUX_HI;
+    if (chestOn && !newChestOn) {
+        cyclePut(LIGHT_CHEST, false, 0, 0, 500);
+        shouldUpdate = true;
+    } else if (!chestOn && newChestOn) {
+        shouldUpdate = true;
+    }
+    chestOn = newChestOn;
 
     // Soft pause resume ramp — drift from pre-pause bri/ct to current ambient over 10 min
     if (pauseResumeActive) {
@@ -1171,12 +1292,12 @@ void tickNormal(float lux, LightTarget target) {
         int   rampCt  = (int)(pauseResumeStartTarget.ct  + t * (target.ct  - pauseResumeStartTarget.ct));
         rampBri       = constrain(rampBri, 1.0f, 100.0f);
         rampCt        = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
-        setLight(LIGHT_UUID_FLOOR,   true, rampBri, rampCt, 30000);
-        setLight(LIGHT_UUID_CHEST,   true, rampBri, rampCt, 30000);
-        setLight(LIGHT_UUID_DRESSER, true, rampBri, rampCt, 30000);
+        cyclePut(LIGHT_FLOOR,   true, rampBri, rampCt, 30000);
+        if (chestOn) cyclePut(LIGHT_CHEST, true, rampBri, rampCt, 30000);
+        cyclePut(LIGHT_DRESSER, true, rampBri, rampCt, 30000);
         if (overheadsOn) {
-            setLight(LIGHT_UUID_CEIL_1, true, rampBri, rampCt, 30000);
-            // setLight(LIGHT_UUID_CEIL_2, true, rampBri, rampCt, 30000);
+            cyclePut(LIGHT_CEIL_1, true, rampBri, rampCt, 30000);
+            // cyclePut(LIGHT_CEIL_2, true, rampBri, rampCt, 30000);
         }
         sentTarget = {rampBri, (uint16_t)rampCt};
         saveLastState(rampBri, (uint16_t)rampCt);
@@ -1205,12 +1326,12 @@ void tickNormal(float lux, LightTarget target) {
     }
 
     if (shouldUpdate) {
-        setLight(LIGHT_UUID_FLOOR,   true, target.bri, target.ct, 1000);
-        setLight(LIGHT_UUID_CHEST,   true, target.bri, target.ct, 1000);
-        setLight(LIGHT_UUID_DRESSER, true, target.bri, target.ct, 1000);
+        cyclePut(LIGHT_FLOOR,   true, target.bri, target.ct, 1000);
+        if (chestOn) cyclePut(LIGHT_CHEST, true, target.bri, target.ct, 1000);
+        cyclePut(LIGHT_DRESSER, true, target.bri, target.ct, 1000);
         if (overheadsOn) {
-            setLight(LIGHT_UUID_CEIL_1, true, target.bri, target.ct, 1000);
-            // setLight(LIGHT_UUID_CEIL_2, true, target.bri, target.ct, 1000);
+            cyclePut(LIGHT_CEIL_1, true, target.bri, target.ct, 1000);
+            // cyclePut(LIGHT_CEIL_2, true, target.bri, target.ct, 1000);
         }
         sentTarget = target;
         saveLastState(target.bri, target.ct);
@@ -1225,11 +1346,12 @@ void tickNormal(float lux, LightTarget target) {
 }
 
 void tickSoftPause() {
-    if (millis() - softPauseStart >= SOFT_PAUSE_MS) {
+    if (millis() - softPauseStart >= softPauseDurationMs) {
         pauseResumeStartTarget = sentTarget;
         pauseResumeActive      = true;
         pauseResumeStep        = 0;
         overheadsOn            = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
+        chestOn                = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
         lastFloorOn          = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
         state                  = State::NORMAL;
         Serial.println("Soft pause expired — beginning 10-min resume ramp.");
@@ -1272,6 +1394,8 @@ void checkFloorState(float lux) {
             state          = State::LOCKED_OUT;
             stableLuxCount = 0;
             windDownStep   = 0;
+            // New day's cycle: clear any cycle exclusions so every light rejoins.
+            for (int i = 0; i < LIGHT_COUNT; i++) excludedLight[i] = false;
         }
     }
 
@@ -1317,6 +1441,7 @@ void forceState(State next) {
             sentTarget        = {-1.0f, 0};
             stableLuxCount    = 0;
             overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
+            chestOn           = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
             lastFloorOn     = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
             state             = State::NORMAL;
             break;
@@ -1329,8 +1454,9 @@ void forceState(State next) {
             state            = State::WIND_DOWN;
             break;
         case State::SOFT_PAUSE:
-            softPauseStart = millis();
-            state          = State::SOFT_PAUSE;
+            softPauseStart      = millis();
+            softPauseDurationMs = SOFT_PAUSE_MS;
+            state               = State::SOFT_PAUSE;
             break;
         case State::HARD_OFF:
             state = State::HARD_OFF;
@@ -1372,8 +1498,9 @@ void handleButtonEvents() {
         if (state == State::HARD_OFF) {
             // hard off is long-press only — ignore short press
         } else if (state == State::NORMAL) {
-            state = State::SOFT_PAUSE;
-            softPauseStart = millis();
+            state               = State::SOFT_PAUSE;
+            softPauseStart      = millis();
+            softPauseDurationMs = SOFT_PAUSE_MS;
             Serial.println("Button short press — soft pause.");
             sendLog("Soft pause (button) — " + getTimeString());
         } else {
@@ -1382,6 +1509,7 @@ void handleButtonEvents() {
             sentTarget        = {-1.0f, 0};
             stableLuxCount    = 0;
             overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
+            chestOn           = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
             lastFloorOn     = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
             Serial.println("Button short press — NORMAL (was " + prev + ").");
             sendLog("Returned to NORMAL by button — " + getTimeString());
@@ -1426,6 +1554,7 @@ void setup() {
 
     lastFloorOn = cachedLight(LIGHT_FLOOR).on; // seed edge detection — prevents false wake trigger on first tick
     overheadsOn   = cachedLight(LIGHT_CEIL_1).on;  // seed from actual state — prevents false override and bad dashboard reporting
+    chestOn       = cachedLight(LIGHT_CHEST).on;   // seed from actual state — same reason as overheadsOn
 
     sseConnect(); // open the persistent SSE event stream — drained in the wait loop each tick
 
