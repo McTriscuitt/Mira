@@ -184,24 +184,39 @@
 
     // ── Timeline helpers ────────────────────────────────────────────────
     function niceMax(v) {
-      for (const s of [50,100,150,200,300,500,750,1000,1500,2000,3000]) if (s >= v) return s;
-      return Math.ceil(v / 100) * 100;
+      for (const s of [50,100,150,200,300,500,750,1000,1500,2000,3000,5000,7500,10000,15000,20000,25000,30000,35000,40000,50000]) if (s >= v) return s;
+      return Math.ceil(v / 5000) * 5000;
     }
 
     function yTicks(yMax) {
-      if (yMax <= 50)   return [0,10,20,30,40,50];
-      if (yMax <= 100)  return [0,25,50,75,100];
-      if (yMax <= 200)  return [0,50,100,150,200];
-      if (yMax <= 300)  return [0,100,200,300];
-      if (yMax <= 500)  return [0,100,200,300,400,500];
-      if (yMax <= 750)  return [0,150,300,450,600,750];
-      if (yMax <= 1000) return [0,200,400,600,800,1000];
-      if (yMax <= 1500) return [0,300,600,900,1200,1500];
-      if (yMax <= 2000) return [0,500,1000,1500,2000];
-      if (yMax <= 3000) return [0,500,1000,1500,2000,2500,3000];
+      if (yMax <= 50)    return [0,10,20,30,40,50];
+      if (yMax <= 100)   return [0,25,50,75,100];
+      if (yMax <= 200)   return [0,50,100,150,200];
+      if (yMax <= 300)   return [0,100,200,300];
+      if (yMax <= 500)   return [0,100,200,300,400,500];
+      if (yMax <= 750)   return [0,150,300,450,600,750];
+      if (yMax <= 1000)  return [0,200,400,600,800,1000];
+      if (yMax <= 1500)  return [0,300,600,900,1200,1500];
+      if (yMax <= 2000)  return [0,500,1000,1500,2000];
+      if (yMax <= 3000)  return [0,500,1000,1500,2000,2500,3000];
+      if (yMax <= 5000)  return [0,1000,2000,3000,4000,5000];
+      if (yMax <= 7500)  return [0,1500,3000,4500,6000,7500];
+      if (yMax <= 10000) return [0,2000,4000,6000,8000,10000];
+      if (yMax <= 15000) return [0,3000,6000,9000,12000,15000];
+      if (yMax <= 20000) return [0,5000,10000,15000,20000];
+      if (yMax <= 25000) return [0,5000,10000,15000,20000,25000];
+      if (yMax <= 30000) return [0,5000,10000,15000,20000,25000,30000];
+      if (yMax <= 40000) return [0,10000,20000,30000,40000];
+      if (yMax <= 50000) return [0,10000,20000,30000,40000,50000];
+      const step = Math.ceil(yMax / 5 / 5000) * 5000;
       const ticks = [];
-      for (let v = 0; v <= yMax; v += 500) ticks.push(v);
+      for (let v = 0; v <= yMax; v += step) ticks.push(v);
       return ticks;
+    }
+
+    function fmtLux(v) {
+      if (v >= 1000) return (v / 1000 % 1 === 0 ? v / 1000 : (v / 1000).toFixed(1)) + 'k';
+      return String(v);
     }
 
     function fmtHour(h) {
@@ -352,7 +367,7 @@
       // Axis labels
       ctx.font = '10px system-ui, sans-serif'; ctx.fillStyle = '#2e2e2e';
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-      ticks.forEach(v => ctx.fillText(v, PL - 6, ly(v)));
+      ticks.forEach(v => ctx.fillText(fmtLux(v), PL - 6, ly(v)));
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       [0, 4, 8, 12, 16, 20].forEach(h => ctx.fillText(fmtHour(h), PL + (h/24)*cw, PT + ch + 7));
 
@@ -406,7 +421,7 @@
         // Lux value label on y-axis
         ctx.font = '10px system-ui, sans-serif'; ctx.fillStyle = '#666';
         ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-        ctx.fillText(Math.round(pt.lux), PL - 6, y);
+        ctx.fillText(fmtLux(Math.round(pt.lux)), PL - 6, y);
       }
     }
 
