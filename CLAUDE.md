@@ -10,15 +10,11 @@ Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (
 - all .md's for error parsing and rectifying are in \Mira\Bug Records\
 - all .md's for information on the system code/upgrades/etc are in \mira\Markdowns
 
-- stableLuxCount on dashboard
-  - editable
-  - resetable
-  - slider
+
 - add a "recruiter" role so that recruiters from companies can see what owner role see, but cannot edit. 
   - in between demo and owner permissions 
   - no hidden owner IP button allowed for recruiter role
-- disable zooming on mobile
-- change log on dashboard from utc to est
+
 - create section/page for serial-like output?
   - would that be too intense and slow the whole system down substantially? 
 - PRIORITY
@@ -35,11 +31,11 @@ changes are made by mira vs owner (me through hue app) vs dashboard, so differen
 the system reflashes. make it commentable so that it can be ignored for testing.
 
 
-## Work on Today
-
-(all clear — see "Recently completed" below)
-
 ## Recently completed
+
+- **stableLuxCount dashboard widget** — NORMAL section shows a 0–59 slider and "reset" button; firmware sends count in status payload; `SET_STABLE_LUX_COUNT` command handler added (clamps to 59); DB column + migration added.
+- **Disable mobile zoom** — `user-scalable=no, maximum-scale=1.0` added to all four HTML template viewports.
+- **Log timestamps → CST** — all `toLocaleTimeString`/`toLocaleDateString` calls pinned to `America/Chicago` in `index.html` and `logs.html`.
 
 - **Wind-down completion pending button** — pressing `finish` (and slider seeks) now show a "pending" indicator under the slider, like the state buttons, and pin the slider to the requested step until the firmware's next poll applies it.
 - **Soft pause slider + "extend" button** — slider scrubs minutes remaining (mutable `softPauseDurationMs`, `SET_SOFT_PAUSE_REMAINING` command); the `+10 min` button sends an *absolute* target (displayed + 10) so rapid taps converge instead of cancelling to a single +10.
