@@ -710,6 +710,7 @@ void sendDashboardStatus(float lux) {
     long pauseRemaining = (state == State::SOFT_PAUSE) ?
         max(0L, ((long)softPauseDurationMs - (long)(millis() - softPauseStart)) / 1000L) : 0L;
     doc["soft_pause_remaining_s"] = pauseRemaining;
+    doc["stable_lux_count"]      = stableLuxCount;
     // Cycle-exclusion state for the dashboard's "lights in cycle" chips.
     JsonObject excl = doc["excluded"].to<JsonObject>();
     excl["floor"]   = excludedLight[LIGHT_FLOOR];
@@ -1102,6 +1103,10 @@ void pollDashboardCommand() {
     else if (cmd == "SET_SOFT_PAUSE_REMAINING" && state == State::SOFT_PAUSE && cmdValue >= 0) {
         softPauseDurationMs = (millis() - softPauseStart) + (unsigned long)cmdValue * 60000UL;
         Serial.println("Soft pause remaining → " + String(cmdValue) + " min");
+    }
+    else if (cmd == "SET_STABLE_LUX_COUNT" && state == State::NORMAL && cmdValue >= 0) {
+        stableLuxCount = min(cmdValue, 59);
+        Serial.println("Stable lux count → " + String(stableLuxCount));
     }
     // Cycle-exclusion toggles (cmdValue = LIGHT_* cache index). Setting the flag is
     // all that's needed: tickNormal enforces the off (cache-guarded) and every driving

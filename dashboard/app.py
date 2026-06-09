@@ -52,6 +52,7 @@ class StatusSnapshot(db.Model):
     excl_chest = db.Column(db.Boolean)
     excl_dresser = db.Column(db.Boolean)
     excl_ceiling = db.Column(db.Boolean)
+    stable_lux_count = db.Column(db.Integer)
 
 
 class Command(db.Model):
@@ -91,6 +92,7 @@ with app.app_context():
             ('status_snapshots', 'excl_chest',            'BOOLEAN'),
             ('status_snapshots', 'excl_dresser',          'BOOLEAN'),
             ('status_snapshots', 'excl_ceiling',          'BOOLEAN'),
+            ('status_snapshots', 'stable_lux_count',     'INTEGER'),
             ('commands',         'value',                 'INTEGER'),
         ]:
             conn.execute(text(
@@ -149,6 +151,7 @@ def ingest_status():
         excl_chest=excl.get('chest', False),
         excl_dresser=excl.get('dresser', False),
         excl_ceiling=excl.get('ceiling', False),
+        stable_lux_count=d.get('stable_lux_count'),
     ))
     db.session.commit()
     return jsonify({'ok': True})
@@ -268,6 +271,7 @@ def latest_status():
             'dresser': bool(snap.excl_dresser),
             'ceiling': bool(snap.excl_ceiling),
         },
+        'stable_lux_count': snap.stable_lux_count,
     }
     if session.get('role') != 'demo':
         result['timestamp'] = snap.timestamp.isoformat() + 'Z'

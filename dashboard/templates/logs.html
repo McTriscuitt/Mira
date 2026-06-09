@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Mira — Event Log</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -174,16 +174,18 @@
     let _exclude = '';
     const PAGE = 50;
 
+    const _TZ = { timeZone: 'America/Chicago' };
+
     function formatTimestamp(iso) {
       const d = new Date(iso);
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ..._TZ })
         + ' · '
-        + d.toLocaleTimeString();
+        + d.toLocaleTimeString('en-US', _TZ);
     }
 
     function dateKey(iso) {
       const d = new Date(iso);
-      return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+      return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', ..._TZ });
     }
 
     async function loadEntries() {
