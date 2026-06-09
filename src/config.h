@@ -38,12 +38,12 @@
 // (250–600 lux) lights floor+chest+dresser but no overheads — the adaptive, seasonal
 // behavior the system is built around. Brightness gates are in percent (v2 units).
 // WAKE_SECONDARY_LUX (250) is aligned with the lux-curve's chest breakpoint S3_LUX_HI
-// (250), so the chest has no WAKE→NORMAL handoff seam. WAKE_OVERHEAD_LUX (600) is still
-// above NORMAL's overhead breakpoint S2_LUX_HI (500), so a 500–600 lux morning can show
-// an overhead step at the handoff (set this to 500 to close that too).
+// (250), so the chest has no WAKE→NORMAL handoff seam. WAKE_OVERHEAD_LUX (500) now
+// matches NORMAL's overhead breakpoint S2_LUX_HI (500), closing the 500–600 lux
+// morning seam where overheads would snap on at the WAKE→NORMAL handoff.
 #define WAKE_SECONDARY_BRI  40.0f   // chest+dresser join once rampBri ≥ this
 #define WAKE_SECONDARY_LUX 250.0f   // ...and ambient lux ≥ this (matches S3_LUX_HI)
-#define WAKE_OVERHEAD_LUX  600.0f   // overheads join once rampBri ≥ S2_BRI_LO (70%) and lux ≥ this
+#define WAKE_OVERHEAD_LUX  500.0f   // overheads join once rampBri ≥ S2_BRI_LO (70%) and lux ≥ this (matches S2_LUX_HI — no WAKE→NORMAL seam)
 
 // Soft pause — auto-resume after this many milliseconds (60 min). Seeds the runtime
 // softPauseDurationMs, which the dashboard slider / +10 extend button can rewrite.
