@@ -1,8 +1,12 @@
 # PlatformIO build output and downloaded libraries
 .pio/
 
-# Credentials — WiFi SSID/password and Hue API token
-src/config.h
+# Credentials — WiFi SSID/password, Hue/dashboard keys, bridge IP, light UUIDs.
+# config.h is now tracked (tunables only); secrets live here. See secrets.h.example.
+src/secrets.h
+
+# Python bytecode cache
+__pycache__/
 
 # CLion IDE files
 .idea/
@@ -12,4 +16,4 @@ src/config.h
 
 # Misc files — bloat to repo
 Datasheets/
-Stored Data/
+Bug Records/

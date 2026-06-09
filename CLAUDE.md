@@ -81,13 +81,15 @@ PlatformIO is the only build system. The IDE is CLion with the PlatformIO plugin
 
 **LCD was attempted and abandoned** — HD44780 requires 3.5V logic minimum (0.7 × 5V VDD) but ESP32-S3 outputs 3.3V. Level shifting was not pursued. No display is planned.
 
-## Key Configuration (`src/config.h`)
+## Key Configuration (`src/config.h` + `src/secrets.h`)
 
-`config.h` holds WiFi credentials and Hue API details. It is checked into the repo but **must not be shared publicly**.
+Config is split in two:
+- **`src/config.h`** — **tracked/public** behavior + tuning constants (curve gates, tolerances, timing, button pins, cache indices). No secrets. It `#include`s `secrets.h` at the top, so `main.cpp` only needs `#include "config.h"`.
+- **`src/secrets.h`** — **gitignored**, deployment-specific values: WiFi creds, `HUE_API_KEY`/`ESP32_API_KEY`, `HUE_V2_BASE_URL`/`HUE_BRIDGE_HOST` (bridge IP), `LIGHT_UUID_*`, `DASHBOARD_BASE_URL`. Copy **`src/secrets.h.example`** (tracked template) → `secrets.h` and fill it in on a fresh clone. Because it's gitignored, edits to these values (and to firmware tuning constants you keep there) never reach the repo.
 
 - **Hue Bridge:** `192.168.1.186`; `HUE_V2_BASE_URL = "https://192.168.1.186/clip/v2"` + `HUE_API_KEY` (passed as `hue-application-key` header); `HUE_BRIDGE_HOST = "192.168.1.186"` for the SSE/cert connection probe
 - **Cache indices:** `LIGHT_CHEST=0`, `LIGHT_DRESSER=1`, `LIGHT_CEIL_1=2`, `LIGHT_CEIL_2=3`, `LIGHT_FLOOR=4` — index into `lightCache[LIGHT_COUNT]` (`LIGHT_COUNT=5`) in `main.cpp`. `LIGHT_CHEST`/`LIGHT_DRESSER` are the **renamed** bedside/desk bulbs (same physical UUIDs, label-only change); `LIGHT_FLOOR` is the Signe gradient floor lamp added as the wake start-point + wind-down night-light anchor. `LIGHT_COUNT` sizes `lightCache[]` / `recentPuts[]` and bounds-checks `idx`.
-- **Light UUIDs (v2):** `LIGHT_UUID_CHEST`, `LIGHT_UUID_DRESSER`, `LIGHT_UUID_CEIL_1`, `LIGHT_UUID_CEIL_2`, `LIGHT_UUID_FLOOR` — hardcoded in `config.h` from discovery; stable Zigbee identities, only change on factory reset. Used as the v2 endpoint path component and resolved back to cache indices via `idxByUuid()`. A `lightName(idx)` helper maps the index back to a friendly label (`Chest`/`Dresser`/`Ceiling_1`/`Ceiling_2`/`Floor`) for Serial + bootstrap logging.
+- **Light UUIDs (v2):** `LIGHT_UUID_CHEST`, `LIGHT_UUID_DRESSER`, `LIGHT_UUID_CEIL_1`, `LIGHT_UUID_CEIL_2`, `LIGHT_UUID_FLOOR` — hardcoded in `secrets.h` from discovery; stable Zigbee identities, only change on factory reset. Used as the v2 endpoint path component and resolved back to cache indices via `idxByUuid()`. A `lightName(idx)` helper maps the index back to a friendly label (`Chest`/`Dresser`/`Ceiling_1`/`Ceiling_2`/`Floor`) for Serial + bootstrap logging.
 - **UTC offset:** `UTC_OFFSET_SEC` — currently `-14400` (UTC-4 / Eastern Daylight)
 - **`STATE_TOLERANCE_BRI 1.2f`** — min bri delta (percent) before a PUT is sent by `tickNormal`'s drift check (≈ 3/254 in old v1 units). No longer used for SSE override detection — that uses the wider `TRAJECTORY_TOLERANCE_BRI` instead.
 - **`STATE_TOLERANCE_CT 3`** — min ct delta (mirek) before a PUT is sent by `tickNormal`'s drift check. No longer used for SSE override detection — see `TRAJECTORY_TOLERANCE_CT`.
