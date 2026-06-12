@@ -725,6 +725,13 @@ void printStatus() {
     Serial.print(ampm); Serial.print("] ");
     Serial.print(days[day]);
     Serial.print(" ["); Serial.print(stateName()); Serial.println("]");
+    // N1 Stage 1 soak telemetry (Serial-only): SSE-task stack headroom in
+    // bytes (should stay comfortably above ~1 KB) + free heap.
+    if (sseTaskHandle) {
+        Serial.printf("sse stack free=%u heap free=%u\n",
+                      (unsigned)uxTaskGetStackHighWaterMark(sseTaskHandle),
+                      (unsigned)esp_get_free_heap_size());
+    }
 }
 
 void sendDashboardLog(const String& message) {
