@@ -1028,10 +1028,47 @@ static void handleLightUpdate(JsonObjectConst upd) {
 
 // ── N1 Stage 1 — event dispatch (main task) ─────────────────────────────────
 
+// Clobber repair. Override classification is real-time, and the mid-batch
+// abort stops every *subsequent* PUT in a chain — but a PUT already committed
+// to the wire can't be recalled. If the user's change targets the same light
+// as that in-flight PUT, the PUT lands ~0.5–1 s later and overwrites the
+// change (observed June 11: floor lamp flipped off mid-chain; the in-flight
+// floor PUT turned it back on, then SOFT_PAUSE froze it that way for an hour).
+// Detector: a live recentPuts slot whose target contradicts the triggering
+// event's fields — slot lifetime (duration + grace) is exactly the window in
+// which one of our PUTs can land after the user's change. Repair: re-PUT the
+// user's own values (event fields, cache fill-in for absent ones). If the
+// suspected clobber never actually landed, the re-PUT just re-asserts the
+// bulb's current state — harmless. Must run while state is still NORMAL so
+// setLight()'s guard doesn't eat the repair PUT.
+static void restoreUserOverride(const SseEventRecord& r) {
+    if (r.idx < 0 || r.idx >= LIGHT_COUNT) return;
+    bool contradicted = false;
+    portENTER_CRITICAL(&dataMux);
+    for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
+        const RecentPut& p = recentPuts[r.idx][s];
+        if (!p.active) continue;
+        if (millis() - p.postedAtMs > p.durationMs + RECENT_PUT_GRACE_MS) continue;
+        if (r.hasOn  && r.evOn != p.onTarget)                                    { contradicted = true; break; }
+        if (r.hasBri && fabsf(r.evBri - p.targetBri) > TRAJECTORY_TOLERANCE_BRI) { contradicted = true; break; }
+        if (r.hasCt  && abs(r.evCt   - p.targetCt)   > TRAJECTORY_TOLERANCE_CT)  { contradicted = true; break; }
+    }
+    portEXIT_CRITICAL(&dataMux);
+    if (!contradicted) return;
+
+    LightState cur = cachedLight(r.idx); // best-known physical state for absent fields
+    bool  on  = r.hasOn  ? r.evOn  : cur.on;
+    float bri = r.hasBri ? r.evBri : cur.bri;
+    int   ct  = r.hasCt  ? r.evCt  : (cur.ct > 0 ? cur.ct : (int)CT_WARM);
+    Serial.printf("Override repair — re-asserting user values to %s (on=%d bri=%.1f ct=%d)\n",
+                  lightName(r.idx), on ? 1 : 0, bri, ct);
+    setLight(lightUuid(r.idx), on, bri, ct, 500);
+}
+
 // Apply an Override classified by the SSE task: the actual SOFT_PAUSE
-// transition, diagnostic dump, and dashboard log happen here, on the main
-// task. ringSlot indexes the sseEventRing record of the triggering event
-// (-1 = unknown, used by the flag-only belt-and-braces path).
+// transition, clobber repair, diagnostic dump, and dashboard log happen here,
+// on the main task. ringSlot indexes the sseEventRing record of the triggering
+// event (-1 = unknown, used by the flag-only belt-and-braces path).
 static void applyOverridePause(int ringSlot) {
     overridePending = false;
     // Classified in NORMAL, but the state may have moved on in the ≤50 ms
@@ -1040,17 +1077,23 @@ static void applyOverridePause(int ringSlot) {
     // pauses.
     if (state != State::NORMAL) return;
 
+    // Copy: the ring is written by the SSE task; 16 entries make a wrap
+    // within the dispatch latency implausible, and the record is used for
+    // repair + diagnostics only.
+    bool haveRecord = (ringSlot >= 0 && ringSlot < SSE_EVENT_RING_SIZE);
+    SseEventRecord r;
+    if (haveRecord) r = sseEventRing[ringSlot];
+
+    // Repair before the state flip — setLight() returns early in SOFT_PAUSE.
+    if (haveRecord) restoreUserOverride(r);
+
     state               = State::SOFT_PAUSE;
     softPauseStart      = millis();
     softPauseDurationMs = SOFT_PAUSE_MS;
     pauseResumeActive   = false;
     Serial.println("SSE override — soft pause.");
 
-    if (ringSlot >= 0 && ringSlot < SSE_EVENT_RING_SIZE) {
-        // Copy: the ring is written by the SSE task; 16 entries make a wrap
-        // within the ~50 ms dispatch latency implausible, and the dump is
-        // diagnostic-only either way.
-        const SseEventRecord r = sseEventRing[ringSlot];
+    if (haveRecord) {
         dumpOverrideDiagnostic(r.idx, r.hasOn, r.evOn, r.hasBri, r.evBri,
                                r.hasCt, r.evCt, r.cacheOnBefore,
                                r.cacheBriBefore, r.cacheCtBefore);

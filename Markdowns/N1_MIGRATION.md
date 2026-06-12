@@ -161,7 +161,8 @@ structure is otherwise untouched.
 **Verification:**
 - [ ] `pio run` clean; flash; full boot (cert, bootstrap, SSE connect, purple flourish).
 - [ ] Hue-app manual change in NORMAL → SOFT_PAUSE within ~1 s (vs up to 30 s), concise log line on dashboard, full dump on Serial.
-- [ ] Mid-batch abort: trigger an override during a multi-bulb transition tick; confirm remaining PUTs in the chain are skipped (Serial shows no setLight lines after the override).
+- [x] Mid-batch abort: trigger an override during a multi-bulb transition tick; confirm remaining PUTs in the chain are skipped (Serial shows no setLight lines after the override). *(Verified June 11 — Dresser PUT correctly skipped after mid-chain floor override.)*
+- [ ] Clobber repair: flip a lamp off mid-transition-tick again; confirm "Override repair" Serial line and the lamp *stays off* through the pause.
 - [ ] Normal evening: echoes still classify as `EchoMatch`/`NoOpEcho` (histogram via override dump or `ECHO_TRACE`), no false SOFT_PAUSE.
 - [ ] `uxTaskGetStackHighWaterMark(sseTaskHandle)` healthy after a day.
 
@@ -179,6 +180,19 @@ one extra task + queue ≈ ~13 KB; fine on the S3.
 - `state` and `pauseResumeActive` made `volatile` (cross-core reads by the
   SSE task). `Event` has default member initializers (clang-tidy).
 - Build: RAM 18.3 %, flash 31.1 %. Stage-1 commit contains main.cpp + this doc.
+
+**Hardware finding (June 11, 2026) — in-flight PUT clobber, fixed:**
+First live test: user flipped the floor lamp off *during* a transition tick's
+floor PUT (lux had just crashed 1669→56). The abort correctly skipped the rest
+of the chain (no Dresser PUT), but the in-flight floor PUT couldn't be
+recalled — it landed ~1 s after the user's change and turned the lamp back on,
+then SOFT_PAUSE froze it that way. Same hole existed in the old synchronous
+design; the timing is *correlated* (users react to light changes right when
+transition ticks PUT), so it had to be fixed. Fix: `restoreUserOverride()` —
+on Override dispatch, if a live `recentPuts` slot's target contradicts the
+triggering event's fields, re-PUT the user's own values before flipping to
+SOFT_PAUSE (slot lifetime = exactly the clobber-risk window; a false-positive
+repair just re-asserts the bulb's current state, harmless).
 
 ---
 
