@@ -73,12 +73,13 @@ CachedLight lightCache[LIGHT_COUNT]; // LIGHT_CHEST / LIGHT_DRESSER / LIGHT_CEIL
 
 The hard problem: when Mira PUTs a state change, the bridge echoes it back over SSE as an event. Naïvely, every Mira PUT would trigger SOFT_PAUSE. The old approach used a flat time-window mute (`muteOverride()` / `MUTE_AFTER_TRANSITION_MS = 5000UL`) — every PUT silenced override detection for ~5 s. That worked, but missed real overrides during the mute window and didn't degrade per-light.
 
-Current approach: every incoming event is classified into one of eight `EchoOutcome` buckets. The override path is reached only when the event is *both* off-trajectory of every live `recentPuts` slot *and* off-cache by more than `TRAJECTORY_TOLERANCE_*`. Anything else is an echo (or a skip) and does not trigger SOFT_PAUSE.
+Current approach: every incoming event is classified into one of nine `EchoOutcome` buckets. The override path is reached only when the event is off-trajectory of every live `recentPuts` slot, off-cache by more than `TRAJECTORY_TOLERANCE_*`, *and* not a stale revert of one of our own recent PUTs. Anything else is an echo (or a skip) and does not trigger SOFT_PAUSE.
 
-Two layers do the work:
+Three layers do the work:
 
 1. **Trajectory ring (`recentPuts[LIGHT_COUNT][3]`)** — every outgoing PUT writes one slot per light. An incoming event matches if its on/bri/ct values lie within `[min(prior, target), max(prior, target)] ± TRAJECTORY_TOLERANCE_*` for any live slot. Three slots per light let overlapping in-flight PUTs (e.g. wake-ramp tick + state-change PUT) keep their trajectories live simultaneously.
 2. **No-op event filter** — if the trajectory check fails, before declaring `Override` the handler checks whether the event's values are within `TRAJECTORY_TOLERANCE_*` of the **pre-event cache**. If so, the bridge is reporting state we already think is true — a late settling echo whose slot expired before the event arrived. Classify as `NoOpEcho`. Closes the timing gap on "skipping PUT" ticks where nothing refreshed the slot.
+3. **Stale-revert filter** — if the no-op check *also* fails, the handler compares the event against the **prior** (pre-PUT) values of every slot posted within `STALE_REVERT_LOOKBACK_MS` (90 s), including expired slots. A match means the lamp never applied (or rolled back) one of our recent PUTs and the bridge is correcting its optimistic echo — classify as `StaleRevert` and **re-assert** the slot's target instead of pausing. See "Stale-Revert Filter + Re-Assert" below.
 
 ### Struct + Ring
 
@@ -86,6 +87,7 @@ Two layers do the work:
 struct RecentPut {
     bool          active     = false;
     bool          onTarget   = false;
+    bool          priorOn    = false;  // cache on-state at PUT time (stale-revert fingerprint)
     float         priorBri   = 0.0f;   // cache value at PUT time
     float         targetBri  = 0.0f;   // value we asked for
     int           priorCt    = 0;
@@ -108,6 +110,7 @@ Slot selection: prefer the first inactive/expired slot so live trajectories from
 RecentPut& r = recentPuts[idx][slot];
 r.active     = true;
 r.onTarget   = on;
+r.priorOn    = lightCache[idx].on;    // snapshot pre-PUT cache value
 r.priorBri   = lightCache[idx].bri;   // snapshot pre-PUT cache value
 r.targetBri  = bri;
 r.priorCt    = lightCache[idx].ct;
@@ -153,12 +156,32 @@ bool isNoOp = true;
 if (hasOn  && evOn != cacheOnBefore)                                    isNoOp = false;
 if (hasBri && fabsf(evBri - cacheBriBefore) > TRAJECTORY_TOLERANCE_BRI) isNoOp = false;
 if (hasCt  && abs(evCt   - cacheCtBefore)    > TRAJECTORY_TOLERANCE_CT) isNoOp = false;
-decision = isNoOp ? EchoOutcome::NoOpEcho : EchoOutcome::Override;
+if (isNoOp)                                                       decision = EchoOutcome::NoOpEcho;
+else if (eventMatchesPriorPut(idx, ..., revertSlot))              decision = EchoOutcome::StaleRevert;
+else                                                              decision = EchoOutcome::Override;
 ```
 
 This closes a timing gap that the trajectory check alone left open: when `tickNormal` decides "no change — skipping PUT", nothing refreshes the `recentPuts` slot, and the bridge's late settling confirmation event (often ~30+ s after the previous PUT) could land after the slot's `durationMs + grace` had expired. The trajectory check would miss it, and the event — typically a 1–2 mirek confirmation — would fire SOFT_PAUSE.
 
 The semantic threshold for "real override" is unchanged: `TRAJECTORY_TOLERANCE_BRI` (5%) and `TRAJECTORY_TOLERANCE_CT` (15 mirek). Anywhere a value lands within either a recent PUT's trajectory **or** the pre-event cache counts as an echo. A real user override is double-digit-percent bri or 50+ mirek, comfortably outside both windows.
+
+### Stale-Revert Filter + Re-Assert
+
+The bridge's v2 event stream is **optimistic**: it emits the commanded values the instant it accepts a PUT, before the lamp confirms over Zigbee. If the lamp never applies the command (dropped Zigbee delivery — observed June 11 on the Signe floor lamp), the bridge discovers the truth at its next lamp poll and emits a *correction* event walking its resource state back — observed ~35 s after the PUT, far past any slot's `durationMs + grace` window.
+
+That correction defeats both earlier layers: the trajectory slot has expired, and the cache holds the optimistic echo's values (the *commanded* state), so the correction differs from cache by the full size of the failed PUT. Pre-fix, this fired a phantom `Override` and froze the system in SOFT_PAUSE for an hour — triggered by nothing but a flaky bulb.
+
+The fingerprint that separates a revert from a real override: **a user lands on arbitrary values; a revert lands exactly where our own PUT started.** `eventMatchesPriorPut()` compares the event's present fields against each slot's `priorOn`/`priorBri`/`priorCt` (within `TRAJECTORY_TOLERANCE_*`), scanning all slots posted within `STALE_REVERT_LOOKBACK_MS` (90 s) — *including expired slots*, whose data survives the `active = false` sweep.
+
+On `StaleRevert`, the SSE task enqueues the event for the dispatcher **without setting `overridePending`** (a revert must not abort an in-progress PUT batch). The main-task dispatcher calls `reassertRecentPut(idx, slot)`, which re-PUTs the matched slot's target with a 500 ms snap. The re-PUT writes a fresh trajectory slot, so the retry's own echo classifies as `EchoMatch` — and because the cache was already updated with the reverted values before dispatch, the new slot's `prior*` reflects the lamp's true state.
+
+Guards:
+
+- **Per-light cooldown** (`lastReassertMs[]`, one re-assert per `STALE_REVERT_LOOKBACK_MS`): a persistently deaf lamp doesn't ping-pong with the bridge every poll cycle. After a failed retry, the normal 30 s curve tick re-drives the lamp once drift exceeds `STATE_TOLERANCE_*`.
+- `setLight()`'s top guard drops the re-assert harmlessly if state moved to SOFT_PAUSE/HARD_OFF between classification and dispatch.
+- Ordering protects against misuse: the no-op filter runs *first*, so an event merely re-stating the cache never reaches the revert check — `StaleRevert` only sees events that contradict what we believe **and** land on a recent PUT's starting point.
+
+Accepted trade-off: a user who manually returns a lamp to its pre-PUT value within the 90 s lookback is misread as a revert and re-asserted once. Their next (different) adjustment fires `Override` normally.
 
 ### Why Trajectory, Not Endpoint
 
@@ -200,6 +223,7 @@ The original implementation reused `STATE_TOLERANCE_*` for both jobs. Wrong. The
    - `expectedOn` is false for this idx (`LIGHT_CEIL_*` when `overheadsOn == false`) → `SkipOffLight`
    - `eventMatchesRecentPut()` returns true → `EchoMatch`
    - No-op filter passes (event values within `TRAJECTORY_TOLERANCE_*` of `cacheBefore`) → `NoOpEcho`
+   - `eventMatchesPriorPut()` returns true (event lands on a recent slot's pre-PUT values) → `StaleRevert` (dispatcher re-asserts the slot's target)
    - None of the above → `Override`
 5. **Write to cache** for whichever fields are present. (After classification so `cacheBefore` stays meaningful.)
 6. `recordSseEvent()` appends the classified event to the diagnostic ring.
@@ -260,7 +284,8 @@ Every call into `handleLightUpdate()` ends in exactly one outcome. The enum is t
 | `SkipOffLight` | `expectedOn == false` for this idx (off overhead). |
 | `EchoMatch` | Trajectory check against a live `recentPuts` slot matched. |
 | `NoOpEcho` | Trajectory missed, but event values are within tolerance of pre-event cache. |
-| `Override` | Off-trajectory and off-cache — fires SOFT_PAUSE. |
+| `StaleRevert` | Event lands on a recent slot's *prior* values — lamp never applied our PUT; dispatcher re-asserts the target. |
+| `Override` | Off-trajectory, off-cache, and not a stale revert — fires SOFT_PAUSE. |
 
 ### `sseEventRing[16]` — last 16 classified events
 
@@ -342,8 +367,9 @@ All defined inline in `src/main.cpp` near the globals, not in `config.h`:
 ```cpp
 const unsigned long SSE_RECONNECT_DELAY_MS   = 5000UL;    // gap between reconnect attempts
 const unsigned long SSE_STALE_TIMEOUT_MS     = 600000UL;  // 10 min — no keepalive, long silence is normal
-const float         TRAJECTORY_TOLERANCE_BRI = 5.0f;      // echo discrimination width, percent — used by both trajectory and no-op filter
-const int           TRAJECTORY_TOLERANCE_CT  = 15;        // echo discrimination width, mirek — used by both trajectory and no-op filter
+const float         TRAJECTORY_TOLERANCE_BRI = 5.0f;      // echo discrimination width, percent — used by trajectory, no-op, and stale-revert filters
+const int           TRAJECTORY_TOLERANCE_CT  = 15;        // echo discrimination width, mirek — used by trajectory, no-op, and stale-revert filters
+const unsigned long STALE_REVERT_LOOKBACK_MS = 90000UL;   // stale-revert fingerprint window — covers the bridge's ~35 s lamp-poll correction with margin
 const unsigned long RECENT_PUT_GRACE_MS      = 5000UL;    // late-echo slack past dynamics.duration
 const int           RECENT_PUT_RING_SIZE     = 3;         // slots per light in the trajectory ring
 const int           SSE_EVENT_RING_SIZE      = 16;        // classified-event diagnostic ring depth

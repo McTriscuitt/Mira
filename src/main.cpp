@@ -111,6 +111,7 @@ LightTarget pauseResumeStartTarget = {0, 0}; // bri/ct snapshot at soft pause en
 struct RecentPut {
     bool          active     = false;
     bool          onTarget   = false;
+    bool          priorOn    = false;
     float         priorBri   = 0.0f;
     float         targetBri  = 0.0f;
     int           priorCt    = 0;
@@ -126,6 +127,15 @@ struct RecentPut {
 const int RECENT_PUT_RING_SIZE = 3;
 RecentPut recentPuts[LIGHT_COUNT][RECENT_PUT_RING_SIZE];
 const unsigned long RECENT_PUT_GRACE_MS = 5000UL; // post-ramp slack for late echoes (Zigbee mesh can be slow)
+// Stale-revert lookback. The bridge echoes a PUT optimistically, before the lamp
+// confirms over Zigbee; if the lamp never applies it, the bridge walks its
+// resource state back at its next lamp poll — observed ~35 s out, far past any
+// slot's duration+grace window. An event landing on a slot's *prior* values
+// within this window is the lamp reverting to its pre-PUT state, not a user
+// override (a user lands on arbitrary values; a revert lands exactly where our
+// own PUT started). Expired slots keep their data, so the fingerprint outlives
+// the trajectory window.
+const unsigned long STALE_REVERT_LOOKBACK_MS = 90000UL;
 // Trajectory-match tolerances, intentionally wider than STATE_TOLERANCE_*:
 // - STATE_TOLERANCE_* sizes "is the curve drifted enough to send a new PUT?"
 // - TRAJECTORY_TOLERANCE_* sizes "is the bridge's settled value within the slop
@@ -151,9 +161,10 @@ enum class EchoOutcome : uint8_t {
     SkipOffLight,       // expectedOn == false for this idx
     EchoMatch,          // trajectory match against a live recentPuts slot
     NoOpEcho,           // trajectory missed but event delta from cache is <= TRAJECTORY_TOLERANCE_*
+    StaleRevert,        // event matches a recent slot's *prior* values — lamp reverted to its pre-PUT state → re-assert, don't pause
     Override            // off-trajectory and off-cache → fires SOFT_PAUSE
 };
-const int ECHO_OUTCOME_COUNT = 8;
+const int ECHO_OUTCOME_COUNT = 9;
 
 static const char* echoOutcomeName(EchoOutcome o) {
     switch (o) {
@@ -164,6 +175,7 @@ static const char* echoOutcomeName(EchoOutcome o) {
         case EchoOutcome::SkipOffLight:    return "skip-offlight";
         case EchoOutcome::EchoMatch:       return "echo-match";
         case EchoOutcome::NoOpEcho:        return "noop-echo";
+        case EchoOutcome::StaleRevert:     return "stale-revert";
         case EchoOutcome::Override:        return "OVERRIDE";
         default:                           return "?";
     }
@@ -455,6 +467,7 @@ static int noteRecentPut(int idx, bool on, float bri, int ct, unsigned long dura
     RecentPut& r = recentPuts[idx][slot];
     r.active     = true;
     r.onTarget   = on;
+    r.priorOn    = lightCache[idx].on;
     r.priorBri   = lightCache[idx].bri;
     r.targetBri  = bri;
     r.priorCt    = lightCache[idx].ct;
@@ -496,6 +509,39 @@ static bool eventMatchesRecentPut(int idx,
             if (evCt < lo || evCt > hi) continue;
         }
         matched = true;
+        break;
+    }
+    portEXIT_CRITICAL(&dataMux);
+    return matched;
+}
+
+// Stale-revert fingerprint: does this event match the *prior* (pre-PUT) values
+// of a slot posted within STALE_REVERT_LOOKBACK_MS — including expired slots?
+// Runs after the trajectory + no-op checks have both missed, so the event is
+// already known to contradict both live trajectories and the cache. Landing
+// exactly on a recent PUT's starting point means the lamp never applied (or
+// rolled back) that PUT and the bridge is correcting its optimistic echo.
+// slotOut receives the matched slot so the dispatcher can re-assert its target.
+// Trade-off, accepted: a user who manually returns the lamp to its pre-PUT
+// value within the lookback is misread as a revert and re-asserted once; their
+// next (different) adjustment fires Override normally.
+static bool eventMatchesPriorPut(int idx,
+                                 bool hasOn,  bool  evOn,
+                                 bool hasBri, float evBri,
+                                 bool hasCt,  int   evCt,
+                                 int& slotOut) {
+    if (idx < 0 || idx >= LIGHT_COUNT) return false;
+    bool matched = false;
+    portENTER_CRITICAL(&dataMux);
+    for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
+        const RecentPut& r = recentPuts[idx][s];
+        if (r.postedAtMs == 0) continue; // slot never written since boot
+        if (millis() - r.postedAtMs > STALE_REVERT_LOOKBACK_MS) continue;
+        if (hasOn  && evOn != r.priorOn)                                    continue;
+        if (hasBri && fabsf(evBri - r.priorBri) > TRAJECTORY_TOLERANCE_BRI) continue;
+        if (hasCt  && abs(evCt   - r.priorCt)   > TRAJECTORY_TOLERANCE_CT)  continue;
+        matched = true;
+        slotOut = s;
         break;
     }
     portEXIT_CRITICAL(&dataMux);
@@ -964,6 +1010,7 @@ static void handleLightUpdate(JsonObjectConst upd) {
     }
 
     EchoOutcome decision;
+    int revertSlot = -1; // recentPuts slot matched by the stale-revert check
     if (state != State::NORMAL) {
         decision = EchoOutcome::SkipState;
     } else if (pauseResumeActive) {
@@ -997,7 +1044,19 @@ static void handleLightUpdate(JsonObjectConst upd) {
             if (hasOn  && evOn != cacheOnBefore)                                    isNoOp = false;
             if (hasBri && fabsf(evBri - cacheBriBefore) > TRAJECTORY_TOLERANCE_BRI) isNoOp = false;
             if (hasCt  && abs(evCt   - cacheCtBefore)    > TRAJECTORY_TOLERANCE_CT) isNoOp = false;
-            decision = isNoOp ? EchoOutcome::NoOpEcho : EchoOutcome::Override;
+            if (isNoOp) {
+                decision = EchoOutcome::NoOpEcho;
+            } else if (eventMatchesPriorPut(idx, hasOn, evOn, hasBri, evBri,
+                                            hasCt, evCt, revertSlot)) {
+                // Off-trajectory AND off-cache, but landing on a recent PUT's
+                // starting values: the bridge correcting its optimistic echo
+                // after the lamp failed to apply our PUT (observed June 11 on
+                // the Signe, ~35 s out). Re-assert the slot's target rather
+                // than soft-pausing on a phantom override.
+                decision = EchoOutcome::StaleRevert;
+            } else {
+                decision = EchoOutcome::Override;
+            }
         }
     }
 
@@ -1013,6 +1072,23 @@ static void handleLightUpdate(JsonObjectConst upd) {
 
     int ringSlot = recordSseEvent(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
                                   cacheOnBefore, cacheBriBefore, cacheCtBefore, decision);
+
+    if (decision == EchoOutcome::StaleRevert) {
+        // No overridePending: a revert must not abort an in-progress PUT batch.
+        // The dispatcher (main task) re-PUTs the matched slot's target; the
+        // cache already holds the reverted values, so the retry's noteRecentPut
+        // snapshots the lamp's true state as its prior.
+        Serial.printf("SSE stale revert — %s reported pre-PUT values; queueing re-assert.\n",
+                      lightName(idx));
+        Event ev = {};
+        ev.type  = EvType::SseLight;
+        ev.a     = (uint8_t)idx;
+        ev.flags = (uint8_t)EchoOutcome::StaleRevert;
+        ev.i     = revertSlot;
+        ev.tMs   = millis();
+        if (evQueue) xQueueSend(evQueue, &ev, 0);
+        return;
+    }
 
     if (decision != EchoOutcome::Override) return;
 
@@ -1108,10 +1184,39 @@ static void applyOverridePause(int ringSlot) {
     sendLog("Manual override — soft pause — " + getTimeString());
 }
 
+// Re-assert a PUT the lamp apparently never applied (StaleRevert classification).
+// Re-sends the matched recentPuts slot's target; setLight() writes a fresh
+// trajectory slot, so the retry's echo is covered, and its top guard drops the
+// PUT harmlessly if the state moved to SOFT_PAUSE/HARD_OFF since classification.
+// Per-light cooldown: if the lamp drops the retry too, its next revert event
+// inside the cooldown is logged but not re-PUT — the 30 s curve tick re-drives
+// the lamp anyway once drift exceeds STATE_TOLERANCE_*, so we don't ping-pong
+// with a persistently deaf bulb every bridge poll.
+static void reassertRecentPut(int idx, int slot) {
+    static unsigned long lastReassertMs[LIGHT_COUNT] = {0};
+    if (idx < 0 || idx >= LIGHT_COUNT || slot < 0 || slot >= RECENT_PUT_RING_SIZE) return;
+    if (lastReassertMs[idx] != 0 &&
+        millis() - lastReassertMs[idx] < STALE_REVERT_LOOKBACK_MS) {
+        Serial.printf("Stale revert — %s reverted again within cooldown; leaving it to the next tick.\n",
+                      lightName(idx));
+        return;
+    }
+    portENTER_CRITICAL(&dataMux);
+    RecentPut r = recentPuts[idx][slot];
+    portEXIT_CRITICAL(&dataMux);
+    if (r.postedAtMs == 0) return; // slot recycled/never written — nothing to re-assert
+    lastReassertMs[idx] = millis();
+    Serial.printf("Stale revert — re-asserting %s to on=%d bri=%.1f ct=%d\n",
+                  lightName(idx), r.onTarget ? 1 : 0, r.targetBri, r.targetCt);
+    setLight(lightUuid(idx), r.onTarget, r.targetBri, r.targetCt, 500);
+    sendLog("Stale revert — re-sent " + String(lightName(idx)) + " — " + getTimeString());
+}
+
 static void dispatchEvent(const Event& ev) {
     switch (ev.type) {
         case EvType::SseLight:
-            if ((EchoOutcome)ev.flags == EchoOutcome::Override) applyOverridePause(ev.i);
+            if      ((EchoOutcome)ev.flags == EchoOutcome::Override)    applyOverridePause(ev.i);
+            else if ((EchoOutcome)ev.flags == EchoOutcome::StaleRevert) reassertRecentPut(ev.a, ev.i);
             break;
         default:
             break; // LuxTick / TimerFire / DashboardCmd arrive in later stages
