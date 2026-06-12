@@ -330,12 +330,20 @@ network I/O is bridge PUTs. This is the prerequisite for N2's long-poll.
 4. `sendDashboardStatus()` splits: main task fills `StatusSnapshot` (reads of
    `state`/steps/exclusions — all main-task-owned, no locking needed);
    `netTask` serializes + POSTs.
+5. **Soak telemetry → dashboard:** add `heap_free` (`esp_get_free_heap_size()`)
+   and `sse_stack_free` (`uxTaskGetStackHighWaterMark(sseTaskHandle)`) — plus
+   `net_stack_free` for the new `netTask` itself — to `StatusSnapshot` and the
+   `/api/status` payload, with matching `status_snapshots` columns + migration
+   in `app.py`. Decouples long soaks from the laptop/serial connection (the
+   June 11→12 overnight soak was lost to a Windows Update reboot of the
+   logging laptop); the per-tick Serial print from Stage 1 stays as-is.
 
 **Verification:**
 - [ ] Dashboard command latency ≈ poll interval (~5 s) — visible improvement.
 - [ ] Tick processing time (Serial `millis()` delta) drops to bridge-PUT cost only.
 - [ ] Log lines and status snapshots arrive complete under a busy tick (no drops in normal operation).
-- [ ] Heap stable over 48 h (`esp_get_free_heap_size()` printed per tick during soak).
+- [ ] Heap stable over 48 h — read from the dashboard's `heap_free` history, no serial connection required.
+- [ ] `sse_stack_free` / `net_stack_free` floors hold steady across SSE reconnects (Stage 1 baseline: 7,432/12,288 free).
 
 ---
 
