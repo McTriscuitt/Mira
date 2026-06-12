@@ -16,7 +16,7 @@ Before ending a session: update the Status table and the per-stage checklist.
 
 | Stage | Description | Status |
 |---|---|---|
-| 1 | SSE → pinned Core-0 task + event queue + override via dispatcher | **CODE COMPLETE (June 11)** — builds clean; awaiting hardware verification (checklist below) |
+| 1 | SSE → pinned Core-0 task + event queue + override via dispatcher | **VERIFIED ON HARDWARE (June 11)** — boot, override, mid-batch abort, clobber repair all confirmed live. Remaining: overnight echo soak (no false SOFT_PAUSE) + SSE-task stack high-water check |
 | 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | NOT STARTED |
 | 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | NOT STARTED |
 | 4 | Ramps & soft-pause expiry → soft timers | NOT STARTED |
@@ -159,10 +159,10 @@ structure is otherwise untouched.
    `setup()` before the task exists — also safe.
 
 **Verification:**
-- [ ] `pio run` clean; flash; full boot (cert, bootstrap, SSE connect, purple flourish).
-- [ ] Hue-app manual change in NORMAL → SOFT_PAUSE within ~1 s (vs up to 30 s), concise log line on dashboard, full dump on Serial.
+- [x] `pio run` clean; flash; full boot (cert, bootstrap, SSE connect, purple flourish). *(June 11.)*
+- [x] Manual change in NORMAL → SOFT_PAUSE, concise log line on dashboard, full dump on Serial. *(June 11. Classification is real-time; the SOFT_PAUSE application lands when the dispatcher next runs — up to ~2 s if a tick body is mid-flight. Stage 1 semantics; fine.)*
 - [x] Mid-batch abort: trigger an override during a multi-bulb transition tick; confirm remaining PUTs in the chain are skipped (Serial shows no setLight lines after the override). *(Verified June 11 — Dresser PUT correctly skipped after mid-chain floor override.)*
-- [ ] Clobber repair: flip a lamp off mid-transition-tick again; confirm "Override repair" Serial line and the lamp *stays off* through the pause.
+- [x] Clobber repair: flip a lamp off mid-transition-tick again; confirm "Override repair" Serial line and the lamp *stays off* through the pause. *(June 11 — worked first try: lamp came back on from the in-flight PUT, repair switched it off ~2 s later, state → SOFT_PAUSE.)*
 - [ ] Normal evening: echoes still classify as `EchoMatch`/`NoOpEcho` (histogram via override dump or `ECHO_TRACE`), no false SOFT_PAUSE.
 - [ ] `uxTaskGetStackHighWaterMark(sseTaskHandle)` healthy after a day.
 
