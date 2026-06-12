@@ -66,7 +66,11 @@ ButtonState btnCycle;
 float lastLux = 1.0f; // last lux reading — used by cycle button to seed triggerWake() from the wait loop
 
 enum class State { LOCKED_OUT, NORMAL, WAKE, WIND_DOWN, SOFT_PAUSE, HARD_OFF };
-State state = State::NORMAL;
+// Written ONLY by the main task (dispatcher / tick paths). Read cross-core by
+// the Core-0 SSE task during event classification, hence volatile — the SSE
+// task tolerates a stale-by-microseconds read, but must not see a
+// register-cached one. (N1 Stage 1 — see Markdowns/N1_MIGRATION.md.)
+volatile State state = State::NORMAL;
 
 // Wind-down state
 int   stableLuxCount  = 0;      // weighted counter: increments when lux in [2, 8] after 9 PM, decrements otherwise (floor 0)
@@ -90,7 +94,8 @@ unsigned long softPauseStart = 0;
 unsigned long softPauseDurationMs = SOFT_PAUSE_MS;
 
 // Soft pause resume ramp
-bool        pauseResumeActive      = false;
+// volatile: read by the Core-0 SSE task (SkipPauseResume classification).
+volatile bool pauseResumeActive    = false;
 int         pauseResumeStep        = 0;
 LightTarget pauseResumeStartTarget = {0, 0}; // bri/ct snapshot at soft pause entry — interpolated on resume
 
@@ -182,6 +187,47 @@ const int      SSE_EVENT_RING_SIZE = 16;
 SseEventRecord sseEventRing[SSE_EVENT_RING_SIZE];
 int            sseEventRingHead = 0;
 unsigned long  echoOutcomeCounts[ECHO_OUTCOME_COUNT] = {0};
+
+// ── N1 Stage 1 — event queue + SSE-task plumbing ────────────────────────────
+// The SSE stream is drained by a dedicated FreeRTOS task pinned to Core 0
+// (Arduino's loopTask already owns Core 1; WiFi/lwIP idle plenty on Core 0).
+// The task writes lightCache[]/recentPuts[] under dataMux and talks to the
+// main task exclusively through evQueue + overridePending — it NEVER mutates
+// `state`. Full design: Markdowns/N1_MIGRATION.md.
+
+enum class EvType : uint8_t {
+    LuxTick,        // Stage 2 — 30 s curve tick
+    SseLight,       // classified light event from the SSE task
+    SseAccessory,   // future: button / relative_rotary / zigbee_connectivity
+    ButtonPress,    // future (physical buttons being retired)
+    DashboardCmd,   // Stage 5 — command pulled by the network task
+    TimerFire       // Stage 4 — soft-timer expiry (ramp step, pause expiry)
+};
+
+struct Event {
+    EvType   type  = EvType::LuxTick;
+    uint8_t  a     = 0;    // light idx / button id / command enum / timer id
+    uint8_t  flags = 0;    // SseLight: EchoOutcome of the classification
+    int32_t  i     = 0;    // value (sseEventRing slot, cmdValue, steps, …)
+    float    f     = 0.0f; // lux / bri
+    uint32_t tMs   = 0;    // millis() at enqueue
+};
+
+QueueHandle_t evQueue       = nullptr; // created in setup() before the SSE task starts
+TaskHandle_t  sseTaskHandle = nullptr;
+
+// Mid-batch abort flag. Set by the SSE task the instant it classifies an
+// Override; checked at the top of setLight()/setLightColor(). The Override
+// *event* waits in evQueue until the dispatcher runs — without this flag a
+// chained tick (tickNormal's multi-bulb batch, tickWakeRamp, tickWindDown)
+// would finish driving the remaining bulbs to the now-stale pre-override
+// target before the dispatcher could flip state. Cleared by the dispatcher
+// when it applies the soft pause (applyOverridePause).
+volatile bool overridePending = false;
+
+// Guards lightCache[] + recentPuts[] cross-core access. Critical sections are
+// tiny field copies only — never prints, JSON parsing, or HTTP.
+portMUX_TYPE dataMux = portMUX_INITIALIZER_UNLOCKED;
 
 // SSE event stream — persistent HTTPS connection over which the bridge pushes state changes.
 WiFiClientSecure sseClient;
@@ -358,10 +404,14 @@ static const char* lightUuid(int idx) {
 }
 
 // Read the cached state for a bulb. Replaces the old HTTP-polling getLightState().
+// The copy runs under dataMux: the Core-0 SSE task is the cache's writer, and
+// a torn read (bri from one event, ct from another mid-write) would be silent.
 LightState cachedLight(int idx) {
     if (idx < 0 || idx >= LIGHT_COUNT) return {false, 0.0f, 0};
-    const CachedLight& c = lightCache[idx];
-    return {c.on, c.bri, c.ct};
+    portENTER_CRITICAL(&dataMux);
+    LightState out = {lightCache[idx].on, lightCache[idx].bri, lightCache[idx].ct};
+    portEXIT_CRITICAL(&dataMux);
+    return out;
 }
 
 // ── Recent-PUT trajectory matching ──────────────────────────────────────────
@@ -370,11 +420,6 @@ LightState cachedLight(int idx) {
 // state and our PUT target. An external override arrives reporting values that
 // don't. Matching on trajectory (not just endpoint) absorbs the bridge's
 // intermediate ramp echoes without needing to time-window them.
-
-// Forward declaration: setLight*/setLightColor drain pending SSE bytes after
-// each PUT so a chain of sequential blocking PUTs doesn't let earlier echoes
-// rot in the socket buffer until the wait loop next runs sseTick.
-static void sseTick();
 
 // Snapshot an outgoing PUT's trajectory. Called from setLight*/setLightColor
 // *before* the HTTP request goes out — the bridge can echo back faster than
@@ -385,6 +430,10 @@ static void sseTick();
 // grace window before the echo can be drained.
 static int noteRecentPut(int idx, bool on, float bri, int ct, unsigned long durationMs) {
     if (idx < 0 || idx >= LIGHT_COUNT) return -1;
+    // Whole body under dataMux: recentPuts is read/expired by the Core-0 SSE
+    // task (eventMatchesRecentPut), and priorBri/Ct are read from the cache the
+    // SSE task writes.
+    portENTER_CRITICAL(&dataMux);
     // Slot selection: prefer the first inactive/expired slot so live trajectories
     // from earlier PUTs (e.g. a wake-ramp tick still settling) aren't stomped. If
     // every slot is currently live, overwrite the oldest — that's the entry whose
@@ -412,6 +461,7 @@ static int noteRecentPut(int idx, bool on, float bri, int ct, unsigned long dura
     r.targetCt   = ct;
     r.postedAtMs = millis();
     r.durationMs = durationMs;
+    portEXIT_CRITICAL(&dataMux);
     return slot;
 }
 
@@ -422,6 +472,10 @@ static bool eventMatchesRecentPut(int idx,
                                   bool hasBri, float  evBri,
                                   bool hasCt,  int    evCt) {
     if (idx < 0 || idx >= LIGHT_COUNT) return false;
+    // Runs on the Core-0 SSE task; recentPuts is written by the main task in
+    // noteRecentPut(), so the slot scan runs under dataMux.
+    bool matched = false;
+    portENTER_CRITICAL(&dataMux);
     // Try every live slot; first match wins. Auto-expire stale entries inline.
     for (int s = 0; s < RECENT_PUT_RING_SIZE; s++) {
         RecentPut& r = recentPuts[idx][s];
@@ -441,9 +495,11 @@ static bool eventMatchesRecentPut(int idx,
             int hi = max(r.priorCt, r.targetCt) + TRAJECTORY_TOLERANCE_CT;
             if (evCt < lo || evCt > hi) continue;
         }
-        return true;
+        matched = true;
+        break;
     }
-    return false;
+    portEXIT_CRITICAL(&dataMux);
+    return matched;
 }
 
 // ── One-time bootstrap of the light cache ───────────────────────────────────
@@ -531,14 +587,14 @@ static void _hsbToXY(int hueV1, int satV1, float& x, float& y) {
 
 // v2 HTTPS color PUT (HSB color mode). bri is percent 0.0–100.0. durationMs in ms.
 void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, int durationMs) {
-    // Mid-batch abort. Each setLight*() tail-calls sseTick() to drain echoes,
-    // and an Override classification there flips state to SOFT_PAUSE. Without
-    // this guard, the remaining PUTs in a chain (tickNormal's 4-bulb batch,
-    // tickWakeRamp, tickWindDown) still drive the bulbs to the *pre-override*
-    // target — contradicting the user's manual change that just fired the
-    // override. Bail before noteRecentPut() so we don't leave an orphan
-    // trajectory slot with no matching PUT.
-    if (state == State::SOFT_PAUSE || state == State::HARD_OFF) return;
+    // Mid-batch abort. The Core-0 SSE task classifies overrides in real time
+    // and sets overridePending; the SOFT_PAUSE transition itself waits in
+    // evQueue for the dispatcher. Without this guard, the remaining PUTs in a
+    // chain (tickNormal's multi-bulb batch, tickWakeRamp, tickWindDown) would
+    // still drive the bulbs to the *pre-override* target — contradicting the
+    // user's manual change that just fired the override. Bail before
+    // noteRecentPut() so we don't leave an orphan trajectory slot.
+    if (overridePending || state == State::SOFT_PAUSE || state == State::HARD_OFF) return;
 
     // Record trajectory so SSE echoes are recognized as ours. Color mode doesn't
     // change CT meaningfully — pass through the cached value so the ct check is a
@@ -572,28 +628,26 @@ void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, i
     // Restart the trajectory grace window from now: the http.PUT block ate up
     // TLS handshake + roundtrip time. priorBri was correctly snapshotted before
     // the PUT (so the bridge can echo back without losing the race), but the
-    // grace budget should count from when the PUT actually went out, otherwise
-    // a chain of sequential setLight calls can let the first slot expire before
-    // its echo is drained from the SSE socket.
-    if (idx >= 0 && slot >= 0) recentPuts[idx][slot].postedAtMs = millis();
-
-    // Drain any echoes that piled up at the SSE socket while http.PUT was
-    // blocking. Without this, all four PUTs in a tickNormal chain finish before
-    // the first one's echo is processed; combined with the postedAtMs refresh
-    // above, this keeps each slot's age small relative to its grace window.
-    sseTick();
+    // grace budget should count from when the PUT actually went out. (No tail
+    // sseTick() anymore — the Core-0 SSE task drains echoes continuously,
+    // including while http.PUT() blocks.)
+    if (idx >= 0 && slot >= 0) {
+        portENTER_CRITICAL(&dataMux);
+        recentPuts[idx][slot].postedAtMs = millis();
+        portEXIT_CRITICAL(&dataMux);
+    }
 }
 
 // v2 HTTPS white/CT PUT. bri is percent 0.0–100.0. durationMs in ms.
 void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
-    // Mid-batch abort. Each setLight*() tail-calls sseTick() to drain echoes,
-    // and an Override classification there flips state to SOFT_PAUSE. Without
-    // this guard, the remaining PUTs in a chain (tickNormal's 4-bulb batch,
-    // tickWakeRamp, tickWindDown) still drive the bulbs to the *pre-override*
-    // target — contradicting the user's manual change that just fired the
-    // override. Bail before noteRecentPut() so we don't leave an orphan
-    // trajectory slot with no matching PUT.
-    if (state == State::SOFT_PAUSE || state == State::HARD_OFF) return;
+    // Mid-batch abort. The Core-0 SSE task classifies overrides in real time
+    // and sets overridePending; the SOFT_PAUSE transition itself waits in
+    // evQueue for the dispatcher. Without this guard, the remaining PUTs in a
+    // chain (tickNormal's multi-bulb batch, tickWakeRamp, tickWindDown) would
+    // still drive the bulbs to the *pre-override* target — contradicting the
+    // user's manual change that just fired the override. Bail before
+    // noteRecentPut() so we don't leave an orphan trajectory slot.
+    if (overridePending || state == State::SOFT_PAUSE || state == State::HARD_OFF) return;
 
     // Record trajectory so the SSE echo of this PUT is recognized as ours.
     int idx  = idxByUuid(uuid);
@@ -621,16 +675,14 @@ void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
     // Restart the trajectory grace window from now: the http.PUT block ate up
     // TLS handshake + roundtrip time. priorBri was correctly snapshotted before
     // the PUT (so the bridge can echo back without losing the race), but the
-    // grace budget should count from when the PUT actually went out, otherwise
-    // a chain of sequential setLight calls can let the first slot expire before
-    // its echo is drained from the SSE socket.
-    if (idx >= 0 && slot >= 0) recentPuts[idx][slot].postedAtMs = millis();
-
-    // Drain any echoes that piled up at the SSE socket while http.PUT was
-    // blocking. Without this, all four PUTs in a tickNormal chain finish before
-    // the first one's echo is processed; combined with the postedAtMs refresh
-    // above, this keeps each slot's age small relative to its grace window.
-    sseTick();
+    // grace budget should count from when the PUT actually went out. (No tail
+    // sseTick() anymore — the Core-0 SSE task drains echoes continuously,
+    // including while http.PUT() blocks.)
+    if (idx >= 0 && slot >= 0) {
+        portENTER_CRITICAL(&dataMux);
+        recentPuts[idx][slot].postedAtMs = millis();
+        portEXIT_CRITICAL(&dataMux);
+    }
 }
 
 String getTimeString() {
@@ -725,15 +777,19 @@ void sendDashboardStatus(float lux) {
 }
 
 // ── SSE event handling ──────────────────────────────────────────────────────
-// The Hue v2 bridge pushes resource updates over a long-lived HTTPS stream. We
-// drain the socket from the main wait loop, parse `data:` lines as JSON arrays,
-// update the cache, and trigger SOFT_PAUSE on a real manual override.
+// The Hue v2 bridge pushes resource updates over a long-lived HTTPS stream.
+// The Core-0 SSE task (sseTask, N1 Stage 1) drains the socket continuously,
+// parses `data:` lines as JSON arrays, updates the cache, and on a real manual
+// override sets overridePending + enqueues an event for the main-task
+// dispatcher to apply the SOFT_PAUSE.
 
 // Append a classified SSE event to the rolling ring. Called exactly once per
 // event in handleLightUpdate() regardless of outcome. The ring is dumped on
 // override-fire so the conditions leading up to a misfire are visible without
-// a serial connection.
-static void recordSseEvent(int idx,
+// a serial connection. Returns the ring slot written — on Override the slot
+// index travels in the queued Event so the dispatcher (main task) can feed the
+// triggering event's details to dumpOverrideDiagnostic().
+static int recordSseEvent(int idx,
                            bool  hasOn,  bool  evOn,
                            bool  hasBri, float evBri,
                            bool  hasCt,  int   evCt,
@@ -741,6 +797,7 @@ static void recordSseEvent(int idx,
                            float cacheBriBefore,
                            int   cacheCtBefore,
                            EchoOutcome outcome) {
+    int slot = sseEventRingHead;
     SseEventRecord& r = sseEventRing[sseEventRingHead];
     r.timeMs         = millis();
     r.idx            = idx;
@@ -763,6 +820,7 @@ static void recordSseEvent(int idx,
         cacheOnBefore ? 1 : 0, cacheBriBefore, cacheCtBefore,
         echoOutcomeName(outcome));
 #endif
+    return slot;
 }
 
 // Format and ship an extended diagnostic dump on override-fire. Includes the
@@ -845,10 +903,13 @@ static void dumpOverrideDiagnostic(int idx,
 }
 
 // Apply a single light update event to the cache; classify into an EchoOutcome;
-// fire SOFT_PAUSE only on Override. Ordering: (1) snapshot pre-event cache so
-// the diagnostic record shows what we thought before the event landed,
-// (2) classify, (3) update cache, (4) record into ring, (5) dump + soft pause
-// only if Override.
+// flag + enqueue only on Override. Runs on the Core-0 SSE task (N1 Stage 1):
+// never mutates `state`, never does HTTP — on Override it sets overridePending
+// (synchronous mid-batch abort) and enqueues an SseLight event; the dispatcher
+// on the main task performs the SOFT_PAUSE transition, diagnostic dump, and
+// dashboard log. Ordering: (1) snapshot pre-event cache so the diagnostic
+// record shows what we thought before the event landed, (2) classify,
+// (3) update cache, (4) record into ring, (5) flag + enqueue if Override.
 //
 // The override decision is still based on fields present in *this* event only,
 // not on cache-merged state. The bridge splits combined state changes across
@@ -882,9 +943,11 @@ static void handleLightUpdate(JsonObjectConst upd) {
     float evBri  = hasBri ? briField.as<float>() : 0.0f;
     int   evCt   = hasCt  ? ctField.as<int>()    : 0;
 
+    portENTER_CRITICAL(&dataMux);
     bool  cacheOnBefore  = lightCache[idx].on;
     float cacheBriBefore = lightCache[idx].bri;
     int   cacheCtBefore  = lightCache[idx].ct;
+    portEXIT_CRITICAL(&dataMux);
 
     if (!hasOn && !hasBri && !hasCt) {
         recordSseEvent(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
@@ -935,14 +998,47 @@ static void handleLightUpdate(JsonObjectConst upd) {
     // meaningful for the diagnostic record and for the no-op filter above. The
     // override check itself doesn't use the cache, so this reorder is
     // semantically neutral for the trajectory path.
+    portENTER_CRITICAL(&dataMux);
     if (hasOn)  lightCache[idx].on  = evOn;
     if (hasBri) lightCache[idx].bri = evBri;
     if (hasCt)  lightCache[idx].ct  = evCt;
+    portEXIT_CRITICAL(&dataMux);
 
-    recordSseEvent(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
-                   cacheOnBefore, cacheBriBefore, cacheCtBefore, decision);
+    int ringSlot = recordSseEvent(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
+                                  cacheOnBefore, cacheBriBefore, cacheCtBefore, decision);
 
     if (decision != EchoOutcome::Override) return;
+
+    // Synchronous half of the abort: any setLight*() call — including one the
+    // main task is partway through a chained tick on — bails from here on.
+    overridePending = true;
+    Serial.println("SSE override classified — queued for dispatcher.");
+
+    // Asynchronous half: the dispatcher applies the SOFT_PAUSE transition,
+    // ships the diagnostic dump, and clears overridePending. ev.i carries the
+    // sseEventRing slot of the triggering event for the dump.
+    Event ev = {};
+    ev.type  = EvType::SseLight;
+    ev.a     = (uint8_t)idx;
+    ev.flags = (uint8_t)EchoOutcome::Override;
+    ev.i     = ringSlot;
+    ev.tMs   = millis();
+    if (evQueue) xQueueSend(evQueue, &ev, 0);
+}
+
+// ── N1 Stage 1 — event dispatch (main task) ─────────────────────────────────
+
+// Apply an Override classified by the SSE task: the actual SOFT_PAUSE
+// transition, diagnostic dump, and dashboard log happen here, on the main
+// task. ringSlot indexes the sseEventRing record of the triggering event
+// (-1 = unknown, used by the flag-only belt-and-braces path).
+static void applyOverridePause(int ringSlot) {
+    overridePending = false;
+    // Classified in NORMAL, but the state may have moved on in the ≤50 ms
+    // before dispatch (dashboard command, pause already applied by an earlier
+    // queued Override). Matches the old synchronous semantics: only NORMAL
+    // pauses.
+    if (state != State::NORMAL) return;
 
     state               = State::SOFT_PAUSE;
     softPauseStart      = millis();
@@ -950,9 +1046,36 @@ static void handleLightUpdate(JsonObjectConst upd) {
     pauseResumeActive   = false;
     Serial.println("SSE override — soft pause.");
 
-    dumpOverrideDiagnostic(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
-                           cacheOnBefore, cacheBriBefore, cacheCtBefore);
+    if (ringSlot >= 0 && ringSlot < SSE_EVENT_RING_SIZE) {
+        // Copy: the ring is written by the SSE task; 16 entries make a wrap
+        // within the ~50 ms dispatch latency implausible, and the dump is
+        // diagnostic-only either way.
+        const SseEventRecord r = sseEventRing[ringSlot];
+        dumpOverrideDiagnostic(r.idx, r.hasOn, r.evOn, r.hasBri, r.evBri,
+                               r.hasCt, r.evCt, r.cacheOnBefore,
+                               r.cacheBriBefore, r.cacheCtBefore);
+    }
     sendLog("Manual override — soft pause — " + getTimeString());
+}
+
+static void dispatchEvent(const Event& ev) {
+    switch (ev.type) {
+        case EvType::SseLight:
+            if ((EchoOutcome)ev.flags == EchoOutcome::Override) applyOverridePause(ev.i);
+            break;
+        default:
+            break; // LuxTick / TimerFire / DashboardCmd arrive in later stages
+    }
+}
+
+// Drain pending events; called from the main wait loop (Stage 2 turns this
+// into the whole of loop()). Belt-and-braces: if overridePending is set with
+// no queued event (xQueueSend failed on a full queue), the flag alone still
+// forces the pause — otherwise it would block every PUT forever.
+static void drainEventQueue() {
+    Event ev;
+    while (evQueue && xQueueReceive(evQueue, &ev, 0) == pdTRUE) dispatchEvent(ev);
+    if (overridePending) applyOverridePause(-1);
 }
 
 // Parse one SSE `data:` payload — an array of events, each with a nested array of resource updates.
@@ -1026,7 +1149,7 @@ static void sseConnect() {
 }
 
 // Drain available SSE bytes; reconnect on disconnect or stale stream.
-// Called inside the main wait loop alongside button polling.
+// Called only by sseTask (Core 0) after boot — see N1 Stage 1.
 static void sseTick() {
     if (!sseClient.connected()) {
         if (millis() - sseLastConnectMs >= SSE_RECONNECT_DELAY_MS) {
@@ -1053,6 +1176,19 @@ static void sseTick() {
     if (millis() - sseLastByteMs >= SSE_STALE_TIMEOUT_MS) {
         Serial.println("SSE: stale — reconnecting");
         sseClient.stop();
+    }
+}
+
+// N1 Stage 1 — SSE drain task, pinned to Core 0 (Arduino's loopTask owns
+// Core 1). Replaces the wait-loop sseTick() call and the setLight*() tail-call
+// drains: the stream is serviced continuously, so override classification
+// happens within ~20 ms of the bridge emitting the event, regardless of what
+// the main task is doing (Railway HTTP, bridge PUTs, JSON serialization).
+// Owns sseClient/sseBuf and the reconnect path exclusively after boot.
+static void sseTask(void*) {
+    for (;;) {
+        sseTick();
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
@@ -1561,7 +1697,14 @@ void setup() {
     overheadsOn   = cachedLight(LIGHT_CEIL_1).on;  // seed from actual state — prevents false override and bad dashboard reporting
     chestOn       = cachedLight(LIGHT_CHEST).on;   // seed from actual state — same reason as overheadsOn
 
-    sseConnect(); // open the persistent SSE event stream — drained in the wait loop each tick
+    sseConnect(); // open the persistent SSE event stream — handshake on the main task
+
+    // N1 Stage 1 — event queue + Core-0 SSE task. Created after sseConnect()
+    // so the initial handshake happens here; from this point the task owns the
+    // stream (reconnects included) and the main task only consumes evQueue.
+    evQueue = xQueueCreate(32, sizeof(Event));
+    xTaskCreatePinnedToCore(sseTask, "sse", 12288, nullptr, 1, &sseTaskHandle, 0);
+    Serial.println("SSE task started on core 0.");
 
     sendLog("Online — " + getTimeString());
 }
@@ -1619,7 +1762,7 @@ void loop() {
         pollButton(btnCycle, BTN_CYCLE);
         handleButtonEvents();
         handleCycleButton();
-        sseTick(); // drain SSE bytes; reconnect on disconnect or stale stream
+        drainEventQueue(); // dispatch events from the Core-0 SSE task (override application etc.)
         delay(50);
     }
 }
