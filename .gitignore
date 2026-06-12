@@ -17,3 +17,7 @@ __pycache__/
 # Misc files — bloat to repo
 Datasheets/
 Bug Records/
+
+# Serial monitor captures (pio device monitor -f log2file) — large, regenerable;
+# interesting excerpts get distilled into Bug Records/
+logs/
