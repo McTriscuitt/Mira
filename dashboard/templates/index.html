@@ -458,7 +458,20 @@
       document.getElementById('val-ct').textContent = sentinel ? '—' : data.ct;
       document.getElementById('val-ts').textContent = data.timestamp ? new Date(data.timestamp).toLocaleTimeString('en-US', { timeZone: 'America/Chicago' }) : '—';
       if (_pendingCommand && data.pending_command_id !== _pendingCommand.id) {
-        _pendingCommand = null;
+        // Acked by the firmware — but the firmware acks at the top of its tick,
+        // several seconds before it POSTs the status snapshot reflecting the new
+        // state. Dropping a state-command preview here can revert the display to
+        // the stale pre-command state for a full poll cycle. Hold the preview
+        // until the snapshot confirms the commanded state, capped at one extra
+        // poll cycle so a genuine flip-back (e.g. an SSE override re-pausing
+        // right after a commanded resume) still wins.
+        const confirmed = !STATE_CMDS.has(_pendingCommand.action)
+                       || data.state === _pendingCommand.action;
+        if (confirmed || _pendingCommand.ackSeen) {
+          _pendingCommand = null;
+        } else {
+          _pendingCommand.ackSeen = true;
+        }
       }
       _updateButtonStates();
       renderProgress(data);

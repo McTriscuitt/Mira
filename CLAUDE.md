@@ -22,13 +22,29 @@ Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (
     - railway will become the landing page, with /mira and /tempproject coming from that (something like that)  
 
 - is there a way to do sse-like updates (near-instant) with the dashboard? 
-- should the wind down and wake ramps catch soft pause-esque changes? 
-
-- change could be to add the owner vs other tag, that would tell us what
-changes are made by mira vs owner (me through hue app) vs dashboard, so differentiation is easy
+- should the wind down and wake ramps catch soft pause-esque changes?
 
 - this may seem silly, but change it so that polls happen on :00 and :30, instead of whenever 
 the system reflashes. make it commentable so that it can be ignored for testing.
+
+### Priority Bugs
+
+
+## Resolved Priority Bugs
+- **RESOLVED (June 11)** — soft pause → dashboard NORMAL command showed on serial but the dashboard
+  kept displaying SOFT_PAUSE. Not a firmware state bug. Root cause: the firmware acks the command at
+  the top of its tick (`pollDashboardCommand()`), several seconds *before* `sendDashboardStatus()`
+  posts the snapshot reflecting the new state — so there's a short window where `pending_command_id`
+  is cleared but the latest snapshot is stale. If the browser's 30 s status poll landed in that
+  window, `fetchStatus()` dropped the pending-state preview and reverted the display to the stale
+  state for a full poll cycle. **Frontend fix applied** in `index.html`: after ack, the pending
+  preview is held until the snapshot's `state` matches the commanded state, capped at one extra poll
+  cycle so a genuine flip-back (e.g. an SSE override re-pausing right after a commanded resume —
+  see `Markdowns/Was Normal to Soft Pause Error May 11.md`) still wins. Residual: up to ~60 s
+  worst-case display latency from the two unsynchronized 30 s pollers (firmware command poll +
+  browser status poll) — addressed by N2 (near-instant dashboard) and N5 (:00/:30 tick alignment)
+  in `Markdowns/FEATURES_AND_REWORKS.md`. Note the same ack-before-status window also exists for
+  step-seek commands (slider pins); N2 shrinks it but only an ack-after-status reorder removes it.
 
 
 ## Recently completed
