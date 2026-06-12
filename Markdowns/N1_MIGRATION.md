@@ -16,7 +16,7 @@ Before ending a session: update the Status table and the per-stage checklist.
 
 | Stage | Description | Status |
 |---|---|---|
-| 1 | SSE → pinned Core-0 task + event queue + override via dispatcher | **VERIFIED ON HARDWARE (June 11)** — boot, override, mid-batch abort, clobber repair all confirmed live. Remaining: overnight echo soak (no false SOFT_PAUSE) + SSE-task stack high-water check |
+| 1 | SSE → pinned Core-0 task + event queue + override via dispatcher | **COMPLETE — soak verified (June 12)** — boot, override, mid-batch abort, clobber repair confirmed live June 11. 2-hour telemetry soak June 12 (`Bug Records/June12MorningHeapSoak.md`): heap flat (8,583,419–8,585,031, no trend), SSE stack high-water bottoms at 7,432/12,288 free (floor set by the reconnect TLS handshake, stable across 4 reconnects), echo histogram 18 echo-match / 0 noop / 0 stale-revert / 1 genuine Override, full WAKE ramp + NORMAL handoff clean. Planned overnight soak was cut short by a 1:40 AM Windows Update laptop restart that power-cycled the USB-powered ESP (event log: TrustedInstaller "Operating System: Upgrade (Planned)") — not a firmware fault. Longer-horizon heap watch rolls into Stage 5's 48 h soak item. |
 | 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | NOT STARTED |
 | 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | NOT STARTED |
 | 4 | Ramps & soft-pause expiry → soft timers | NOT STARTED |

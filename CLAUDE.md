@@ -27,10 +27,12 @@ Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (
 - this may seem silly, but change it so that polls happen on :00 and :30, instead of whenever 
 the system reflashes. make it commentable so that it can be ignored for testing.
 
+- maybe add another secret page for dashboard error logs?
+
 ### Priority Bugs
 
 
-## Resolved Priority Bugs
+### Resolved Priority Bugs
 - **RESOLVED (June 11)** — soft pause → dashboard NORMAL command showed on serial but the dashboard
   kept displaying SOFT_PAUSE. Not a firmware state bug. Root cause: the firmware acks the command at
   the top of its tick (`pollDashboardCommand()`), several seconds *before* `sendDashboardStatus()`
