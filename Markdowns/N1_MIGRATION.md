@@ -17,7 +17,7 @@ Before ending a session: update the Status table and the per-stage checklist.
 | Stage | Description | Status |
 |---|---|---|
 | 1 | SSE → pinned Core-0 task + event queue + override via dispatcher | **COMPLETE — soak verified (June 12)** — boot, override, mid-batch abort, clobber repair confirmed live June 11. 2-hour telemetry soak June 12 (`Bug Records/June12MorningHeapSoak.md`): heap flat (8,583,419–8,585,031, no trend), SSE stack high-water bottoms at 7,432/12,288 free (floor set by the reconnect TLS handshake, stable across 4 reconnects), echo histogram 18 echo-match / 0 noop / 0 stale-revert / 1 genuine Override, full WAKE ramp + NORMAL handoff clean. Planned overnight soak was cut short by a 1:40 AM Windows Update laptop restart that power-cycled the USB-powered ESP (event log: TrustedInstaller "Operating System: Upgrade (Planned)") — not a firmware fault. Longer-horizon heap watch rolls into Stage 5's 48 h soak item. |
-| 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | NOT STARTED |
+| 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | **FLASHED + TICK ALIGNMENT VERIFIED (July 14)** — first flash exposed a duplicate-tick bug at slot boundaries (fixed same session — see implementation notes); after the fix, 12 consecutive ticks all on :00/:30 ±1 s including one clean skip-ahead event, heap flat, SSE stack floor 10,040. Dashboard command apply confirmed live (`SET_SOFT_PAUSE_REMAINING`). Remaining: full state-machine day + override regression (checklist below). |
 | 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | NOT STARTED |
 | 4 | Ramps & soft-pause expiry → soft timers | NOT STARTED |
 | 5 | Dashboard networking → dedicated task (unblocks N2 long-poll) | NOT STARTED |
@@ -224,10 +224,45 @@ another event. Ticks align to wall-clock :00/:30 (N5).
    marker. `forceState()` stays fully live (dashboard commands use it).
 
 **Verification:**
-- [ ] Ticks land on :00/:30 (Serial timestamps; dashboard timeline points on clean boundaries).
+- [x] Ticks land on :00/:30 (Serial timestamps; dashboard timeline points on clean boundaries). *(July 14 — 12/12 ticks on-boundary ±1 s over 6 min post-fix, incl. one clean skip-ahead. See duplicate-tick finding below.)*
 - [ ] One full state-machine day: wake (floor-lamp flip), NORMAL curve, wind-down, lockout re-arm.
-- [ ] Dashboard commands still apply (still ≤30 s latency at this stage — expected).
+- [x] Dashboard commands still apply (still ≤30 s latency at this stage — expected). *(July 14 — `SET_SOFT_PAUSE_REMAINING 118` polled + applied live during first capture.)*
 - [ ] Override path from Stage 1 still works end-to-end.
+
+**Implementation notes (July 14, 2026 — code complete):**
+- Tick body extracted verbatim into `dispatchLuxTick()`; dispatched via a real
+  `LuxTick` event (`serviceLuxTickSchedule()` enqueues when the deadline
+  passes; if `xQueueSend` fails on a full queue the deadline stays armed and
+  retries next pass — a tick is never silently dropped).
+- `scheduleNextLuxTick()` runs at *enqueue* time, so tick processing cost is
+  absorbed into the wait exactly like the old `tickStart`-anchored loop.
+  `ALIGNED_TICKS` lives in `config.h` (comment out → flash-relative 30 s).
+  First boot tick fires immediately (`nextLuxTickDueMs = millis()` at the end
+  of `setup()`); alignment starts from tick 2. Short slots (<5 s) log a
+  "Tick align" line and **skip to the following boundary** (see hardware
+  finding below — the original "schedule the remainder" behavior double-fired).
+- New `loop()`: blocks ≤50 ms on `xQueueReceive` → `dispatchEvent()`; on empty
+  queue checks `overridePending` (the old `drainEventQueue()` belt-and-braces —
+  that helper is deleted, its job now lives in `loop()`).
+- Buttons commented out (struct, instances, `pollButton`, `handleButtonEvents`,
+  `handleCycleButton`, both `pinMode`s) with `[buttons removed 2026-06]`
+  markers. `forceState()` untouched — dashboard commands drive it.
+- Deadline check uses `(int32_t)(millis() - nextLuxTickDueMs) >= 0` —
+  rollover-safe signed-difference form.
+
+**Hardware finding (July 14, 2026) — duplicate boundary tick, fixed:**
+First flash showed tick pairs 3–4 s apart every few minutes (:42:59 + :43:03,
+:45:29 + :45:32). Truncated-clock phase error: the deadline is armed in
+`millis()` (ms precision) but the next slot is computed from
+`timeClient.getEpochTime()` (whole seconds). When the deadline fires a hair
+before the second rolls over to the boundary, `secsIntoSlot` reads 29, so the
+scheduler armed a 1 s "remainder" slot and fired the *same* boundary twice —
+each dupe costing an extra lux read, Railway POST, and potentially bridge PUTs.
+Fix in `scheduleNextLuxTick()`: a computed slot under 5 s means the just-fired
+tick *was* the boundary tick, so `waitMs += 30000` skips to the following
+boundary. Verified live: the skip-ahead event at 17:53:00 produced exactly one
+tick at :52:59 and the next at :53:31 — no dupe, alignment self-stabilizes just
+after the boundary.
 
 ---
 

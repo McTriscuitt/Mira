@@ -50,20 +50,23 @@ struct CachedLight {
 };
 CachedLight lightCache[LIGHT_COUNT]; // indexed by LIGHT_CHEST / LIGHT_DRESSER / LIGHT_CEIL_1 / LIGHT_CEIL_2 / LIGHT_FLOOR
 
-struct ButtonState {
-    bool debounced       = false;
-    bool held            = false;
-    bool shortPress      = false;
-    bool longPress       = false;
-    bool longFired       = false;
-    unsigned long lastDebounceMs = 0;
-    unsigned long pressStartMs   = 0;
-};
+// [buttons removed 2026-06 — see N1_MIGRATION.md] Physical buttons retired per
+// the June 11 decision; code commented out (not deleted) so the hardware can be
+// re-activated. EvType::ButtonPress stays in the event enum for the future.
+// struct ButtonState {
+//     bool debounced       = false;
+//     bool held            = false;
+//     bool shortPress      = false;
+//     bool longPress       = false;
+//     bool longFired       = false;
+//     unsigned long lastDebounceMs = 0;
+//     unsigned long pressStartMs   = 0;
+// };
+//
+// ButtonState btnMode;
+// ButtonState btnCycle;
 
-ButtonState btnMode;
-ButtonState btnCycle;
-
-float lastLux = 1.0f; // last lux reading — used by cycle button to seed triggerWake() from the wait loop
+float lastLux = 1.0f; // last lux reading — seeds triggerWake() when forceState(WAKE) fires between ticks
 
 enum class State { LOCKED_OUT, NORMAL, WAKE, WIND_DOWN, SOFT_PAUSE, HARD_OFF };
 // Written ONLY by the main task (dispatcher / tick paths). Read cross-core by
@@ -227,6 +230,11 @@ struct Event {
 
 QueueHandle_t evQueue       = nullptr; // created in setup() before the SSE task starts
 TaskHandle_t  sseTaskHandle = nullptr;
+
+// N1 Stage 2 — millis() deadline for the next LuxTick enqueue. Armed by
+// scheduleNextLuxTick() (aligned to :00/:30 under ALIGNED_TICKS — N5), checked
+// by serviceLuxTickSchedule() in loop() with rollover-safe signed subtraction.
+uint32_t nextLuxTickDueMs = 0;
 
 // Mid-batch abort flag. Set by the SSE task the instant it classifies an
 // Override; checked at the top of setLight()/setLightColor(). The Override
@@ -1212,25 +1220,20 @@ static void reassertRecentPut(int idx, int slot) {
     sendLog("Stale revert — re-sent " + String(lightName(idx)) + " — " + getTimeString());
 }
 
+static void dispatchLuxTick(); // defined below the tick functions — N1 Stage 2
+
 static void dispatchEvent(const Event& ev) {
     switch (ev.type) {
+        case EvType::LuxTick:
+            dispatchLuxTick();
+            break;
         case EvType::SseLight:
             if      ((EchoOutcome)ev.flags == EchoOutcome::Override)    applyOverridePause(ev.i);
             else if ((EchoOutcome)ev.flags == EchoOutcome::StaleRevert) reassertRecentPut(ev.a, ev.i);
             break;
         default:
-            break; // LuxTick / TimerFire / DashboardCmd arrive in later stages
+            break; // TimerFire / DashboardCmd arrive in later stages
     }
-}
-
-// Drain pending events; called from the main wait loop (Stage 2 turns this
-// into the whole of loop()). Belt-and-braces: if overridePending is set with
-// no queued event (xQueueSend failed on a full queue), the flag alone still
-// forces the pause — otherwise it would block every PUT forever.
-static void drainEventQueue() {
-    Event ev;
-    while (evQueue && xQueueReceive(evQueue, &ev, 0) == pdTRUE) dispatchEvent(ev);
-    if (overridePending) applyOverridePause(-1);
 }
 
 // Parse one SSE `data:` payload — an array of events, each with a nested array of resource updates.
@@ -1698,32 +1701,33 @@ void checkFloorState(float lux) {
     lastFloorOn = floorLamp.on;
 }
 
-void pollButton(ButtonState& btn, int pin) {
-    bool raw = (digitalRead(pin) == LOW); // convert to bool: true = pressed
-    unsigned long now = millis();
-
-    if (raw == btn.debounced) {
-        // Signal is stable — keep timer fresh so it's ready when signal next changes
-        btn.lastDebounceMs = now;
-    } else if (now - btn.lastDebounceMs >= DEBOUNCE_MS) {
-        // Signal has differed from last accepted state for long enough — commit it
-        btn.debounced = raw;
-        if (raw) {
-            btn.held         = true;
-            btn.pressStartMs = now;
-        } else {
-            btn.held = false;
-            if (!btn.longFired) btn.shortPress = true; // short press fires on release
-            btn.longFired = false;
-        }
-    }
-
-    // Long press: fire once when held past threshold
-    if (btn.held && !btn.longFired && now - btn.pressStartMs >= LONG_PRESS_MS) {
-        btn.longPress = true;
-        btn.longFired = true;
-    }
-}
+// [buttons removed 2026-06 — see N1_MIGRATION.md]
+// void pollButton(ButtonState& btn, int pin) {
+//     bool raw = (digitalRead(pin) == LOW); // convert to bool: true = pressed
+//     unsigned long now = millis();
+//
+//     if (raw == btn.debounced) {
+//         // Signal is stable — keep timer fresh so it's ready when signal next changes
+//         btn.lastDebounceMs = now;
+//     } else if (now - btn.lastDebounceMs >= DEBOUNCE_MS) {
+//         // Signal has differed from last accepted state for long enough — commit it
+//         btn.debounced = raw;
+//         if (raw) {
+//             btn.held         = true;
+//             btn.pressStartMs = now;
+//         } else {
+//             btn.held = false;
+//             if (!btn.longFired) btn.shortPress = true; // short press fires on release
+//             btn.longFired = false;
+//         }
+//     }
+//
+//     // Long press: fire once when held past threshold
+//     if (btn.held && !btn.longFired && now - btn.pressStartMs >= LONG_PRESS_MS) {
+//         btn.longPress = true;
+//         btn.longFired = true;
+//     }
+// }
 
 void forceState(State next) {
     switch (next) {
@@ -1761,57 +1765,58 @@ void forceState(State next) {
     Serial.println("forceState → " + String(stateName()));
 }
 
-void handleCycleButton() {
-    if (btnCycle.shortPress) {
-        btnCycle.shortPress = false;
-        State next = (State)(((int)state + 1) % 6);
-        forceState(next);
-        if (next != State::WAKE) { // triggerWake already sends discord
-            sendLog("Cycle button → " + String(stateName()) + " — " + getTimeString());
-        }
-    }
-}
-
-void handleButtonEvents() {
-    // Long press: hard off toggle
-    if (btnMode.longPress) {
-        btnMode.longPress = false;
-        if (state != State::HARD_OFF) {
-            state = State::HARD_OFF;
-            Serial.println("Button long press — hard off.");
-            sendLog("Hard off — " + getTimeString());
-        } else {
-            state         = State::LOCKED_OUT;
-            lastFloorOn = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
-            Serial.println("Button long press — hard off cleared.");
-            sendLog("Hard off cleared — " + getTimeString());
-        }
-    }
-
-    // Short press: go to NORMAL if not already there, otherwise soft pause
-    if (btnMode.shortPress) {
-        btnMode.shortPress = false;
-        if (state == State::HARD_OFF) {
-            // hard off is long-press only — ignore short press
-        } else if (state == State::NORMAL) {
-            state               = State::SOFT_PAUSE;
-            softPauseStart      = millis();
-            softPauseDurationMs = SOFT_PAUSE_MS;
-            Serial.println("Button short press — soft pause.");
-            sendLog("Soft pause (button) — " + getTimeString());
-        } else {
-            String prev = stateName();
-            state             = State::NORMAL;
-            sentTarget        = {-1.0f, 0};
-            stableLuxCount    = 0;
-            overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
-            chestOn           = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
-            lastFloorOn     = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
-            Serial.println("Button short press — NORMAL (was " + prev + ").");
-            sendLog("Returned to NORMAL by button — " + getTimeString());
-        }
-    }
-}
+// [buttons removed 2026-06 — see N1_MIGRATION.md]
+// void handleCycleButton() {
+//     if (btnCycle.shortPress) {
+//         btnCycle.shortPress = false;
+//         State next = (State)(((int)state + 1) % 6);
+//         forceState(next);
+//         if (next != State::WAKE) { // triggerWake already sends discord
+//             sendLog("Cycle button → " + String(stateName()) + " — " + getTimeString());
+//         }
+//     }
+// }
+//
+// void handleButtonEvents() {
+//     // Long press: hard off toggle
+//     if (btnMode.longPress) {
+//         btnMode.longPress = false;
+//         if (state != State::HARD_OFF) {
+//             state = State::HARD_OFF;
+//             Serial.println("Button long press — hard off.");
+//             sendLog("Hard off — " + getTimeString());
+//         } else {
+//             state         = State::LOCKED_OUT;
+//             lastFloorOn = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
+//             Serial.println("Button long press — hard off cleared.");
+//             sendLog("Hard off cleared — " + getTimeString());
+//         }
+//     }
+//
+//     // Short press: go to NORMAL if not already there, otherwise soft pause
+//     if (btnMode.shortPress) {
+//         btnMode.shortPress = false;
+//         if (state == State::HARD_OFF) {
+//             // hard off is long-press only — ignore short press
+//         } else if (state == State::NORMAL) {
+//             state               = State::SOFT_PAUSE;
+//             softPauseStart      = millis();
+//             softPauseDurationMs = SOFT_PAUSE_MS;
+//             Serial.println("Button short press — soft pause.");
+//             sendLog("Soft pause (button) — " + getTimeString());
+//         } else {
+//             String prev = stateName();
+//             state             = State::NORMAL;
+//             sentTarget        = {-1.0f, 0};
+//             stableLuxCount    = 0;
+//             overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
+//             chestOn           = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
+//             lastFloorOn     = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
+//             Serial.println("Button short press — NORMAL (was " + prev + ").");
+//             sendLog("Returned to NORMAL by button — " + getTimeString());
+//         }
+//     }
+// }
 
 void setup() {
     Serial.begin(115200);
@@ -1820,8 +1825,9 @@ void setup() {
     pinMode(LEDB, OUTPUT);
     setRGB(false, false, false);
 
-    pinMode(BTN_MODE,  INPUT_PULLUP);
-    pinMode(BTN_CYCLE, INPUT_PULLUP);
+    // [buttons removed 2026-06 — see N1_MIGRATION.md]
+    // pinMode(BTN_MODE,  INPUT_PULLUP);
+    // pinMode(BTN_CYCLE, INPUT_PULLUP);
 
     connectWiFi();
 
@@ -1862,14 +1868,17 @@ void setup() {
     Serial.println("SSE task started on core 0.");
 
     sendLog("Online — " + getTimeString());
+
+    // N1 Stage 2 — first LuxTick fires immediately (boot status/log lands right
+    // away); scheduleNextLuxTick() aligns every subsequent tick to :00/:30.
+    nextLuxTickDueMs = millis();
 }
 
-void loop() {
-    // Anchor tickStart at the very top of the loop so the wait loop subtracts
-    // processing time (HTTP calls, SSE event handling, etc.) from the 30s budget,
-    // yielding consistent 30s tick intervals regardless of how long processing took.
-    unsigned long tickStart = millis();
-
+// ── N1 Stage 2 — LuxTick: the old monolithic tick body, now just an event ───
+// Behavior identical to the pre-Stage-2 loop(): status print, lux read, command
+// poll (stays synchronous until Stage 5), state switch, status POST. The wait
+// loop is gone — pacing lives in the loop() scheduler below.
+static void dispatchLuxTick() {
     timeClient.update();
     printStatus();
 
@@ -1911,13 +1920,55 @@ void loop() {
     }
 
     sendDashboardStatus(lux);
+}
 
-    while (millis() - tickStart < 30000UL) {
-        pollButton(btnMode,  BTN_MODE);
-        pollButton(btnCycle, BTN_CYCLE);
-        handleButtonEvents();
-        handleCycleButton();
-        drainEventQueue(); // dispatch events from the Core-0 SSE task (override application etc.)
-        delay(50);
+// Compute the next LuxTick deadline. With ALIGNED_TICKS (N5), ticks land on
+// wall-clock :00/:30 boundaries (±1 s — NTPClient is second-granular); without
+// it, flash-relative 30 s from now. Called at enqueue time, so tick processing
+// cost is naturally absorbed into the wait (same effect as the old
+// tickStart-anchored wait loop). A short slot (< 5 s) means the tick that just
+// fired *was* the boundary tick, landing a hair early against the truncated
+// epoch (or displaced by an NTP resync / long tick) — scheduling the remainder
+// would double-fire the same boundary (observed live July 14: :59+:03 tick
+// pairs every few minutes), so skip to the following boundary instead.
+static void scheduleNextLuxTick() {
+#if ALIGNED_TICKS
+    unsigned long secsIntoSlot = timeClient.getEpochTime() % 30UL;
+    unsigned long waitMs = (30UL - secsIntoSlot) * 1000UL;
+    if (waitMs < 5000UL) {
+        Serial.printf("Tick align: %lu ms to boundary — just-fired tick claims it, skipping ahead.\n", waitMs);
+        waitMs += 30000UL;
     }
+#else
+    unsigned long waitMs = 30000UL;
+#endif
+    nextLuxTickDueMs = millis() + waitMs;
+}
+
+// Enqueue a LuxTick when its deadline passes. Signed-difference comparison is
+// rollover-safe. If the queue is momentarily full the deadline stays armed and
+// the send retries on the next loop() pass — a tick is never silently skipped.
+static void serviceLuxTickSchedule() {
+    if ((int32_t)(millis() - nextLuxTickDueMs) < 0) return;
+    Event ev;
+    ev.type = EvType::LuxTick;
+    ev.tMs  = millis();
+    if (!evQueue || xQueueSend(evQueue, &ev, 0) != pdTRUE) return;
+    scheduleNextLuxTick();
+}
+
+// N1 Stage 2 — loop() is now the consumer/dispatcher. Blocks up to 50 ms on
+// the event queue (yields the core), dispatches whatever the SSE task or the
+// scheduler enqueued, and arms the next LuxTick. The overridePending check is
+// belt-and-braces: if the SSE task's xQueueSend failed on a full queue, the
+// flag alone still forces the pause — otherwise it would block every PUT
+// forever (see the guard in setLight()).
+void loop() {
+    Event ev;
+    if (evQueue && xQueueReceive(evQueue, &ev, pdMS_TO_TICKS(50)) == pdTRUE) {
+        dispatchEvent(ev);
+    } else if (overridePending) {
+        applyOverridePause(-1);
+    }
+    serviceLuxTickSchedule();
 }

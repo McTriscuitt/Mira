@@ -49,6 +49,11 @@
 // softPauseDurationMs, which the dashboard slider / +10 extend button can rewrite.
 #define SOFT_PAUSE_MS 3600000UL
 
+// N5 — align lux ticks to wall-clock :00/:30 instead of flash-relative 30 s.
+// Comment out for testing (reverts to "30 s from whenever the tick fired").
+// NTPClient is second-granular, so alignment is ±1 s. See N1_MIGRATION.md Stage 2.
+#define ALIGNED_TICKS 1
+
 // Button pins — active LOW, internal pull-up
 #define BTN_MODE  9   // D9  — short: NORMAL/pause toggle, long: hard off
 #define BTN_CYCLE 10  // D10 — short: cycle through all states
