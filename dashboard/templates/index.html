@@ -519,6 +519,7 @@
       const windSeekPending   = _pendingCommand && _pendingCommand.action === 'SET_WIND_DOWN_STEP';
       const wakeSeekPending   = _pendingCommand && _pendingCommand.action === 'SET_WAKE_STEP';
       const stableSeekPending = _pendingCommand && _pendingCommand.action === 'SET_STABLE_LUX_COUNT';
+      const pauseSeekPending  = _pendingCommand && _pendingCommand.action === 'SET_SOFT_PAUSE_REMAINING';
 
       if (displayState === 'WIND_DOWN') {
         nameEl.textContent = 'Wind-down';
@@ -551,15 +552,23 @@
           // Pause queued but firmware hasn't entered it yet — no remaining time to scrub.
           detail.textContent = 'pending';
         } else {
-          // Slider scrubs minutes remaining; max grows past 60 once extended so the
-          // thumb never pins. Extend button bumps the displayed value by 10 and
-          // resends an absolute target (see extend-btn handler).
-          const remMin = Math.max(0, Math.round((data.soft_pause_remaining_s ?? 0) / 60));
-          slider.max   = Math.max(60, remMin);
-          slider.value = remMin;
+          // Slider value is minutes *elapsed* (max − remaining) so the thumb runs
+          // left→right as the pause burns down, matching the wind-down/wake
+          // direction; dragging right = resume sooner. The firmware speaks
+          // remaining minutes (SET_SOFT_PAUSE_REMAINING), so the drag/extend
+          // handlers convert back via remaining = max − value. Max grows past 60
+          // once extended so the thumb never pins. While a seek is pending, pin
+          // the display to the requested remaining (same pattern as the
+          // wind-down/wake step pins) so a status re-render can't snap it back.
+          const snapRem = Math.max(0, Math.round((data.soft_pause_remaining_s ?? 0) / 60));
+          const remMin  = pauseSeekPending ? (_pendingCommand.value ?? snapRem) : snapRem;
+          const maxMin  = Math.max(60, remMin);
+          slider.max   = maxMin;
+          slider.value = maxMin - remMin;
           text.textContent = `${remMin} min remaining`;
           sliderWrap.classList.remove('hidden');
           if (extendBtn) extendBtn.style.display = '';
+          if (pauseSeekPending) detail.textContent = 'pending';
         }
 
       } else if (displayState === 'NORMAL') {
@@ -596,7 +605,8 @@
       } else if (_lastData.state === 'WAKE') {
         sendCommand('SET_WAKE_STEP', val);
       } else if (_lastData.state === 'SOFT_PAUSE') {
-        sendCommand('SET_SOFT_PAUSE_REMAINING', val);
+        // Slider value is elapsed minutes; firmware wants remaining (see renderProgress).
+        sendCommand('SET_SOFT_PAUSE_REMAINING', Math.max(0, (parseInt(this.max) || 60) - val));
       } else if (_lastData.state === 'NORMAL') {
         sendCommand('SET_STABLE_LUX_COUNT', val);
       }
@@ -612,7 +622,8 @@
       } else if (activeState === 'WAKE') {
         document.getElementById('progress-text').textContent = `${val} / ${_lastData.wake_total || 40} steps`;
       } else if (activeState === 'SOFT_PAUSE') {
-        document.getElementById('progress-text').textContent = `${val} min remaining`;
+        // Slider value is elapsed minutes — preview the remaining conversion.
+        document.getElementById('progress-text').textContent = `${Math.max(0, (parseInt(this.max) || 60) - val)} min remaining`;
       } else if (activeState === 'NORMAL') {
         document.getElementById('progress-text').textContent = `stable lux: ${val} / 59`;
       }
@@ -637,9 +648,13 @@
       // Absolute target = currently displayed remaining + 10. Sending the absolute
       // value (not a relative +10) means rapid taps converge: each tap cancels the
       // prior pending command, and the last absolute value is the correct total.
-      const next = (parseInt(slider.value) || 0) + 10;
-      slider.max = Math.max(parseInt(slider.max) || 60, next);
-      slider.value = next;
+      // Slider value is elapsed minutes (see renderProgress), so remaining = max − value.
+      const curMax    = parseInt(slider.max) || 60;
+      const remaining = Math.max(0, curMax - (parseInt(slider.value) || 0));
+      const next      = remaining + 10;
+      const newMax    = Math.max(curMax, next);
+      slider.max   = newMax;
+      slider.value = newMax - next;
       document.getElementById('progress-text').textContent = `${next} min remaining`;
       sendCommand('SET_SOFT_PAUSE_REMAINING', next);
     });
