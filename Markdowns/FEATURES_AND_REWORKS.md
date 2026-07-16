@@ -327,6 +327,17 @@ Effort: small. Measure before/after with a `millis()` delta log around the PUT.
 
 ## R3 — Actually use the pinned cert *(correctness fix — see Doc Drift #2)*
 
+> **SHIPPED — revised (July 15, 2026, `6b478b6`).** The `setCACert()` approach
+> below is unworkable on this stack: core 2.0.0 always enforces mbedtls
+> hostname verification when a CA is set, we dial by IP, and the bridge cert's
+> CN is the bridge ID → CN mismatch on every handshake (confirmed live).
+> The same flaw had `ensureBridgeCert()`'s boot probe silently re-fetching the
+> cert every boot. Shipped instead: `peerMatchesPinned()` byte-compares the
+> peer cert to the NVS PEM post-handshake on the boot probe + SSE stream
+> (nothing sent before the check); HTTPClient paths stay insecure-mode TLS
+> (they transmit on connect) and inherit the boot-time identity check.
+> Details: `N1_MIGRATION.md` Decisions Log.
+
 `ensureBridgeCert()` builds the whole NVS cert lifecycle and then every live
 connection ignores it. Fix:
 
@@ -459,6 +470,10 @@ Effort: small-medium, mechanical.
 
 ## R10 — Soft-pause resume seeds from stale state *(likely visible bug)*
 
+> **SHIPPED (July 15, 2026, `69aa744`)** — seeded from the floor-lamp cache
+> exactly as specced below (floor as room proxy; sentTarget fallback when the
+> floor is off/unpopulated).
+
 `tickSoftPause()` sets `pauseResumeStartTarget = sentTarget` — the **pre-pause**
 target. If the user dimmed to 20 % during the pause, the first resume tick
 interpolates from ~the old level: the lights **snap toward pre-pause brightness,
@@ -480,6 +495,10 @@ Apply the same seeding to any other resume path that interpolates from
 and letting the pause expire.
 
 ## R11 — Drain the whole command queue per tick *(interim until N2)*
+
+> **SHIPPED (July 15, 2026, `69aa744`)** — bounded loop of 8 as specced; bails
+> without re-polling when a command arrives with no id (un-ackable → would
+> refetch forever).
 
 `pollDashboardCommand()` processes exactly one command, so three quick dashboard
 actions take 90 s to apply. Wrap the body in a bounded loop:

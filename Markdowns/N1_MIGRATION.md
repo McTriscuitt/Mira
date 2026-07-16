@@ -18,7 +18,7 @@ Before ending a session: update the Status table and the per-stage checklist.
 |---|---|---|
 | 1 | SSE → pinned Core-0 task + event queue + override via dispatcher | **COMPLETE — soak verified (June 12)** — boot, override, mid-batch abort, clobber repair confirmed live June 11. 2-hour telemetry soak June 12 (`Bug Records/June12MorningHeapSoak.md`): heap flat (8,583,419–8,585,031, no trend), SSE stack high-water bottoms at 7,432/12,288 free (floor set by the reconnect TLS handshake, stable across 4 reconnects), echo histogram 18 echo-match / 0 noop / 0 stale-revert / 1 genuine Override, full WAKE ramp + NORMAL handoff clean. Planned overnight soak was cut short by a 1:40 AM Windows Update laptop restart that power-cycled the USB-powered ESP (event log: TrustedInstaller "Operating System: Upgrade (Planned)") — not a firmware fault. Longer-horizon heap watch rolls into Stage 5's 48 h soak item. |
 | 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | **COMPLETE — soak verified (July 14–15, user-accepted)** — overnight soak (`logs/device-monitor-260714-180314.log`): one uninterrupted boot session ~6 h+ (SSE stack watermark continuity 10,040→7,432→7,388→7,340 proves no reboot), heap flat at ~8,584,600 ± 400 B, every tick on :00/:30 with clean skip-ahead events, dashboard commands applied (SOFT_PAUSE + 4× `SET_SOFT_PAUSE_REMAINING`), natural SOFT_PAUSE→resume→wind-down→LOCKED_OUT progression while unobserved. The 10-min `SSE: stale` reconnect cadence on an idle evening is designed behavior (no Hue v2 keepalive). Both capture gaps were host-side: laptop Modern Standby 8:43 PM–12:20 AM, then a Windows Update restart at 1:38 AM killed the logger (device kept running; COM5 re-enumerated). Override regression not explicitly re-run — accepted; Stage 1 path unchanged by Stage 2 and covered by the cross-stage checklist after Stages 4/5. |
-| 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | IN PROGRESS (July 15) |
+| 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | **CODE COMPLETE + FLASHED (July 15, `6b478b6`)** — boots clean, SSE reconnect + on-task resync verified live (20:04 stale cycle), `checkFloorState()`/accumulator deleted, grep clean. `ECHO_TRACE` on for the soak. Remaining: live wake flip, tonight's re-arm, pull-the-Ethernet resync test (checklist below). Side quest: R3's `setCACert()` approach failed on hardware (CN mismatch — see Decisions Log) and was revised to manual pin comparison; the `ensureBridgeCert()` boot probe had been silently failing + re-fetching every boot for the same reason, now fixed. |
 | 4 | Ramps & soft-pause expiry → soft timers | NOT STARTED |
 | 5 | Dashboard networking → dedicated task (unblocks N2 long-poll) | NOT STARTED |
 
@@ -50,6 +50,19 @@ One git commit per stage minimum. Verify before moving on.
   fires from **any state except HARD_OFF** (including SOFT_PAUSE — matches the
   G22 deep-dive's "re-arm should win over SOFT_PAUSE"; all-off after 21:00 is
   a sleep signal). HARD_OFF stays excluded: it's the explicit kill switch.
+- **July 15, 2026 — R3 revised to manual pin comparison (hardware finding).**
+  `setCACert()`-based pinning can never handshake on this stack: core 2.0.0's
+  `ssl_client.cpp:257` always calls `mbedtls_ssl_set_hostname()` with the
+  connect host (verification REQUIRED when a CA is set), we dial by IP, and
+  the Hue bridge cert's CN is the bridge ID → CN mismatch, confirmed live as
+  an `SSE: connect failed` loop on the first Stage 3 flash. Same flaw meant
+  `ensureBridgeCert()`'s NVS-verify probe had been failing — and silently
+  re-fetching the cert — on **every boot** since it was written. Fix:
+  `peerMatchesPinned()` byte-compares the live peer cert against the NVS PEM
+  after the handshake, on the paths where nothing (incl. the application key)
+  is sent before the check passes: the boot probe and the SSE stream. The
+  HTTPClient paths (`setLight*`/bootstrap GET) transmit on connect, so they
+  stay insecure-mode TLS and inherit the boot-time identity check.
 
 ---
 
@@ -300,10 +313,36 @@ Delete the `lastFloorOn` accumulator and its seven sync sites, plus
    same behavior as today.
 
 **Verification:**
-- [ ] Flip floor lamp on in LOCKED_OUT → wake starts ~instantly.
-- [ ] After 21:00, kill lights in order → dashboard shows LOCKED_OUT within ~1 s of the last off.
-- [ ] `grep lastFloorOn src/main.cpp` returns nothing.
-- [ ] Pull bridge Ethernet for 30 s during LOCKED_OUT, flip floor lamp on, reconnect → synthetic edge fires wake.
+- [ ] Flip floor lamp on in LOCKED_OUT → wake starts ~instantly. *(Naturally exercised tomorrow morning.)*
+- [ ] After 21:00, kill lights in order → dashboard shows LOCKED_OUT within ~1 s of the last off. *(Naturally exercised tonight.)*
+- [x] `grep lastFloorOn src/main.cpp` returns nothing. *(July 15 — accumulator, seven sync sites, and the poll function all deleted; tombstone comments reworded to keep the grep clean.)*
+- [ ] Pull bridge Ethernet for 30 s during LOCKED_OUT, flip floor lamp on, reconnect → synthetic edge fires wake. *(Reconnect + on-task resync itself verified live July 15 via the 10-min stale cycle — clean reconnect, resync GET on the SSE task, no missed-flip enqueues, stack floor 7,020/12,288 free.)*
+
+**Implementation notes (July 15, 2026 — code complete, flashed `6b478b6`):**
+- Flags packing formalized to the Stage-1 comment's layout: bit0=prevOn,
+  bit1=nowOn, bits2–5=EchoOutcome (`packSseFlags()` / `sseFlags*()` helpers).
+  `handleLightUpdate()` enqueues on Override, StaleRevert, or any on/off edge;
+  edge bits ride on every enqueued event so a burst of queued edges replays in
+  order even though the cache has already moved on. `ev.i` carries ringSlot
+  (Override) / revertSlot (StaleRevert) / -1 (edge-only).
+- `dispatchSseLight()` (main task): Stage-1 Override/StaleRevert actions
+  first, then the wake block (LOCKED_OUT + floor rising edge →
+  `triggerWake(lastLux)`) and the re-arm block (falling edge, hour ≥
+  `LOCKOUT_RESET_HOUR`, floor+chest+dresser+ceil1 all off in cache → 
+  LOCKED_OUT; resets counters, clears exclusions, cancels resume ramp; logs
+  only on an actual state change). If an Override rode in on the same event,
+  its pause applies first and re-arm supersedes it — intended precedence.
+- `bootstrapLightStates(bool enqueueEdges=false)`: cache writes now under
+  `dataMux`; boot call (setup, enqueueEdges=false) never enqueues (floor
+  already on at boot must not fire wake); `sseTick()` calls it with `true`
+  after every successful reconnect. Missed on/off flips are recorded as
+  `EchoOutcome::SyntheticEdge` (ECHO_OUTCOME_COUNT now 10) and enqueued as
+  ordinary SseLight edge events.
+- `ECHO_TRACE` enabled for the Stage 3 soak (Serial-only) — turn off at the
+  Stage 4 flash.
+- Build: RAM 18.3 %, flash 31.1 %. Boot state note: `state` still initializes
+  to NORMAL (pre-existing; CLAUDE.md's "LOCKED_OUT at boot" is doc drift to
+  resolve separately).
 
 ---
 
