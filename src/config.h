@@ -16,8 +16,11 @@
 #define STATE_TOLERANCE_BRI 1.2f  // ≈ 3/254 in v1 bri units
 #define STATE_TOLERANCE_CT  3
 
-// Hour (24h, local time) after which all-lights-off resets the morning lockout
-#define LOCKOUT_RESET_HOUR 21
+// Time of day (minutes since midnight, local) after which all-lights-off
+// re-arms the morning lockout. 1230 = 20:30 — aligned with the earliest
+// wind-down completion (WIND_DOWN_GATE_HOUR 19 + 30 min counter + 60 min
+// ramp). Minute-granular since July 15, 2026 (was hour-granular, 21).
+#define LOCKOUT_RESET_MIN_OF_DAY 1230
 
 // Hour (24h, local time) after which the stable-lux counter may accumulate
 // toward WIND_DOWN. Earliest possible wind-down completion is this hour

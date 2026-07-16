@@ -1335,7 +1335,7 @@ static void dispatchSseLight(const Event& ev) {
     // superseded here. From LOCKED_OUT itself the block is a harmless
     // re-clear (counters + exclusions), same as the old poll.
     if (!nowOn && state != State::HARD_OFF &&
-        timeClient.getHours() >= LOCKOUT_RESET_HOUR &&
+        timeClient.getHours() * 60 + timeClient.getMinutes() >= LOCKOUT_RESET_MIN_OF_DAY &&
         !cachedLight(LIGHT_FLOOR).on && !cachedLight(LIGHT_CHEST).on &&
         !cachedLight(LIGHT_DRESSER).on && !cachedLight(LIGHT_CEIL_1).on) {
         bool wasLockedOut = (state == State::LOCKED_OUT);
