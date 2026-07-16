@@ -154,7 +154,9 @@ const int   TRAJECTORY_TOLERANCE_CT  = 15;
 // kept since boot and included in the override-fire dashboard dump so we can
 // see the *distribution* of decisions, not just the one that fired SOFT_PAUSE.
 // Uncomment ECHO_TRACE for verbose per-event Serial output during tuning.
-// #define ECHO_TRACE 1
+// (Enabled July 15 for the Stage 3 edge-dispatch soak — Serial-only noise;
+// turn back off at the Stage 4 flash.)
+#define ECHO_TRACE 1
 
 enum class EchoOutcome : uint8_t {
     UnknownUuid = 0,    // event for a UUID outside lightCache[]
@@ -165,9 +167,10 @@ enum class EchoOutcome : uint8_t {
     EchoMatch,          // trajectory match against a live recentPuts slot
     NoOpEcho,           // trajectory missed but event delta from cache is <= TRAJECTORY_TOLERANCE_*
     StaleRevert,        // event matches a recent slot's *prior* values — lamp reverted to its pre-PUT state → re-assert, don't pause
-    Override            // off-trajectory and off-cache → fires SOFT_PAUSE
+    Override,           // off-trajectory and off-cache → fires SOFT_PAUSE
+    SyntheticEdge       // Stage 3 — reconnect-resync diff, not a real bridge event; carries an on/off edge the stream missed while down
 };
-const int ECHO_OUTCOME_COUNT = 9;
+const int ECHO_OUTCOME_COUNT = 10;
 
 static const char* echoOutcomeName(EchoOutcome o) {
     switch (o) {
@@ -180,6 +183,7 @@ static const char* echoOutcomeName(EchoOutcome o) {
         case EchoOutcome::NoOpEcho:        return "noop-echo";
         case EchoOutcome::StaleRevert:     return "stale-revert";
         case EchoOutcome::Override:        return "OVERRIDE";
+        case EchoOutcome::SyntheticEdge:   return "synthetic-edge";
         default:                           return "?";
     }
 }
@@ -222,11 +226,22 @@ enum class EvType : uint8_t {
 struct Event {
     EvType   type  = EvType::LuxTick;
     uint8_t  a     = 0;    // light idx / button id / command enum / timer id
-    uint8_t  flags = 0;    // SseLight: EchoOutcome of the classification
+    uint8_t  flags = 0;    // SseLight: bit0=prevOn, bit1=nowOn, bits2-5=EchoOutcome
     int32_t  i     = 0;    // value (sseEventRing slot, cmdValue, steps, …)
     float    f     = 0.0f; // lux / bri
     uint32_t tMs   = 0;    // millis() at enqueue
 };
+
+// SseLight flag packing (Stage 3). The on/off edge rides in bits 0-1 so the
+// dispatcher can make wake/re-arm decisions from the event itself rather than
+// re-reading a cache that may have moved on by dispatch time; the
+// classification sits in bits 2-5 (EchoOutcome fits in 4 bits).
+static inline uint8_t packSseFlags(EchoOutcome o, bool prevOn, bool nowOn) {
+    return (uint8_t)(((uint8_t)o << 2) | (nowOn ? 2 : 0) | (prevOn ? 1 : 0));
+}
+static inline EchoOutcome sseFlagsOutcome(uint8_t f) { return (EchoOutcome)(f >> 2); }
+static inline bool        sseFlagsPrevOn(uint8_t f)  { return (f & 0x01) != 0; }
+static inline bool        sseFlagsNowOn(uint8_t f)   { return (f & 0x02) != 0; }
 
 QueueHandle_t evQueue       = nullptr; // created in setup() before the SSE task starts
 TaskHandle_t  sseTaskHandle = nullptr;
@@ -256,9 +271,6 @@ unsigned long sseLastByteMs    = 0;
 unsigned long sseLastConnectMs = 0;
 const unsigned long SSE_RECONNECT_DELAY_MS = 5000UL;
 const unsigned long SSE_STALE_TIMEOUT_MS   = 600000UL; // Hue v2 sends no keepalive; only reconnect on long silence
-
-// Floor-lamp edge detection
-bool lastFloorOn = false;  // previous floor-lamp poll — detects manual on/off flips (wake trigger + lockout re-arm)
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", UTC_OFFSET_SEC);
@@ -348,6 +360,8 @@ static bool _fetchAndStoreBridgeCert() {
     return true;
 }
 
+static bool peerMatchesPinned(WiFiClientSecure& client); // defined below — R3 manual pin check
+
 // Load cert from NVS; re-fetch if missing, expired, or within 30 days of expiry.
 // Must be called AFTER NTP sync (relies on timeClient.getEpochTime()).
 static void ensureBridgeCert() {
@@ -363,12 +377,14 @@ static void ensureBridgeCert() {
 
     if (!needFetch) {
         _bridgeCertPem = stored;
-        // Verify the stored cert still validates against the live bridge.
-        // Catches cert rotation (bridge issues new cert before old one expires).
+        // Verify the stored cert still matches the live bridge — catches cert
+        // rotation. Manual pin comparison, not setCACert(): CA-mode dies on CN
+        // mismatch when dialing by IP (see peerMatchesPinned below), which
+        // made the old probe fail — and silently re-fetch — on every boot.
         WiFiClientSecure test;
-        test.setCACert(_bridgeCertPem.c_str());
+        test.setInsecure();
         test.setTimeout(5);
-        bool ok = test.connect(HUE_BRIDGE_HOST, 443);
+        bool ok = test.connect(HUE_BRIDGE_HOST, 443) && peerMatchesPinned(test);
         test.stop();
         if (ok) {
             Serial.println("Bridge cert loaded from NVS.");
@@ -384,15 +400,25 @@ static void ensureBridgeCert() {
     }
 }
 
-// R3 — every live v2 connection verifies against the NVS-pinned bridge cert.
-// The setInsecure() fallback only fires if the cert was never obtained (failed
-// first-boot fetch with empty NVS); the bootstrap-trust setInsecure() inside
-// _fetchAndStoreBridgeCert() stays, by design. _bridgeCertPem is written only
-// during setup(), so handing its c_str() to mbedtls is safe for the
-// connection's lifetime.
-static void applyBridgeTls(WiFiClientSecure& client) {
-    if (_bridgeCertPem.length()) client.setCACert(_bridgeCertPem.c_str());
-    else                         client.setInsecure();
+// R3 postscript (July 15, found live): CA-style pinning via setCACert() is
+// unworkable on this stack. We dial the bridge by IP, the bridge cert's CN is
+// the bridge ID, and core 2.0.0's ssl_client always calls
+// mbedtls_ssl_set_hostname with the connect host (ssl_client.cpp:257) with
+// verification REQUIRED — so every handshake dies on CN mismatch (confirmed:
+// "SSE: connect failed" loop on the first R3 flash). Pinning is enforced
+// instead by byte-comparing the live peer certificate against the NVS-pinned
+// PEM after the handshake, on the connections where nothing is transmitted
+// until we've checked: the boot probe in ensureBridgeCert() and the
+// persistent SSE stream (the application key goes out only after this passes).
+// The HTTPClient paths (setLight*/bootstrap GET) send their request
+// immediately on connect, so they run insecure-mode TLS and inherit the
+// boot-time identity check. Returns true when nothing is pinned yet (failed
+// first-boot fetch) — bootstrap trust, same as _fetchAndStoreBridgeCert().
+static bool peerMatchesPinned(WiFiClientSecure& client) {
+    if (!_bridgeCertPem.length()) return true;
+    const mbedtls_x509_crt* peer = client.getPeerCertificate();
+    if (!peer) return false;
+    return _derToPem(peer->raw.p, peer->raw.len) == _bridgeCertPem;
 }
 
 // ── Light cache helpers ─────────────────────────────────────────────────────
@@ -567,12 +593,22 @@ static bool eventMatchesPriorPut(int idx,
     return matched;
 }
 
-// ── One-time bootstrap of the light cache ───────────────────────────────────
-// Hits the v2 endpoint once at startup to seed every cached field; SSE keeps it
-// fresh thereafter.
-static void bootstrapLightStates() {
+// ── Bootstrap / resync of the light cache ───────────────────────────────────
+// One v2 GET seeds every cached field. Two callers (Stage 3):
+//  - setup(), enqueueEdges=false: boot seed, before the SSE task exists. Never
+//    enqueues, so a floor lamp already on at boot does NOT fire wake.
+//  - sseTick() on every reconnect, enqueueEdges=true: the stream was down and
+//    any events in the gap are gone, so diff fresh state against the
+//    pre-fetch cache and enqueue a synthetic edge event for each on/off flip
+//    we missed — wake/re-arm stay correct across bridge outages. This path
+//    runs on the Core-0 SSE task, hence the dataMux around cache writes.
+static int recordSseEvent(int idx, bool hasOn, bool evOn, bool hasBri, float evBri,
+                          bool hasCt, int evCt, bool cacheOnBefore, float cacheBriBefore,
+                          int cacheCtBefore, EchoOutcome outcome); // defined with the SSE handlers below
+
+static void bootstrapLightStates(bool enqueueEdges = false) {
     WiFiClientSecure client;
-    applyBridgeTls(client);
+    client.setInsecure(); // HTTPClient transmits on connect — pin check is on the boot probe + SSE stream (see peerMatchesPinned)
     HTTPClient http;
     http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light");
     http.addHeader("hue-application-key", HUE_API_KEY);
@@ -591,12 +627,37 @@ static void bootstrapLightStates() {
         const char* uuid = light["id"];
         int idx = idxByUuid(uuid);
         if (idx < 0) continue;
-        lightCache[idx].on  = light["on"]["on"]                          | false;
-        lightCache[idx].bri = light["dimming"]["brightness"].as<float>();
-        lightCache[idx].ct  = light["color_temperature"]["mirek"]        | 0;
+        bool  on  = light["on"]["on"]                   | false;
+        float bri = light["dimming"]["brightness"].as<float>();
+        int   ct  = light["color_temperature"]["mirek"] | 0;
+
+        portENTER_CRITICAL(&dataMux);
+        bool  prevOn  = lightCache[idx].on;
+        float prevBri = lightCache[idx].bri;
+        int   prevCt  = lightCache[idx].ct;
+        bool  wasInit = lightCache[idx].initialized;
+        lightCache[idx].on  = on;
+        lightCache[idx].bri = bri;
+        lightCache[idx].ct  = ct;
         lightCache[idx].initialized = true;
-        Serial.printf("Bootstrap %s — on=%d bri=%.1f ct=%d\n",
-                      lightName(idx), lightCache[idx].on, lightCache[idx].bri, lightCache[idx].ct);
+        portEXIT_CRITICAL(&dataMux);
+
+        if (!enqueueEdges) {
+            Serial.printf("Bootstrap %s — on=%d bri=%.1f ct=%d\n",
+                          lightName(idx), on ? 1 : 0, bri, ct);
+        } else if (wasInit && on != prevOn) {
+            Serial.printf("SSE resync: %s flipped %s while the stream was down — synthetic edge.\n",
+                          lightName(idx), on ? "on" : "off");
+            recordSseEvent(idx, true, on, false, 0.0f, false, 0,
+                           prevOn, prevBri, prevCt, EchoOutcome::SyntheticEdge);
+            Event ev = {};
+            ev.type  = EvType::SseLight;
+            ev.a     = (uint8_t)idx;
+            ev.flags = packSseFlags(EchoOutcome::SyntheticEdge, prevOn, on);
+            ev.i     = -1;
+            ev.tMs   = millis();
+            if (evQueue) xQueueSend(evQueue, &ev, 0);
+        }
     }
 }
 
@@ -672,7 +733,7 @@ void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, i
     _hsbToXY(hueV1, satV1, cx, cy);
 
     WiFiClientSecure client;
-    applyBridgeTls(client);
+    client.setInsecure(); // HTTPClient transmits on connect — pin check is on the boot probe + SSE stream (see peerMatchesPinned)
     HTTPClient http;
     http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light/" + uuid);
     http.addHeader("Content-Type",      "application/json");
@@ -719,7 +780,7 @@ void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
     int slot = noteRecentPut(idx, on, bri, ct, (unsigned long)durationMs);
 
     WiFiClientSecure client;
-    applyBridgeTls(client);
+    client.setInsecure(); // HTTPClient transmits on connect — pin check is on the boot probe + SSE stream (see peerMatchesPinned)
     HTTPClient http;
     http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light/" + uuid);
     http.addHeader("Content-Type",      "application/json");
@@ -1092,6 +1153,15 @@ static void handleLightUpdate(JsonObjectConst upd) {
     int ringSlot = recordSseEvent(idx, hasOn, evOn, hasBri, evBri, hasCt, evCt,
                                   cacheOnBefore, cacheBriBefore, cacheCtBefore, decision);
 
+    // Stage 3 — the on/off edge rides on *every* enqueued event, whatever the
+    // classification (an off-flip during LOCKED_OUT classifies SkipState, but
+    // it's exactly the edge the wake/re-arm dispatcher needs). prevOn is the
+    // pre-event cache; nowOn falls back to it when the event carried no on
+    // field (bri/ct-only events are never edges).
+    bool prevOn = cacheOnBefore;
+    bool nowOn  = hasOn ? evOn : cacheOnBefore;
+    bool edge   = (prevOn != nowOn);
+
     if (decision == EchoOutcome::StaleRevert) {
         // No overridePending: a revert must not abort an in-progress PUT batch.
         // The dispatcher (main task) re-PUTs the matched slot's target; the
@@ -1099,31 +1169,27 @@ static void handleLightUpdate(JsonObjectConst upd) {
         // snapshots the lamp's true state as its prior.
         Serial.printf("SSE stale revert — %s reported pre-PUT values; queueing re-assert.\n",
                       lightName(idx));
-        Event ev = {};
-        ev.type  = EvType::SseLight;
-        ev.a     = (uint8_t)idx;
-        ev.flags = (uint8_t)EchoOutcome::StaleRevert;
-        ev.i     = revertSlot;
-        ev.tMs   = millis();
-        if (evQueue) xQueueSend(evQueue, &ev, 0);
-        return;
+    } else if (decision == EchoOutcome::Override) {
+        // Synchronous half of the abort: any setLight*() call — including one
+        // the main task is partway through a chained tick on — bails from here
+        // on. The dispatcher applies the SOFT_PAUSE transition, ships the
+        // diagnostic dump, and clears overridePending.
+        overridePending = true;
+        Serial.println("SSE override classified — queued for dispatcher.");
+    } else if (!edge) {
+        return; // routine echo with no on/off edge — nothing for the dispatcher
     }
 
-    if (decision != EchoOutcome::Override) return;
-
-    // Synchronous half of the abort: any setLight*() call — including one the
-    // main task is partway through a chained tick on — bails from here on.
-    overridePending = true;
-    Serial.println("SSE override classified — queued for dispatcher.");
-
-    // Asynchronous half: the dispatcher applies the SOFT_PAUSE transition,
-    // ships the diagnostic dump, and clears overridePending. ev.i carries the
-    // sseEventRing slot of the triggering event for the dump.
+    // ev.i carries the slot the dispatcher needs: the sseEventRing record of
+    // the triggering event for Override (diagnostic dump), the recentPuts slot
+    // for StaleRevert (re-assert target), -1 for edge-only events.
     Event ev = {};
     ev.type  = EvType::SseLight;
     ev.a     = (uint8_t)idx;
-    ev.flags = (uint8_t)EchoOutcome::Override;
-    ev.i     = ringSlot;
+    ev.flags = packSseFlags(decision, prevOn, nowOn);
+    ev.i     = (decision == EchoOutcome::Override)    ? ringSlot
+             : (decision == EchoOutcome::StaleRevert) ? revertSlot
+             : -1;
     ev.tMs   = millis();
     if (evQueue) xQueueSend(evQueue, &ev, 0);
 }
@@ -1232,6 +1298,59 @@ static void reassertRecentPut(int idx, int slot) {
 }
 
 static void dispatchLuxTick(); // defined below the tick functions — N1 Stage 2
+void triggerWake(float ambientLux); // defined with the tick functions — Stage 3 edge dispatch
+
+// Stage 3 (G22+G23) — SseLight dispatch on the main task. Applies the Stage 1
+// Override/StaleRevert actions, then runs the on/off-edge state decisions that
+// used to live in the per-tick floor-lamp poll: wake trigger and lockout
+// re-arm now land within ~100 ms of the bridge event instead of waiting for
+// the next tick. Edge bits come from the event itself (pre-event cache vs
+// event), so a burst of queued edges replays in order even though the cache
+// has already moved on.
+static void dispatchSseLight(const Event& ev) {
+    EchoOutcome outcome = sseFlagsOutcome(ev.flags);
+    bool prevOn = sseFlagsPrevOn(ev.flags);
+    bool nowOn  = sseFlagsNowOn(ev.flags);
+    int  idx    = ev.a;
+
+    if      (outcome == EchoOutcome::Override)    applyOverridePause(ev.i);
+    else if (outcome == EchoOutcome::StaleRevert) reassertRecentPut(idx, ev.i);
+
+    if (prevOn == nowOn) return; // no on/off edge — nothing below applies
+
+    // Wake (G23): rising edge on the floor lamp while locked out = "good
+    // morning". lastLux is at most one tick (30 s) old — the same seed
+    // forceState(WAKE) uses.
+    if (state == State::LOCKED_OUT && idx == LIGHT_FLOOR && nowOn) {
+        triggerWake(lastLux);
+        return;
+    }
+
+    // Re-arm (G22): falling edge after the reset hour with every driven light
+    // now off = the user has gone to bed. Fires from ANY state except HARD_OFF
+    // (June 11 decision — all-off after 21:00 is a sleep signal, so it wins
+    // over SOFT_PAUSE and a running ramp). The cache already reflects this
+    // event, so the all-off check sees the light that just went out. If an
+    // Override rode in on this same event, the pause it just applied is
+    // superseded here. From LOCKED_OUT itself the block is a harmless
+    // re-clear (counters + exclusions), same as the old poll.
+    if (!nowOn && state != State::HARD_OFF &&
+        timeClient.getHours() >= LOCKOUT_RESET_HOUR &&
+        !cachedLight(LIGHT_FLOOR).on && !cachedLight(LIGHT_CHEST).on &&
+        !cachedLight(LIGHT_DRESSER).on && !cachedLight(LIGHT_CEIL_1).on) {
+        bool wasLockedOut = (state == State::LOCKED_OUT);
+        state             = State::LOCKED_OUT;
+        stableLuxCount    = 0;
+        windDownStep      = 0;
+        pauseResumeActive = false; // cancel any resume ramp in flight
+        // New day's cycle: clear exclusions so every light rejoins tomorrow.
+        for (int i = 0; i < LIGHT_COUNT; i++) excludedLight[i] = false;
+        if (!wasLockedOut) {
+            Serial.println("All lights off after reset hour — lockout re-armed.");
+            sendLog("Lockout re-armed — " + getTimeString());
+        }
+    }
+}
 
 static void dispatchEvent(const Event& ev) {
     switch (ev.type) {
@@ -1239,8 +1358,7 @@ static void dispatchEvent(const Event& ev) {
             dispatchLuxTick();
             break;
         case EvType::SseLight:
-            if      ((EchoOutcome)ev.flags == EchoOutcome::Override)    applyOverridePause(ev.i);
-            else if ((EchoOutcome)ev.flags == EchoOutcome::StaleRevert) reassertRecentPut(ev.a, ev.i);
+            dispatchSseLight(ev);
             break;
         default:
             break; // TimerFire / DashboardCmd arrive in later stages
@@ -1278,10 +1396,17 @@ static void handleSseLine(const String& line) {
 static void sseConnect() {
     sseClient.stop();
     sseBuf = "";
-    applyBridgeTls(sseClient);
+    sseClient.setInsecure();
     sseClient.setTimeout(5);
     if (!sseClient.connect(HUE_BRIDGE_HOST, 443)) {
         Serial.println("SSE: connect failed");
+        return;
+    }
+    // R3 — manual pin check before anything (incl. the application key) is
+    // sent. A mismatched peer means someone else is answering the bridge's IP.
+    if (!peerMatchesPinned(sseClient)) {
+        Serial.println("SSE: bridge cert pin mismatch — dropping connection");
+        sseClient.stop();
         return;
     }
     sseClient.print("GET /eventstream/clip/v2 HTTP/1.1\r\n"
@@ -1324,6 +1449,12 @@ static void sseTick() {
         if (millis() - sseLastConnectMs >= SSE_RECONNECT_DELAY_MS) {
             sseLastConnectMs = millis();
             sseConnect();
+            // Stage 3 — the stream was down and any events in the gap are
+            // gone. Re-pull all light state; on/off flips we missed become
+            // synthetic edge events so wake/re-arm still fire (G22/G23
+            // reconnect-gap mitigation). On a routine stale-timeout reconnect
+            // nothing changed, so the diff enqueues nothing.
+            if (sseClient.connected()) bootstrapLightStates(true);
         }
         return;
     }
@@ -1679,7 +1810,6 @@ void tickSoftPause() {
         pauseResumeStep        = 0;
         overheadsOn            = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
         chestOn                = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
-        lastFloorOn          = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
         state                  = State::NORMAL;
         Serial.println("Soft pause expired — beginning 10-min resume ramp.");
         sendLog("Soft pause expired — resuming — " + getTimeString());
@@ -1701,33 +1831,10 @@ void triggerWake(float ambientLux) {
     sendLog("Wake sequence started — " + getTimeString());
 }
 
-void checkFloorState(float lux) {
-    LightState floorLamp = cachedLight(LIGHT_FLOOR);
-
-    // Rising edge of the floor lamp while locked out = "good morning" → start wake.
-    if (state == State::LOCKED_OUT && !lastFloorOn && floorLamp.on) {
-        triggerWake(lux);
-    }
-
-    // Floor lamp just switched off after the reset hour, with nothing else on →
-    // re-arm the morning lockout. (Chest + dresser are off by end of wind-down;
-    // the floor lamp is the last light the user kills before sleep.)
-    if (lastFloorOn && !floorLamp.on && timeClient.getHours() >= LOCKOUT_RESET_HOUR) {
-        LightState chest   = cachedLight(LIGHT_CHEST);
-        LightState dresser = cachedLight(LIGHT_DRESSER);
-        LightState ceil1   = cachedLight(LIGHT_CEIL_1);
-        // LightState ceil2 = cachedLight(LIGHT_CEIL_2);
-        if (!chest.on && !dresser.on && !ceil1.on) {
-            state          = State::LOCKED_OUT;
-            stableLuxCount = 0;
-            windDownStep   = 0;
-            // New day's cycle: clear any cycle exclusions so every light rejoins.
-            for (int i = 0; i < LIGHT_COUNT; i++) excludedLight[i] = false;
-        }
-    }
-
-    lastFloorOn = floorLamp.on;
-}
+// The old floor-lamp poll (with its previous-state accumulator and seven sync
+// sites) was deleted in Stage 3 (July 15) — wake trigger and lockout re-arm
+// moved to dispatchSseLight(), driven by SSE on/off edges instead of a 30 s
+// cache poll. See Markdowns/N1_MIGRATION.md Stage 3.
 
 // [buttons removed 2026-06 — see N1_MIGRATION.md]
 // void pollButton(ButtonState& btn, int pin) {
@@ -1762,7 +1869,6 @@ void forceState(State next) {
         case State::LOCKED_OUT:
             stableLuxCount = 0;
             windDownStep   = 0;
-            lastFloorOn  = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
             state          = State::LOCKED_OUT;
             break;
         case State::NORMAL:
@@ -1770,7 +1876,6 @@ void forceState(State next) {
             stableLuxCount    = 0;
             overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
             chestOn           = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
-            lastFloorOn     = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
             state             = State::NORMAL;
             break;
         case State::WAKE:
@@ -1815,7 +1920,6 @@ void forceState(State next) {
 //             sendLog("Hard off — " + getTimeString());
 //         } else {
 //             state         = State::LOCKED_OUT;
-//             lastFloorOn = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
 //             Serial.println("Button long press — hard off cleared.");
 //             sendLog("Hard off cleared — " + getTimeString());
 //         }
@@ -1839,7 +1943,6 @@ void forceState(State next) {
 //             stableLuxCount    = 0;
 //             overheadsOn       = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
 //             chestOn           = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
-//             lastFloorOn     = cachedLight(LIGHT_FLOOR).on; // sync from actual bridge state
 //             Serial.println("Button short press — NORMAL (was " + prev + ").");
 //             sendLog("Returned to NORMAL by button — " + getTimeString());
 //         }
@@ -1882,7 +1985,6 @@ void setup() {
     delay(3000);                                                        // hold for 3s
     setLight(LIGHT_UUID_CHEST, saved.on, saved.bri, saved.ct, 1000); // restore over 1s
 
-    lastFloorOn = cachedLight(LIGHT_FLOOR).on; // seed edge detection — prevents false wake trigger on first tick
     overheadsOn   = cachedLight(LIGHT_CEIL_1).on;  // seed from actual state — prevents false override and bad dashboard reporting
     chestOn       = cachedLight(LIGHT_CHEST).on;   // seed from actual state — same reason as overheadsOn
 
@@ -1921,11 +2023,11 @@ static void dispatchLuxTick() {
 
     switch (state) {
         case State::LOCKED_OUT:
-            checkFloorState(lux);
+            // Wake trigger + lockout re-arm are SSE-edge-driven now (Stage 3,
+            // dispatchSseLight) — the tick has nothing to poll here.
             break;
 
         case State::NORMAL:
-            checkFloorState(lux);
             tickNormal(lux, target);
             break;
 
@@ -1934,7 +2036,6 @@ static void dispatchLuxTick() {
             break;
 
         case State::WIND_DOWN:
-            checkFloorState(lux);
             tickWindDown();
             break;
 
