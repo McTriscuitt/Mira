@@ -384,6 +384,17 @@ static void ensureBridgeCert() {
     }
 }
 
+// R3 — every live v2 connection verifies against the NVS-pinned bridge cert.
+// The setInsecure() fallback only fires if the cert was never obtained (failed
+// first-boot fetch with empty NVS); the bootstrap-trust setInsecure() inside
+// _fetchAndStoreBridgeCert() stays, by design. _bridgeCertPem is written only
+// during setup(), so handing its c_str() to mbedtls is safe for the
+// connection's lifetime.
+static void applyBridgeTls(WiFiClientSecure& client) {
+    if (_bridgeCertPem.length()) client.setCACert(_bridgeCertPem.c_str());
+    else                         client.setInsecure();
+}
+
 // ── Light cache helpers ─────────────────────────────────────────────────────
 
 // Map a v2 UUID string to its lightCache[] index. Returns -1 for unknown UUIDs.
@@ -561,7 +572,7 @@ static bool eventMatchesPriorPut(int idx,
 // fresh thereafter.
 static void bootstrapLightStates() {
     WiFiClientSecure client;
-    client.setInsecure();
+    applyBridgeTls(client);
     HTTPClient http;
     http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light");
     http.addHeader("hue-application-key", HUE_API_KEY);
@@ -661,7 +672,7 @@ void setLightColor(const char* uuid, bool on, float bri, int hueV1, int satV1, i
     _hsbToXY(hueV1, satV1, cx, cy);
 
     WiFiClientSecure client;
-    client.setInsecure();
+    applyBridgeTls(client);
     HTTPClient http;
     http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light/" + uuid);
     http.addHeader("Content-Type",      "application/json");
@@ -708,7 +719,7 @@ void setLight(const char* uuid, bool on, float bri, int ct, int durationMs) {
     int slot = noteRecentPut(idx, on, bri, ct, (unsigned long)durationMs);
 
     WiFiClientSecure client;
-    client.setInsecure();
+    applyBridgeTls(client);
     HTTPClient http;
     http.begin(client, String(HUE_V2_BASE_URL) + "/resource/light/" + uuid);
     http.addHeader("Content-Type",      "application/json");
@@ -1267,7 +1278,7 @@ static void handleSseLine(const String& line) {
 static void sseConnect() {
     sseClient.stop();
     sseBuf = "";
-    sseClient.setInsecure();
+    applyBridgeTls(sseClient);
     sseClient.setTimeout(5);
     if (!sseClient.connect(HUE_BRIDGE_HOST, 443)) {
         Serial.println("SSE: connect failed");
@@ -1353,6 +1364,11 @@ static void sseTask(void*) {
 void forceState(State next); // defined later — forward declaration for pollDashboardCommand
 
 void pollDashboardCommand() {
+  // R11 — drain the whole pending queue per tick (bounded), instead of one
+  // command per 30 s tick. Three quick dashboard actions used to take 90 s to
+  // fully apply; now they land in order within one tick. The bound keeps a
+  // flooded queue from stalling the tick. Interim until N2's long-poll.
+  for (int n = 0; n < 8; n++) {
     HTTPClient http;
     http.begin(String(DASHBOARD_BASE_URL) + "/api/command");
     http.addHeader("Authorization", "Bearer " + String(ESP32_API_KEY));
@@ -1416,13 +1432,14 @@ void pollDashboardCommand() {
         Serial.println("Re-included " + String(lightName(cmdValue)) + " into cycle");
     }
 
-    if (cmdId >= 0) {
-        HTTPClient ack;
-        ack.begin(String(DASHBOARD_BASE_URL) + "/api/command/" + String(cmdId) + "/ack");
-        ack.addHeader("Authorization", "Bearer " + String(ESP32_API_KEY));
-        ack.POST("");
-        ack.end();
-    }
+    // No id → can't ack; looping again would refetch the same command forever.
+    if (cmdId < 0) return;
+    HTTPClient ack;
+    ack.begin(String(DASHBOARD_BASE_URL) + "/api/command/" + String(cmdId) + "/ack");
+    ack.addHeader("Authorization", "Bearer " + String(ESP32_API_KEY));
+    ack.POST("");
+    ack.end();
+  }
 }
 
 void saveLastState(float bri, uint16_t ct) {
@@ -1646,7 +1663,18 @@ void tickNormal(float lux, LightTarget target) {
 
 void tickSoftPause() {
     if (millis() - softPauseStart >= softPauseDurationMs) {
-        pauseResumeStartTarget = sentTarget;
+        // R10 — seed the resume ramp from where the user left the lights, not
+        // from the pre-pause sentTarget. A pause usually *starts* because the
+        // user changed the lights; interpolating from sentTarget made the first
+        // resume tick snap back toward pre-pause brightness and then "fade".
+        // Floor lamp is the room proxy (always-driven core light; per-light
+        // seeding comes with R5). Fall back to sentTarget if the floor is off
+        // or its cache is unpopulated.
+        LightState f = cachedLight(LIGHT_FLOOR);
+        pauseResumeStartTarget = {
+            (f.on && f.bri > 0.0f) ? f.bri : sentTarget.bri,
+            (uint16_t)((f.ct > 0)  ? f.ct  : sentTarget.ct)
+        };
         pauseResumeActive      = true;
         pauseResumeStep        = 0;
         overheadsOn            = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
