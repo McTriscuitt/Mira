@@ -313,7 +313,7 @@ Delete the `lastFloorOn` accumulator and its seven sync sites, plus
    same behavior as today.
 
 **Verification:**
-- [ ] Flip floor lamp on in LOCKED_OUT → wake starts ~instantly. *(Naturally exercised tomorrow morning.)*
+- [x] Flip floor lamp on in LOCKED_OUT → wake starts ~instantly. *(July 15, 20:43:54 — user forced wind-down→LOCKED_OUT, flipped the floor lamp off then on; "Wake triggered" landed in the same log-second as the rising-edge event, mid-slot, ~10 s before the next tick. Seeded from the floor's true cached bri (21.34 %). The off-flip also exercised the re-arm falling-edge path, correctly rejected by the hour gate (20 < 21).)*
 - [ ] After 21:00, kill lights in order → dashboard shows LOCKED_OUT within ~1 s of the last off. *(Naturally exercised tonight.)*
 - [x] `grep lastFloorOn src/main.cpp` returns nothing. *(July 15 — accumulator, seven sync sites, and the poll function all deleted; tombstone comments reworded to keep the grep clean.)*
 - [ ] Pull bridge Ethernet for 30 s during LOCKED_OUT, flip floor lamp on, reconnect → synthetic edge fires wake. *(Reconnect + on-task resync itself verified live July 15 via the 10-min stale cycle — clean reconnect, resync GET on the SSE task, no missed-flip enqueues, stack floor 7,020/12,288 free.)*
