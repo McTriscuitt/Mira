@@ -17,8 +17,8 @@ Before ending a session: update the Status table and the per-stage checklist.
 | Stage | Description | Status |
 |---|---|---|
 | 1 | SSE → pinned Core-0 task + event queue + override via dispatcher | **COMPLETE — soak verified (June 12)** — boot, override, mid-batch abort, clobber repair confirmed live June 11. 2-hour telemetry soak June 12 (`Bug Records/June12MorningHeapSoak.md`): heap flat (8,583,419–8,585,031, no trend), SSE stack high-water bottoms at 7,432/12,288 free (floor set by the reconnect TLS handshake, stable across 4 reconnects), echo histogram 18 echo-match / 0 noop / 0 stale-revert / 1 genuine Override, full WAKE ramp + NORMAL handoff clean. Planned overnight soak was cut short by a 1:40 AM Windows Update laptop restart that power-cycled the USB-powered ESP (event log: TrustedInstaller "Operating System: Upgrade (Planned)") — not a firmware fault. Longer-horizon heap watch rolls into Stage 5's 48 h soak item. |
-| 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | **FLASHED + TICK ALIGNMENT VERIFIED (July 14)** — first flash exposed a duplicate-tick bug at slot boundaries (fixed same session — see implementation notes); after the fix, 12 consecutive ticks all on :00/:30 ±1 s including one clean skip-ahead event, heap flat, SSE stack floor 10,040. Dashboard command apply confirmed live (`SET_SOFT_PAUSE_REMAINING`). Remaining: full state-machine day + override regression (checklist below). |
-| 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | NOT STARTED |
+| 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | **COMPLETE — soak verified (July 14–15, user-accepted)** — overnight soak (`logs/device-monitor-260714-180314.log`): one uninterrupted boot session ~6 h+ (SSE stack watermark continuity 10,040→7,432→7,388→7,340 proves no reboot), heap flat at ~8,584,600 ± 400 B, every tick on :00/:30 with clean skip-ahead events, dashboard commands applied (SOFT_PAUSE + 4× `SET_SOFT_PAUSE_REMAINING`), natural SOFT_PAUSE→resume→wind-down→LOCKED_OUT progression while unobserved. The 10-min `SSE: stale` reconnect cadence on an idle evening is designed behavior (no Hue v2 keepalive). Both capture gaps were host-side: laptop Modern Standby 8:43 PM–12:20 AM, then a Windows Update restart at 1:38 AM killed the logger (device kept running; COM5 re-enumerated). Override regression not explicitly re-run — accepted; Stage 1 path unchanged by Stage 2 and covered by the cross-stage checklist after Stages 4/5. |
+| 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | IN PROGRESS (July 15) |
 | 4 | Ramps & soft-pause expiry → soft timers | NOT STARTED |
 | 5 | Dashboard networking → dedicated task (unblocks N2 long-poll) | NOT STARTED |
 
@@ -224,10 +224,10 @@ another event. Ticks align to wall-clock :00/:30 (N5).
    marker. `forceState()` stays fully live (dashboard commands use it).
 
 **Verification:**
-- [x] Ticks land on :00/:30 (Serial timestamps; dashboard timeline points on clean boundaries). *(July 14 — 12/12 ticks on-boundary ±1 s over 6 min post-fix, incl. one clean skip-ahead. See duplicate-tick finding below.)*
-- [ ] One full state-machine day: wake (floor-lamp flip), NORMAL curve, wind-down, lockout re-arm.
-- [x] Dashboard commands still apply (still ≤30 s latency at this stage — expected). *(July 14 — `SET_SOFT_PAUSE_REMAINING 118` polled + applied live during first capture.)*
-- [ ] Override path from Stage 1 still works end-to-end.
+- [x] Ticks land on :00/:30 (Serial timestamps; dashboard timeline points on clean boundaries). *(July 14 — 12/12 ticks on-boundary ±1 s over 6 min post-fix, incl. one clean skip-ahead. Reconfirmed across the July 14–15 overnight soak: every logged tick on-boundary, multiple clean skip-aheads.)*
+- [x] One full state-machine day: wake (floor-lamp flip), NORMAL curve, wind-down, lockout re-arm. *(July 14–15 soak, user-accepted: NORMAL → SOFT_PAUSE (dashboard) → auto-resume → wind-down → LOCKED_OUT confirmed by the 12:20 AM capture; wake leg + re-arm not directly observed (laptop slept 8:43 PM–12:20 AM) — they get re-verified under Stage 3 anyway, where both move to SSE dispatch.)*
+- [x] Dashboard commands still apply (still ≤30 s latency at this stage — expected). *(July 14 — `SET_SOFT_PAUSE_REMAINING 118` polled + applied live during first capture; soak added SOFT_PAUSE + 4 more remaining-time commands.)*
+- [x] Override path from Stage 1 still works end-to-end. *(Accepted without an explicit re-run July 15 — Stage 2 didn't touch the classification/dispatch path; covered again by the cross-stage regression checklist.)*
 
 **Implementation notes (July 14, 2026 — code complete):**
 - Tick body extracted verbatim into `dispatchLuxTick()`; dispatched via a real
