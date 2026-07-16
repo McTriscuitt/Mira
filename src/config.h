@@ -19,6 +19,14 @@
 // Hour (24h, local time) after which all-lights-off resets the morning lockout
 #define LOCKOUT_RESET_HOUR 21
 
+// Hour (24h, local time) after which the stable-lux counter may accumulate
+// toward WIND_DOWN. Earliest possible wind-down completion is this hour
+// + 30 min (counter: 60 low-lux readings) + 60 min (ramp) — gate 19 → done by
+// 20:30 when the room is already dark at 19:00; a brighter evening pushes it
+// later (lux stays in charge, the hour only sets the floor). Lowered from 21
+// on July 15, 2026 — schedule change, user wants lights down by ~8:30 PM.
+#define WIND_DOWN_GATE_HOUR 19
+
 // Cache indices into lightCache[] in main.cpp (Phase 3 — repurposed from old v1 integer IDs).
 // These index the LIGHT_UUID_* defines in secrets.h (resolved via idxByUuid/lightUuid).
 #define LIGHT_CHEST    0   // was LIGHT_BEDSIDE

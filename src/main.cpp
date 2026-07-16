@@ -76,7 +76,7 @@ enum class State { LOCKED_OUT, NORMAL, WAKE, WIND_DOWN, SOFT_PAUSE, HARD_OFF };
 volatile State state = State::NORMAL;
 
 // Wind-down state
-int   stableLuxCount  = 0;      // weighted counter: increments when lux in [2, 8] after 9 PM, decrements otherwise (floor 0)
+int   stableLuxCount  = 0;      // weighted counter: increments when lux ≤ 10 after WIND_DOWN_GATE_HOUR, decrements otherwise (floor 0)
 int   windDownStep    = 0;      // 0–120 (120 steps × 30 s = 60 min)
 float windDownStartBri = 0.0f;  // bri at the moment wind-down triggered
 
@@ -1757,7 +1757,7 @@ void tickNormal(float lux, LightTarget target) {
         return;
     }
 
-    if (lux <= 10 && timeClient.getHours() >= 21) {
+    if (lux <= 10 && timeClient.getHours() >= WIND_DOWN_GATE_HOUR) {
         stableLuxCount++;
         Serial.print("stableLuxCount: "); Serial.println(stableLuxCount);
     } else {
