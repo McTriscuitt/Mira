@@ -18,7 +18,7 @@ Before ending a session: update the Status table and the per-stage checklist.
 |---|---|---|
 | 1 | SSE → pinned Core-0 task + event queue + override via dispatcher | **COMPLETE — soak verified (June 12)** — boot, override, mid-batch abort, clobber repair confirmed live June 11. 2-hour telemetry soak June 12 (`Bug Records/June12MorningHeapSoak.md`): heap flat (8,583,419–8,585,031, no trend), SSE stack high-water bottoms at 7,432/12,288 free (floor set by the reconnect TLS handshake, stable across 4 reconnects), echo histogram 18 echo-match / 0 noop / 0 stale-revert / 1 genuine Override, full WAKE ramp + NORMAL handoff clean. Planned overnight soak was cut short by a 1:40 AM Windows Update laptop restart that power-cycled the USB-powered ESP (event log: TrustedInstaller "Operating System: Upgrade (Planned)") — not a firmware fault. Longer-horizon heap watch rolls into Stage 5's 48 h soak item. |
 | 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | **COMPLETE — soak verified (July 14–15, user-accepted)** — overnight soak (`logs/device-monitor-260714-180314.log`): one uninterrupted boot session ~6 h+ (SSE stack watermark continuity 10,040→7,432→7,388→7,340 proves no reboot), heap flat at ~8,584,600 ± 400 B, every tick on :00/:30 with clean skip-ahead events, dashboard commands applied (SOFT_PAUSE + 4× `SET_SOFT_PAUSE_REMAINING`), natural SOFT_PAUSE→resume→wind-down→LOCKED_OUT progression while unobserved. The 10-min `SSE: stale` reconnect cadence on an idle evening is designed behavior (no Hue v2 keepalive). Both capture gaps were host-side: laptop Modern Standby 8:43 PM–12:20 AM, then a Windows Update restart at 1:38 AM killed the logger (device kept running; COM5 re-enumerated). Override regression not explicitly re-run — accepted; Stage 1 path unchanged by Stage 2 and covered by the cross-stage checklist after Stages 4/5. |
-| 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | **CODE COMPLETE + FLASHED (July 15, `6b478b6`)** — boots clean, SSE reconnect + on-task resync verified live (20:04 stale cycle), `checkFloorState()`/accumulator deleted, grep clean. `ECHO_TRACE` on for the soak. Remaining: live wake flip, tonight's re-arm, pull-the-Ethernet resync test (checklist below). Side quest: R3's `setCACert()` approach failed on hardware (CN mismatch — see Decisions Log) and was revised to manual pin comparison; the `ensureBridgeCert()` boot probe had been silently failing + re-fetching every boot for the same reason, now fixed. |
+| 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | **CODE COMPLETE + FLASHED (July 15, `6b478b6`); wake edge VERIFIED live** — boots clean; SSE reconnect + on-task resync verified live (20:04 stale cycle); `checkFloorState()`/accumulator deleted, grep clean; **instant wake confirmed 20:43:54** (floor flip in LOCKED_OUT → "Wake triggered" same second, mid-slot). `ECHO_TRACE` on for the soak. Remaining: first natural re-arm (evening), pull-the-Ethernet resync test (checklist below). Same-day follow-up (`56d2841`/`6b2646d`): `WIND_DOWN_GATE_HOUR 19` + `LOCKOUT_RESET_MIN_OF_DAY 1230` (schedule shift; re-arm gate now minute-granular). Side quest: R3's `setCACert()` approach failed on hardware (CN mismatch — see Decisions Log) and was revised to manual pin comparison; the `ensureBridgeCert()` boot probe had been silently failing + re-fetching every boot for the same reason, now fixed. |
 | 4 | Ramps & soft-pause expiry → soft timers | NOT STARTED |
 | 5 | Dashboard networking → dedicated task (unblocks N2 long-poll) | NOT STARTED |
 
@@ -327,10 +327,11 @@ Delete the `lastFloorOn` accumulator and its seven sync sites, plus
   (Override) / revertSlot (StaleRevert) / -1 (edge-only).
 - `dispatchSseLight()` (main task): Stage-1 Override/StaleRevert actions
   first, then the wake block (LOCKED_OUT + floor rising edge →
-  `triggerWake(lastLux)`) and the re-arm block (falling edge, hour ≥
-  `LOCKOUT_RESET_HOUR`, floor+chest+dresser+ceil1 all off in cache → 
-  LOCKED_OUT; resets counters, clears exclusions, cancels resume ramp; logs
-  only on an actual state change). If an Override rode in on the same event,
+  `triggerWake(lastLux)`) and the re-arm block (falling edge, time-of-day ≥
+  `LOCKOUT_RESET_MIN_OF_DAY` (minute-granular since the July 15 schedule
+  shift; was hour-granular `LOCKOUT_RESET_HOUR`), floor+chest+dresser+ceil1
+  all off in cache → LOCKED_OUT; resets counters, clears exclusions, cancels
+  resume ramp; logs only on an actual state change). If an Override rode in on the same event,
   its pause applies first and re-arm supersedes it — intended precedence.
 - `bootstrapLightStates(bool enqueueEdges=false)`: cache writes now under
   `dataMux`; boot call (setup, enqueueEdges=false) never enqueues (floor

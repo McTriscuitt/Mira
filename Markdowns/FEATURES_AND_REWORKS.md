@@ -49,6 +49,12 @@ mark it **SHIPPED** here (don't delete — the IDs stay referenceable).
 
 ## N1 — Event-driven reactive core *(the architecture question)*
 
+> **IN PROGRESS — Stages 1–3 of 5 SHIPPED** (Stage 1 June 11, Stage 2 July 14,
+> Stage 3 July 15 — **G22 + G23 are live**: wake/re-arm via SSE edge dispatch,
+> `checkFloorState()`/`lastFloorOn` deleted, reconnect resync with synthetic
+> edges). Stages 4 (soft timers) + 5 (network task) pending. Status/specs:
+> `N1_MIGRATION.md`.
+
 > CLAUDE.md / SSE_BRAINSTORM note: "how can we turn this into an sse/event
 > driven/reactive system, so that the 30 second tick interval is solely for
 > updating brightness?"
@@ -230,6 +236,13 @@ Streaming every `Serial.print` over HTTPS would, yes. Three bounded designs:
 
 ## N5 — Ticks aligned to :00 / :30
 
+> **SHIPPED (July 14, 2026, `4b10a9a` — rode along N1 Stage 2.)** `ALIGNED_TICKS`
+> in config.h, commentable as specced. One deviation from the sketch below: a
+> computed slot under 5 s means the just-fired tick was the boundary tick, so
+> the scheduler skips to the *following* boundary — the naive remainder-slot
+> version double-fired the same boundary (duplicate-tick bug, found+fixed on
+> first flash; see N1_MIGRATION.md Stage 2 hardware finding).
+
 > CLAUDE.md note: "change it so that polls happen on :00 and :30, instead of
 > whenever the system reflashes. make it commentable so that it can be ignored
 > for testing."
@@ -409,7 +422,7 @@ compiled defaults, NVS overrides, and dashboard editing.
 
 - Members: curve constants (`S4_*`, `S3_*`, `S2_*`, `S1_*`, `CT_COOL/WARM`),
   `STATE_TOLERANCE_*`, `SOFT_PAUSE_MS`, `WAKE_RAMP_TICKS`, `PAUSE_RESUME_TICKS`,
-  `LOCKOUT_RESET_HOUR`, stable-lux threshold/window, plus a `version` field
+  `LOCKOUT_RESET_MIN_OF_DAY`, `WIND_DOWN_GATE_HOUR`, stable-lux threshold/window, plus a `version` field
   (bump → fall back to compiled defaults on mismatch).
 - `Preferences` namespace `"miracfg"`; load-or-default in `setup()`.
 - Dashboard: owner-only settings page; `SET_CONFIG` command (bulk JSON);
@@ -435,8 +448,8 @@ Effort: small once R6 exists; the codegen variant is small standalone.
 
 ## R8 — Real timezone handling (SNTP + POSIX TZ)
 
-A fixed `UTC_OFFSET_SEC` silently shifts `hour >= 21` (wind-down eligibility)
-and `LOCKOUT_RESET_HOUR` by an hour at every DST transition — twice a year, the
+A fixed `UTC_OFFSET_SEC` silently shifts `WIND_DOWN_GATE_HOUR` (wind-down eligibility)
+and `LOCKOUT_RESET_MIN_OF_DAY` by an hour at every DST transition — twice a year, the
 evening behavior moves. Plus the offset is currently documented inconsistently
 (Doc Drift #1).
 
@@ -537,9 +550,10 @@ Effort: small. Constants → R6.
 
 ## F2 — Solar-aware evening gates *(closes the seasonal blind spot)*
 
-Mira's stated design goal is seasonal adaptivity, but `hour >= 21` (wind-down
-eligibility in `tickNormal`) and `LOCKOUT_RESET_HOUR 21` are the hard-coded
-exceptions. In December, civil dusk in San Antonio is ~5:40 PM — the room sits
+Mira's stated design goal is seasonal adaptivity, but `WIND_DOWN_GATE_HOUR 19`
+(wind-down eligibility in `tickNormal`; was a hard-coded 21 until July 15, 2026)
+and `LOCKOUT_RESET_MIN_OF_DAY 1230` (was `LOCKOUT_RESET_HOUR 21`) are the
+hard-coded exceptions. In December, civil dusk in San Antonio is ~5:40 PM — the room sits
 in the dark band for 3+ hours before wind-down is even *eligible*; in June, dusk
 is ~8:40 PM and 21:00 is about right.
 

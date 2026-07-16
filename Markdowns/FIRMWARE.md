@@ -1,5 +1,12 @@
 # Mira Project — Claude Code Context
 
+> **⚠ STALE in places (as of July 15, 2026):** written before the N1 migration
+> (Stages 1–3 shipped — Core-0 SSE task, consumer/dispatcher `loop()`, wake +
+> lockout re-arm via SSE edge dispatch; `checkFloorState()`/`lastFloorOn`
+> deleted; buttons commented out; `WIND_DOWN_GATE_HOUR 19` /
+> `LOCKOUT_RESET_MIN_OF_DAY 1230` replaced the hard-coded 21s). Where this doc
+> disagrees with `CLAUDE.md`, `N1_MIGRATION.md`, or `SSE.md`, **those win**.
+
 This file provides full project context for AI-assisted development.
 Read this before writing or modifying any code.
 

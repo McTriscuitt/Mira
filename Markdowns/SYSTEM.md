@@ -1,5 +1,13 @@
 # SYSTEM.md — Walkthrough of `src/main.cpp`
 
+> **⚠ STALE in places (as of July 15, 2026):** this walkthrough predates the
+> N1 migration (Stages 1–3 shipped — event queue + Core-0 SSE task,
+> consumer/dispatcher `loop()`, SSE-edge-driven wake/re-arm in
+> `dispatchSseLight()`; `checkFloorState()`/`lastFloorOn` deleted; buttons
+> commented out; manual cert pinning via `peerMatchesPinned()`). Line numbers
+> and the wait-loop/tick structure no longer match. Where this doc disagrees
+> with `CLAUDE.md`, `N1_MIGRATION.md`, or `SSE.md`, **those win**.
+
 A linear, in-depth tour of the only translation unit in the firmware. Every global, helper, and tick function is described in the order it appears, with the design rationale for each. SSE coverage is exhaustive — that's where most of the system's hard problems live.
 
 Companion docs (`SSE.md`, `SSE v1.0 Awkward Structure.md`, `FIRMWARE.md`) cover the same code from focused angles; this doc is the file-internal view.
