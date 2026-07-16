@@ -340,9 +340,9 @@ Delete the `lastFloorOn` accumulator and its seven sync sites, plus
   ordinary SseLight edge events.
 - `ECHO_TRACE` enabled for the Stage 3 soak (Serial-only) — turn off at the
   Stage 4 flash.
-- Build: RAM 18.3 %, flash 31.1 %. Boot state note: `state` still initializes
-  to NORMAL (pre-existing; CLAUDE.md's "LOCKED_OUT at boot" is doc drift to
-  resolve separately).
+- Build: RAM 18.3 %, flash 31.1 %. Boot state: `state` initializes to NORMAL —
+  user confirmed July 15 that NORMAL is the intended boot default (CLAUDE.md's
+  old "LOCKED_OUT at boot" wording was the drift, now fixed).
 
 ---
 
