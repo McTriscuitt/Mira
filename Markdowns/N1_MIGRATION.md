@@ -18,8 +18,8 @@ Before ending a session: update the Status table and the per-stage checklist.
 |---|---|---|
 | 1 | SSE → pinned Core-0 task + event queue + override via dispatcher | **COMPLETE — soak verified (June 12)** — boot, override, mid-batch abort, clobber repair confirmed live June 11. 2-hour telemetry soak June 12 (`Bug Records/June12MorningHeapSoak.md`): heap flat (8,583,419–8,585,031, no trend), SSE stack high-water bottoms at 7,432/12,288 free (floor set by the reconnect TLS handshake, stable across 4 reconnects), echo histogram 18 echo-match / 0 noop / 0 stale-revert / 1 genuine Override, full WAKE ramp + NORMAL handoff clean. Planned overnight soak was cut short by a 1:40 AM Windows Update laptop restart that power-cycled the USB-powered ESP (event log: TrustedInstaller "Operating System: Upgrade (Planned)") — not a firmware fault. Longer-horizon heap watch rolls into Stage 5's 48 h soak item. |
 | 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | **COMPLETE — soak verified (July 14–15, user-accepted)** — overnight soak (`logs/device-monitor-260714-180314.log`): one uninterrupted boot session ~6 h+ (SSE stack watermark continuity 10,040→7,432→7,388→7,340 proves no reboot), heap flat at ~8,584,600 ± 400 B, every tick on :00/:30 with clean skip-ahead events, dashboard commands applied (SOFT_PAUSE + 4× `SET_SOFT_PAUSE_REMAINING`), natural SOFT_PAUSE→resume→wind-down→LOCKED_OUT progression while unobserved. The 10-min `SSE: stale` reconnect cadence on an idle evening is designed behavior (no Hue v2 keepalive). Both capture gaps were host-side: laptop Modern Standby 8:43 PM–12:20 AM, then a Windows Update restart at 1:38 AM killed the logger (device kept running; COM5 re-enumerated). Override regression not explicitly re-run — accepted; Stage 1 path unchanged by Stage 2 and covered by the cross-stage checklist after Stages 4/5. |
-| 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | **CODE COMPLETE + FLASHED (July 15, `6b478b6`); wake edge VERIFIED live** — boots clean; SSE reconnect + on-task resync verified live (20:04 stale cycle); `checkFloorState()`/accumulator deleted, grep clean; **instant wake confirmed 20:43:54** (floor flip in LOCKED_OUT → "Wake triggered" same second, mid-slot). `ECHO_TRACE` on for the soak. Remaining: first natural re-arm (evening), pull-the-Ethernet resync test (checklist below). Same-day follow-up (`56d2841`/`6b2646d`): `WIND_DOWN_GATE_HOUR 19` + `LOCKOUT_RESET_MIN_OF_DAY 1230` (schedule shift; re-arm gate now minute-granular). Side quest: R3's `setCACert()` approach failed on hardware (CN mismatch — see Decisions Log) and was revised to manual pin comparison; the `ensureBridgeCert()` boot probe had been silently failing + re-fetching every boot for the same reason, now fixed. |
-| 4 | Ramps & soft-pause expiry → soft timers | NOT STARTED |
+| 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | **COMPLETE — overnight soak user-accepted (July 15–16)** — soak (`logs/device-monitor-260715-210725.log`): dashboard-forced wind-down completed 21:10 → LOCKED_OUT via normal completion handoff; user's floor-lamp off-flip 21:26:08 exercised the re-arm falling-edge path as a harmless no-op re-clear (already LOCKED_OUT — floor stays on as the night-light at wind-down completion, so the all-off condition first holds when the user kills the floor lamp); heap flat ~8,584,900 B; SSE stack floor 6,880/12,288 across multiple reconnects; zero false overrides. Capture gaps host-side again (Modern Standby 21:26→01:59; port dead from 03:22). Wake edge verified live July 15 20:43:54 (Stage 3 flash day). *Not strictly exercised:* re-arm from a non-LOCKED_OUT state, Ethernet-pull synthetic-edge wake — both folded into the cross-stage checklist. Same-day follow-up (`56d2841`/`6b2646d`): `WIND_DOWN_GATE_HOUR 19` + `LOCKOUT_RESET_MIN_OF_DAY 1230` (schedule shift; re-arm gate now minute-granular). Side quest: R3's `setCACert()` approach failed on hardware (CN mismatch — see Decisions Log) and was revised to manual pin comparison; the `ensureBridgeCert()` boot probe had been silently failing + re-fetching every boot for the same reason, now fixed. |
+| 4 | Ramps & soft-pause expiry → soft timers | **CODE COMPLETE + FLASHED (July 16)** — reconciler design (see Decisions Log); `ECHO_TRACE` off; boots clean, ticks on :00/:30, curve driving in NORMAL. Ramp timers await first live transitions (tonight's natural wind-down; dashboard pause/extend/expiry checks below). |
 | 5 | Dashboard networking → dedicated task (unblocks N2 long-poll) | NOT STARTED |
 
 Each stage is **independently shippable**: compiles, flashes, runs a full day.
@@ -63,6 +63,22 @@ One git commit per stage minimum. Verify before moving on.
   is sent before the check passes: the boot probe and the SSE stream. The
   HTTPClient paths (`setLight*`/bootstrap GET) transmit on connect, so they
   stay insecure-mode TLS and inherit the boot-time identity check.
+- **July 16, 2026 — Stage 4 uses a reconciler, not per-site arm/disarm.** The
+  plan's "forceState() becomes the single place transitions arm/disarm timers"
+  doesn't survive contact with the code: six transitions bypass `forceState()`
+  entirely (wake completion, wind-down completion, `tickNormal`→WIND_DOWN,
+  `applyOverridePause`, SSE re-arm, pause expiry). Instead `syncSoftTimers()`
+  runs every `loop()` pass and derives the active-timer set purely from
+  `(state, pauseResumeActive)` — zero arm/disarm sites, no transition can leak
+  a timer. The pause-expiry one-shot's deadline is recomputed from
+  `softPauseStart + softPauseDurationMs` each pass, so `SET_SOFT_PAUSE_REMAINING`
+  re-aims it with no special handling. Ramp timers arm due-now: a dashboard
+  WIND_DOWN/WAKE command or SSE wake edge now PUTs on the next loop pass
+  (~50 ms) instead of waiting for the next 30 s boundary — a small deliberate
+  improvement over the old same-tick/next-tick behavior. `expireSoftPause()`
+  re-checks elapsed-vs-duration on fire to reject a queued-but-stale expiry
+  racing an extend command (FIFO: a LuxTick carrying the extend can sit ahead
+  of the TimerFire in the queue).
 
 ---
 
@@ -314,7 +330,7 @@ Delete the `lastFloorOn` accumulator and its seven sync sites, plus
 
 **Verification:**
 - [x] Flip floor lamp on in LOCKED_OUT → wake starts ~instantly. *(July 15, 20:43:54 — user forced wind-down→LOCKED_OUT, flipped the floor lamp off then on; "Wake triggered" landed in the same log-second as the rising-edge event, mid-slot, ~10 s before the next tick. Seeded from the floor's true cached bri (21.34 %). The off-flip also exercised the re-arm falling-edge path, correctly rejected by the hour gate (20 < 21).)*
-- [ ] After 21:00, kill lights in order → dashboard shows LOCKED_OUT within ~1 s of the last off. *(Naturally exercised tonight.)*
+- [x] After 21:00, kill lights in order → dashboard shows LOCKED_OUT within ~1 s of the last off. *(July 15–16 soak: path exercised as a no-op re-clear only — wind-down completion had already locked out before the user's 21:26:08 floor-lamp off-flip completed the all-off condition. Accepted; a from-NORMAL re-arm rides in the cross-stage checklist.)*
 - [x] `grep lastFloorOn src/main.cpp` returns nothing. *(July 15 — accumulator, seven sync sites, and the poll function all deleted; tombstone comments reworded to keep the grep clean.)*
 - [ ] Pull bridge Ethernet for 30 s during LOCKED_OUT, flip floor lamp on, reconnect → synthetic edge fires wake. *(Reconnect + on-task resync itself verified live July 15 via the 10-min stale cycle — clean reconnect, resync GET on the SSE task, no missed-flip enqueues, stack floor 7,020/12,288 free.)*
 
@@ -379,6 +395,34 @@ the 30 s tick's only job is the curve.
 - [ ] Dashboard slider seeks (wake step, wind-down step) still pin and apply.
 - [ ] Soft pause expires on time; `+10 min` extend and remaining-time slider re-arm correctly (including past 60 min).
 - [ ] Pause → manual dim → expiry → resume ramp still interpolates over 10 min.
+
+**Implementation notes (July 16, 2026 — code complete, flashed):**
+- Deviation from the sketch above: no per-site timer lifecycle. `syncSoftTimers()`
+  reconciles the active-timer set with `(state, pauseResumeActive)` every
+  `loop()` pass (≤50 ms); `softTimersTick()` then enqueues `TimerFire{a=id}` for
+  due timers. See the July 16 Decisions Log entry for the rationale and the
+  stale-expiry guard.
+- IDs per the sketch: `TIMER_WAKE_STEP` / `TIMER_WINDDOWN_STEP` /
+  `TIMER_RESUME_STEP` (30 s periodic, `RAMP_STEP_MS`) + `TIMER_PAUSE_EXPIRY`
+  (one-shot at `softPauseStart + softPauseDurationMs`, re-aimed by the
+  reconciler whenever the deadline moves).
+- `dispatchTimerFire()` re-checks state (and `pauseResumeActive` for resume) on
+  every fire — a fire queued just before a transition is a no-op, since the
+  reconciler only disarms on the next pass.
+- Ramp bodies unchanged: `tickWakeRamp(lastLux)` / `tickWindDown()` fire from
+  timers; the resume block moved out of `tickNormal()` verbatim into
+  `advanceResumeRamp()` (target from `luxToTarget(lastLux)`); `tickSoftPause()`
+  became `expireSoftPause()` (elapsed re-check kept as the stale-fire guard).
+  `tickNormal()` still early-returns while `pauseResumeActive` (edge detection
+  runs, stable-lux counting and curve PUTs suppressed — same as before).
+- `dispatchLuxTick()`'s WAKE/WIND_DOWN/SOFT_PAUSE cases are now empty; the tick
+  still refreshes `lastLux`, polls commands, and POSTs status in every state.
+- Periodic re-arm is beat-anchored (`dueMs += periodMs`) with missed-beat skip
+  (no catch-up bursts after a long blocking HTTP call); queue-full leaves the
+  deadline armed and retries next pass — same policies as the LuxTick scheduler.
+- `ECHO_TRACE` off (Stage 3 soak done). Build: RAM 18.3 %, flash 31.2 %.
+  Boot verified live 19:22: ticks on :00/:30, curve driving in NORMAL, heap
+  ~8,583,800, SSE stack watermark 10,216.
 
 ---
 

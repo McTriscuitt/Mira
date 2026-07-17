@@ -92,8 +92,8 @@ unsigned long softPauseStart = 0;
 // and the remaining-time slider rewrites it. Kept separate from the fixed
 // SOFT_PAUSE_MS so an extend past 60 min just enlarges the target rather than
 // pushing softPauseStart into the future (which would wrap the unsigned millis()
-// subtraction and fire an immediate resume). tickSoftPause()/sendDashboardStatus()
-// measure against this, not the constant.
+// subtraction and fire an immediate resume). TIMER_PAUSE_EXPIRY (via
+// syncSoftTimers) and sendDashboardStatus() measure against this, not the constant.
 unsigned long softPauseDurationMs = SOFT_PAUSE_MS;
 
 // Soft pause resume ramp
@@ -154,9 +154,9 @@ const int   TRAJECTORY_TOLERANCE_CT  = 15;
 // kept since boot and included in the override-fire dashboard dump so we can
 // see the *distribution* of decisions, not just the one that fired SOFT_PAUSE.
 // Uncomment ECHO_TRACE for verbose per-event Serial output during tuning.
-// (Enabled July 15 for the Stage 3 edge-dispatch soak — Serial-only noise;
-// turn back off at the Stage 4 flash.)
-#define ECHO_TRACE 1
+// (Was on July 15–16 for the Stage 3 edge-dispatch soak; off again at the
+// Stage 4 flash per plan.)
+// #define ECHO_TRACE 1
 
 enum class EchoOutcome : uint8_t {
     UnknownUuid = 0,    // event for a UUID outside lightCache[]
@@ -250,6 +250,31 @@ TaskHandle_t  sseTaskHandle = nullptr;
 // scheduleNextLuxTick() (aligned to :00/:30 under ALIGNED_TICKS — N5), checked
 // by serviceLuxTickSchedule() in loop() with rollover-safe signed subtraction.
 uint32_t nextLuxTickDueMs = 0;
+
+// ── N1 Stage 4 — soft timers ────────────────────────────────────────────────
+// Ramp advancement and soft-pause expiry run on their own deadlines so the
+// LuxTick's only job is the curve. Nothing arms or disarms these at the
+// transition sites: syncSoftTimers() reconciles the set of active timers with
+// (state, pauseResumeActive) on every loop() pass, so a transition made
+// anywhere — forceState, wake/wind-down completion, SSE re-arm, override
+// pause, pause expiry — picks up the right timers within ~50 ms and can never
+// leak one. Ramp timers arm with an immediate first fire, so a dashboard
+// WIND_DOWN/WAKE command (or an SSE wake edge) starts its ramp on the next
+// loop() pass instead of waiting out the 30 s tick boundary.
+enum : uint8_t {
+    TIMER_WAKE_STEP = 0,   // 30 s periodic — advances tickWakeRamp()
+    TIMER_WINDDOWN_STEP,   // 30 s periodic — advances tickWindDown()
+    TIMER_RESUME_STEP,     // 30 s periodic — advances the pause-resume ramp
+    TIMER_PAUSE_EXPIRY,    // one-shot — due at softPauseStart + softPauseDurationMs
+    SOFT_TIMER_COUNT
+};
+struct SoftTimer {
+    bool     active   = false;
+    uint32_t dueMs    = 0;  // absolute millis() deadline (signed-diff compared)
+    uint32_t periodMs = 0;  // 0 → one-shot
+};
+SoftTimer softTimers[SOFT_TIMER_COUNT];
+const uint32_t RAMP_STEP_MS = 30000UL; // step cadence for all three ramps
 
 // Mid-batch abort flag. Set by the SSE task the instant it classifies an
 // Override; checked at the top of setLight()/setLightColor(). The Override
@@ -1298,6 +1323,7 @@ static void reassertRecentPut(int idx, int slot) {
 }
 
 static void dispatchLuxTick(); // defined below the tick functions — N1 Stage 2
+static void dispatchTimerFire(const Event& ev); // defined below the tick functions — Stage 4
 void triggerWake(float ambientLux); // defined with the tick functions — Stage 3 edge dispatch
 
 // Stage 3 (G22+G23) — SseLight dispatch on the main task. Applies the Stage 1
@@ -1360,8 +1386,11 @@ static void dispatchEvent(const Event& ev) {
         case EvType::SseLight:
             dispatchSseLight(ev);
             break;
+        case EvType::TimerFire:
+            dispatchTimerFire(ev);
+            break;
         default:
-            break; // TimerFire / DashboardCmd arrive in later stages
+            break; // DashboardCmd arrives in Stage 5
     }
 }
 
@@ -1538,8 +1567,9 @@ void pollDashboardCommand() {
     // cmdValue is the absolute minutes-remaining target from *now*. Recomputed as
     // (already-elapsed + requested remaining) so softPauseStart stays put and the
     // unsigned millis() math never wraps — extends past 60 min just enlarge the
-    // target. Dragging to 0 ends the pause on the next tickSoftPause() (elapsed >=
-    // duration → resume ramp). The extend button is absolute (displayed + 10) on
+    // target. Dragging to 0 puts the TIMER_PAUSE_EXPIRY deadline in the past, so
+    // the pause ends on the next loop() pass (Stage 4 — was the next tick).
+    // The extend button is absolute (displayed + 10) on
     // the dashboard side, so rapid taps converge instead of cancelling to +10.
     else if (cmd == "SET_SOFT_PAUSE_REMAINING" && state == State::SOFT_PAUSE && cmdValue >= 0) {
         softPauseDurationMs = (millis() - softPauseStart) + (unsigned long)cmdValue * 60000UL;
@@ -1731,31 +1761,11 @@ void tickNormal(float lux, LightTarget target) {
     }
     chestOn = newChestOn;
 
-    // Soft pause resume ramp — drift from pre-pause bri/ct to current ambient over 10 min
-    if (pauseResumeActive) {
-        pauseResumeStep++;
-        float t       = min(pauseResumeStep / (float)PAUSE_RESUME_TICKS, 1.0f);
-        float rampBri = pauseResumeStartTarget.bri + t * (target.bri - pauseResumeStartTarget.bri);
-        int   rampCt  = (int)(pauseResumeStartTarget.ct  + t * (target.ct  - pauseResumeStartTarget.ct));
-        rampBri       = constrain(rampBri, 1.0f, 100.0f);
-        rampCt        = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
-        cyclePut(LIGHT_FLOOR,   true, rampBri, rampCt, 30000);
-        if (chestOn) cyclePut(LIGHT_CHEST, true, rampBri, rampCt, 30000);
-        cyclePut(LIGHT_DRESSER, true, rampBri, rampCt, 30000);
-        if (overheadsOn) {
-            cyclePut(LIGHT_CEIL_1, true, rampBri, rampCt, 30000);
-            // cyclePut(LIGHT_CEIL_2, true, rampBri, rampCt, 30000);
-        }
-        sentTarget = {rampBri, (uint16_t)rampCt};
-        saveLastState(rampBri, (uint16_t)rampCt);
-        Serial.println("Resume ramp " + String(pauseResumeStep) + "/" + String(PAUSE_RESUME_TICKS) +
-                       " — bri=" + String(rampBri, 1) + "%, ct=" + String(rampCt));
-        if (pauseResumeStep >= PAUSE_RESUME_TICKS) {
-            pauseResumeActive = false;
-            Serial.println("Resume ramp complete.");
-        }
-        return;
-    }
+    // Resume-ramp advancement lives on TIMER_RESUME_STEP now (Stage 4 —
+    // advanceResumeRamp() below). While the ramp runs, the curve tick still
+    // does the edge detection above but must not count stable lux or fight
+    // the ramp's PUTs, so it bows out here just like it always did.
+    if (pauseResumeActive) return;
 
     if (lux <= 10 && timeClient.getHours() >= WIND_DOWN_GATE_HOUR) {
         stableLuxCount++;
@@ -1792,28 +1802,61 @@ void tickNormal(float lux, LightTarget target) {
     }
 }
 
-void tickSoftPause() {
-    if (millis() - softPauseStart >= softPauseDurationMs) {
-        // R10 — seed the resume ramp from where the user left the lights, not
-        // from the pre-pause sentTarget. A pause usually *starts* because the
-        // user changed the lights; interpolating from sentTarget made the first
-        // resume tick snap back toward pre-pause brightness and then "fade".
-        // Floor lamp is the room proxy (always-driven core light; per-light
-        // seeding comes with R5). Fall back to sentTarget if the floor is off
-        // or its cache is unpopulated.
-        LightState f = cachedLight(LIGHT_FLOOR);
-        pauseResumeStartTarget = {
-            (f.on && f.bri > 0.0f) ? f.bri : sentTarget.bri,
-            (uint16_t)((f.ct > 0)  ? f.ct  : sentTarget.ct)
-        };
-        pauseResumeActive      = true;
-        pauseResumeStep        = 0;
-        overheadsOn            = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
-        chestOn                = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
-        state                  = State::NORMAL;
-        Serial.println("Soft pause expired — beginning 10-min resume ramp.");
-        sendLog("Soft pause expired — resuming — " + getTimeString());
+// Stage 4 — one step of the 10-min soft-pause resume ramp, fired by
+// TIMER_RESUME_STEP. Body unchanged from its old home inside tickNormal();
+// the ambient target now comes from lastLux (≤30 s old) instead of the
+// enclosing tick's fresh read.
+void advanceResumeRamp() {
+    LightTarget target = luxToTarget(lastLux);
+    pauseResumeStep++;
+    float t       = min(pauseResumeStep / (float)PAUSE_RESUME_TICKS, 1.0f);
+    float rampBri = pauseResumeStartTarget.bri + t * (target.bri - pauseResumeStartTarget.bri);
+    int   rampCt  = (int)(pauseResumeStartTarget.ct  + t * (target.ct  - pauseResumeStartTarget.ct));
+    rampBri       = constrain(rampBri, 1.0f, 100.0f);
+    rampCt        = constrain(rampCt, (int)CT_COOL, (int)CT_WARM);
+    cyclePut(LIGHT_FLOOR,   true, rampBri, rampCt, 30000);
+    if (chestOn) cyclePut(LIGHT_CHEST, true, rampBri, rampCt, 30000);
+    cyclePut(LIGHT_DRESSER, true, rampBri, rampCt, 30000);
+    if (overheadsOn) {
+        cyclePut(LIGHT_CEIL_1, true, rampBri, rampCt, 30000);
+        // cyclePut(LIGHT_CEIL_2, true, rampBri, rampCt, 30000);
     }
+    sentTarget = {rampBri, (uint16_t)rampCt};
+    saveLastState(rampBri, (uint16_t)rampCt);
+    Serial.println("Resume ramp " + String(pauseResumeStep) + "/" + String(PAUSE_RESUME_TICKS) +
+                   " — bri=" + String(rampBri, 1) + "%, ct=" + String(rampCt));
+    if (pauseResumeStep >= PAUSE_RESUME_TICKS) {
+        pauseResumeActive = false;
+        Serial.println("Resume ramp complete.");
+    }
+}
+
+// Stage 4 — soft-pause expiry, fired by the one-shot TIMER_PAUSE_EXPIRY
+// (replaces the per-tick elapsed poll tickSoftPause()). The elapsed re-check
+// guards a queued-but-stale fire: if a SET_SOFT_PAUSE_REMAINING extend was
+// processed after this event was enqueued, the pause isn't actually over —
+// bail out and syncSoftTimers() re-arms the one-shot at the new deadline.
+void expireSoftPause() {
+    if (millis() - softPauseStart < softPauseDurationMs) return;
+    // R10 — seed the resume ramp from where the user left the lights, not
+    // from the pre-pause sentTarget. A pause usually *starts* because the
+    // user changed the lights; interpolating from sentTarget made the first
+    // resume tick snap back toward pre-pause brightness and then "fade".
+    // Floor lamp is the room proxy (always-driven core light; per-light
+    // seeding comes with R5). Fall back to sentTarget if the floor is off
+    // or its cache is unpopulated.
+    LightState f = cachedLight(LIGHT_FLOOR);
+    pauseResumeStartTarget = {
+        (f.on && f.bri > 0.0f) ? f.bri : sentTarget.bri,
+        (uint16_t)((f.ct > 0)  ? f.ct  : sentTarget.ct)
+    };
+    pauseResumeActive      = true;
+    pauseResumeStep        = 0;
+    overheadsOn            = cachedLight(LIGHT_CEIL_1).on;  // sync from actual bridge state
+    chestOn                = cachedLight(LIGHT_CHEST).on;   // sync from actual bridge state
+    state                  = State::NORMAL;
+    Serial.println("Soft pause expired — beginning 10-min resume ramp.");
+    sendLog("Soft pause expired — resuming — " + getTimeString());
 }
 
 void triggerWake(float ambientLux) {
@@ -2031,18 +2074,13 @@ static void dispatchLuxTick() {
             tickNormal(lux, target);
             break;
 
+        // Stage 4 — WAKE/WIND_DOWN ramp steps and SOFT_PAUSE expiry advance on
+        // soft timers (dispatchTimerFire below), not the curve tick. The tick
+        // still runs above for every state: status print, fresh lastLux for
+        // the ramp handlers, command poll, status POST.
         case State::WAKE:
-            tickWakeRamp(lux);
-            break;
-
         case State::WIND_DOWN:
-            tickWindDown();
-            break;
-
         case State::SOFT_PAUSE:
-            tickSoftPause();
-            break;
-
         case State::HARD_OFF:
             break;
 
@@ -2086,12 +2124,101 @@ static void serviceLuxTickSchedule() {
     scheduleNextLuxTick();
 }
 
+// ── N1 Stage 4 — soft-timer service ─────────────────────────────────────────
+
+// Reconcile the active-timer set with (state, pauseResumeActive). Runs every
+// loop() pass, so no transition site anywhere has to arm or disarm anything —
+// a state change made in a tick body, forceState(), the SSE dispatcher, or an
+// expiry handler is picked up within ~50 ms. Ramp timers arm due-now so entry
+// into a ramp state PUTs on the next pass instead of waiting out a 30 s slot;
+// the wakeStep/windDownStep/pauseResumeStep counters stay the state
+// representation (dashboard seeks just rewrite them, cadence unaffected).
+static void reconcileTimer(uint8_t id, bool shouldRun, uint32_t periodMs) {
+    SoftTimer& t = softTimers[id];
+    if (shouldRun && !t.active) {
+        t.active   = true;
+        t.dueMs    = millis(); // immediate first fire
+        t.periodMs = periodMs;
+    } else if (!shouldRun && t.active) {
+        t.active = false;
+    }
+}
+
+static void syncSoftTimers() {
+    reconcileTimer(TIMER_WAKE_STEP,     state == State::WAKE,      RAMP_STEP_MS);
+    reconcileTimer(TIMER_WINDDOWN_STEP, state == State::WIND_DOWN, RAMP_STEP_MS);
+    reconcileTimer(TIMER_RESUME_STEP,
+                   state == State::NORMAL && pauseResumeActive,    RAMP_STEP_MS);
+
+    // Pause expiry is a one-shot at a *moving* deadline: SET_SOFT_PAUSE_REMAINING
+    // and re-entry both rewrite softPauseStart/softPauseDurationMs, so recompute
+    // the target every pass and re-aim whenever it differs. Dragging the slider
+    // to 0 lands the deadline in the past → fires on the next pass.
+    SoftTimer& pe = softTimers[TIMER_PAUSE_EXPIRY];
+    if (state == State::SOFT_PAUSE) {
+        uint32_t target = (uint32_t)(softPauseStart + softPauseDurationMs);
+        if (!pe.active || pe.dueMs != target) {
+            pe.active   = true;
+            pe.dueMs    = target;
+            pe.periodMs = 0;
+        }
+    } else {
+        pe.active = false;
+    }
+}
+
+// Enqueue TimerFire for each due timer. Queue-full leaves the deadline armed
+// (retry next pass — a fire is never silently dropped, same policy as the
+// LuxTick scheduler). Periodic re-arm is beat-anchored (dueMs += period) for
+// drift-free cadence, but skips beats missed during a long stall (blocking
+// HTTP) rather than burst-firing to catch up.
+static void softTimersTick() {
+    if (!evQueue) return;
+    for (uint8_t id = 0; id < SOFT_TIMER_COUNT; id++) {
+        SoftTimer& t = softTimers[id];
+        if (!t.active || (int32_t)(millis() - t.dueMs) < 0) continue;
+        Event ev;
+        ev.type = EvType::TimerFire;
+        ev.a    = id;
+        ev.tMs  = millis();
+        if (xQueueSend(evQueue, &ev, 0) != pdTRUE) return;
+        if (t.periodMs) {
+            t.dueMs += t.periodMs;
+            if ((int32_t)(millis() - t.dueMs) >= 0) t.dueMs = millis() + t.periodMs;
+        } else {
+            t.active = false;
+        }
+    }
+}
+
+// TimerFire dispatch. Every handler re-checks state: the event may have been
+// queued just before a transition (queue latency), and syncSoftTimers() only
+// disarms on the next pass — a stale fire must be a no-op, not a wrong PUT.
+static void dispatchTimerFire(const Event& ev) {
+    switch (ev.a) {
+        case TIMER_WAKE_STEP:
+            if (state == State::WAKE) tickWakeRamp(lastLux);
+            break;
+        case TIMER_WINDDOWN_STEP:
+            if (state == State::WIND_DOWN) tickWindDown();
+            break;
+        case TIMER_RESUME_STEP:
+            if (state == State::NORMAL && pauseResumeActive) advanceResumeRamp();
+            break;
+        case TIMER_PAUSE_EXPIRY:
+            if (state == State::SOFT_PAUSE) expireSoftPause();
+            break;
+        default:
+            break;
+    }
+}
+
 // N1 Stage 2 — loop() is now the consumer/dispatcher. Blocks up to 50 ms on
 // the event queue (yields the core), dispatches whatever the SSE task or the
-// scheduler enqueued, and arms the next LuxTick. The overridePending check is
-// belt-and-braces: if the SSE task's xQueueSend failed on a full queue, the
-// flag alone still forces the pause — otherwise it would block every PUT
-// forever (see the guard in setLight()).
+// scheduler enqueued, arms the next LuxTick, and services the Stage 4 soft
+// timers. The overridePending check is belt-and-braces: if the SSE task's
+// xQueueSend failed on a full queue, the flag alone still forces the pause —
+// otherwise it would block every PUT forever (see the guard in setLight()).
 void loop() {
     Event ev;
     if (evQueue && xQueueReceive(evQueue, &ev, pdMS_TO_TICKS(50)) == pdTRUE) {
@@ -2100,4 +2227,6 @@ void loop() {
         applyOverridePause(-1);
     }
     serviceLuxTickSchedule();
+    syncSoftTimers();  // reconcile before ticking so a just-entered state arms first
+    softTimersTick();
 }
