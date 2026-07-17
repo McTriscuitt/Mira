@@ -75,3 +75,8 @@
 
 // Soft pause resume ramp — ticks to drift from pre-pause bri/ct to current ambient (30s/tick)
 #define PAUSE_RESUME_TICKS 20  // 10 min
+
+// N1 Stage 5 — cadence of netTask's /api/command poll. Dashboard command
+// latency ≈ this interval (was ~30 s when the poll rode the lux tick).
+// Interim until N2's long-poll makes it push-driven.
+#define NET_CMD_POLL_MS 5000UL

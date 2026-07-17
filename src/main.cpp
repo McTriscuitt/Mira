@@ -93,7 +93,7 @@ unsigned long softPauseStart = 0;
 // SOFT_PAUSE_MS so an extend past 60 min just enlarges the target rather than
 // pushing softPauseStart into the future (which would wrap the unsigned millis()
 // subtraction and fire an immediate resume). TIMER_PAUSE_EXPIRY (via
-// syncSoftTimers) and sendDashboardStatus() measure against this, not the constant.
+// syncSoftTimers) and queueDashboardStatus() measure against this, not the constant.
 unsigned long softPauseDurationMs = SOFT_PAUSE_MS;
 
 // Soft pause resume ramp
@@ -275,6 +275,59 @@ struct SoftTimer {
 };
 SoftTimer softTimers[SOFT_TIMER_COUNT];
 const uint32_t RAMP_STEP_MS = 30000UL; // step cadence for all three ramps
+
+// ── N1 Stage 5 — dashboard networking task ──────────────────────────────────
+// All DASHBOARD_BASE_URL HTTP (log POSTs, status POSTs, command polling) lives
+// on netTask (Core 0, priority 1) so a slow or unreachable Railway endpoint
+// can never stall a tick — the LuxTick's only remaining network I/O is bridge
+// PUTs. Main task ↔ netTask traffic is fixed-size PODs over FreeRTOS queues
+// (no String across tasks, same rule as the SSE task):
+//   logQueue    — LogMsg, drop-OLDEST on full (the main task never blocks)
+//   statusQueue — StatusSnapshot, depth 1 + xQueueOverwrite (latest wins; a
+//                 stale snapshot is worthless the moment a newer one exists)
+// Inbound: netTask polls /api/command every NET_CMD_POLL_MS, maps the wire
+// string to a DashCmd, and enqueues a DashboardCmd event. Command *application*
+// stays on the main task (dispatchDashboardCmd) because it mutates state.
+// The ack POSTs from netTask right after a successful enqueue — same
+// at-least-once semantics as the old synchronous poll (enqueue failure or a
+// dropped ack → the command is re-fetched on the next poll).
+struct LogMsg { char text[120]; };
+
+// Everything the /api/status POST needs, snapshotted on the main task — every
+// field is main-task-owned, so no locking. netTask serializes + POSTs it and
+// stamps its own stack watermark (netStackFree) at send time.
+struct StatusSnapshot {
+    char     state[12];
+    float    lux             = 0.0f;
+    float    bri             = 0.0f;
+    int      ct              = 0;
+    bool     overheadsOn     = false;
+    int      windDownStep    = 0;
+    int      wakeStep        = 0;
+    int      wakeTotal       = 0;
+    long     pauseRemainingS = 0;
+    int      stableLuxCount  = 0;
+    bool     excluded[LIGHT_COUNT] = {false};
+    // Stage 5 soak telemetry — heap + task-stack watermarks ride every status
+    // POST so long soaks read from the dashboard instead of a serial tether
+    // (three overnight captures in a row died to laptop sleep/update reboots).
+    uint32_t heapFree        = 0;
+    uint32_t sseStackFree    = 0;
+    // (net_stack_free is netTask's own watermark — it samples it directly at
+    // POST time rather than riding in the snapshot.)
+};
+
+// Dashboard command vocabulary. netTask parses the wire string into one of
+// these so the queued Event stays a fixed-size POD (cmd in ev.a, value in ev.i).
+enum class DashCmd : uint8_t {
+    Normal, SoftPause, WindDown, Wake, HardOff, LockedOut,
+    SetWindDownStep, SetWakeStep, SetSoftPauseRemaining, SetStableLuxCount,
+    ExcludeLight, IncludeLight
+};
+
+QueueHandle_t logQueue      = nullptr;
+QueueHandle_t statusQueue   = nullptr;
+TaskHandle_t  netTaskHandle = nullptr;
 
 // Mid-batch abort flag. Set by the SSE task the instant it classifies an
 // Override; checked at the top of setLight()/setLightColor(). The Override
@@ -876,11 +929,13 @@ void printStatus() {
     Serial.print(ampm); Serial.print("] ");
     Serial.print(days[day]);
     Serial.print(" ["); Serial.print(stateName()); Serial.println("]");
-    // N1 Stage 1 soak telemetry (Serial-only): SSE-task stack headroom in
-    // bytes (should stay comfortably above ~1 KB) + free heap.
+    // N1 Stage 1 soak telemetry (Serial): task stack headroom in bytes (should
+    // stay comfortably above ~1 KB) + free heap. Since Stage 5 the same values
+    // also ride every /api/status POST, so soaks don't need this tether.
     if (sseTaskHandle) {
-        Serial.printf("sse stack free=%u heap free=%u\n",
+        Serial.printf("sse stack free=%u net stack free=%u heap free=%u\n",
                       (unsigned)uxTaskGetStackHighWaterMark(sseTaskHandle),
+                      netTaskHandle ? (unsigned)uxTaskGetStackHighWaterMark(netTaskHandle) : 0,
                       (unsigned)esp_get_free_heap_size());
     }
 }
@@ -899,34 +954,76 @@ void sendDashboardLog(const String& message) {
     http.end();
 }
 
+// N1 Stage 5 — queue a log line for netTask to POST. Truncate-copies into a
+// fixed LogMsg so nothing heap-backed crosses the task boundary; non-blocking.
+// Queue full → drop the OLDEST entry (the main task never blocks on the
+// dashboard). sendLog is main-task-only, so the receive-then-send swap can't
+// race another producer. The direct-send fallback covers any call before the
+// queue exists (early boot).
 void sendLog(const String& message) {
-    sendDashboardLog(message);
+    if (!logQueue) { sendDashboardLog(message); return; }
+    LogMsg m;
+    strlcpy(m.text, message.c_str(), sizeof(m.text));
+    if (xQueueSend(logQueue, &m, 0) != pdTRUE) {
+        LogMsg dropped;
+        xQueueReceive(logQueue, &dropped, 0);
+        xQueueSend(logQueue, &m, 0);
+    }
 }
 
-void sendDashboardStatus(float lux) {
+// N1 Stage 5 — main-task half of the status POST: snapshot every field into a
+// POD and overwrite the depth-1 status queue; netTask serializes + POSTs.
+// Called each LuxTick and after every applied dashboard command — the latter
+// shrinks the June 11 ack-before-status window: the snapshot reflecting a
+// commanded state now chases the ack by ~one netTask pass (~100 ms) instead of
+// waiting out the rest of the 30 s tick.
+void queueDashboardStatus(float lux) {
+    StatusSnapshot s;
+    strlcpy(s.state, stateName(), sizeof(s.state));
+    s.lux             = lux;
+    s.bri             = sentTarget.bri;
+    s.ct              = sentTarget.ct;
+    s.overheadsOn     = overheadsOn;
+    s.windDownStep    = windDownStep;
+    s.wakeStep        = wakeStep;
+    s.wakeTotal       = WAKE_RAMP_TICKS;
+    s.pauseRemainingS = (state == State::SOFT_PAUSE) ?
+        max(0L, ((long)softPauseDurationMs - (long)(millis() - softPauseStart)) / 1000L) : 0L;
+    s.stableLuxCount  = stableLuxCount;
+    for (int i = 0; i < LIGHT_COUNT; i++) s.excluded[i] = excludedLight[i];
+    s.heapFree     = esp_get_free_heap_size();
+    s.sseStackFree = sseTaskHandle ? (uint32_t)uxTaskGetStackHighWaterMark(sseTaskHandle) : 0;
+    if (statusQueue) xQueueOverwrite(statusQueue, &s);
+}
+
+// netTask half: serialize + POST one snapshot. Runs on Core 0 — touches
+// nothing but the snapshot it was handed (and its own stack watermark).
+static void postDashboardStatus(const StatusSnapshot& s) {
     HTTPClient http;
     http.begin(String(DASHBOARD_BASE_URL) + "/api/status");
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Authorization", "Bearer " + String(ESP32_API_KEY));
     JsonDocument doc;
-    doc["state"]       = stateName();
-    doc["lux"]         = lux;
-    doc["bri"]         = sentTarget.bri;
-    doc["ct"]          = sentTarget.ct;
-    doc["overhead_on"] = overheadsOn;
-    doc["wind_down_step"] = windDownStep;
-    doc["wake_step"]      = wakeStep;
-    doc["wake_total"]     = WAKE_RAMP_TICKS;
-    long pauseRemaining = (state == State::SOFT_PAUSE) ?
-        max(0L, ((long)softPauseDurationMs - (long)(millis() - softPauseStart)) / 1000L) : 0L;
-    doc["soft_pause_remaining_s"] = pauseRemaining;
-    doc["stable_lux_count"]      = stableLuxCount;
+    doc["state"]       = (const char*)s.state;
+    doc["lux"]         = s.lux;
+    doc["bri"]         = s.bri;
+    doc["ct"]          = s.ct;
+    doc["overhead_on"] = s.overheadsOn;
+    doc["wind_down_step"] = s.windDownStep;
+    doc["wake_step"]      = s.wakeStep;
+    doc["wake_total"]     = s.wakeTotal;
+    doc["soft_pause_remaining_s"] = s.pauseRemainingS;
+    doc["stable_lux_count"]      = s.stableLuxCount;
     // Cycle-exclusion state for the dashboard's "lights in cycle" chips.
     JsonObject excl = doc["excluded"].to<JsonObject>();
-    excl["floor"]   = excludedLight[LIGHT_FLOOR];
-    excl["chest"]   = excludedLight[LIGHT_CHEST];
-    excl["dresser"] = excludedLight[LIGHT_DRESSER];
-    excl["ceiling"] = excludedLight[LIGHT_CEIL_1];
+    excl["floor"]   = s.excluded[LIGHT_FLOOR];
+    excl["chest"]   = s.excluded[LIGHT_CHEST];
+    excl["dresser"] = s.excluded[LIGHT_DRESSER];
+    excl["ceiling"] = s.excluded[LIGHT_CEIL_1];
+    // Stage 5 soak telemetry (see StatusSnapshot).
+    doc["heap_free"]      = s.heapFree;
+    doc["sse_stack_free"] = s.sseStackFree;
+    doc["net_stack_free"] = (uint32_t)uxTaskGetStackHighWaterMark(nullptr);
     String body;
     serializeJson(doc, body);
     int code = http.POST(body);
@@ -1378,6 +1475,8 @@ static void dispatchSseLight(const Event& ev) {
     }
 }
 
+static void dispatchDashboardCmd(const Event& ev); // Stage 5 — defined with the netTask block below
+
 static void dispatchEvent(const Event& ev) {
     switch (ev.type) {
         case EvType::LuxTick:
@@ -1389,8 +1488,11 @@ static void dispatchEvent(const Event& ev) {
         case EvType::TimerFire:
             dispatchTimerFire(ev);
             break;
+        case EvType::DashboardCmd:
+            dispatchDashboardCmd(ev);
+            break;
         default:
-            break; // DashboardCmd arrives in Stage 5
+            break;
     }
 }
 
@@ -1521,13 +1623,18 @@ static void sseTask(void*) {
     }
 }
 
-void forceState(State next); // defined later — forward declaration for pollDashboardCommand
+void forceState(State next); // defined later — forward declaration for dispatchDashboardCmd
+void queueDashboardStatus(float lux);
 
-void pollDashboardCommand() {
-  // R11 — drain the whole pending queue per tick (bounded), instead of one
-  // command per 30 s tick. Three quick dashboard actions used to take 90 s to
-  // fully apply; now they land in order within one tick. The bound keeps a
-  // flooded queue from stalling the tick. Interim until N2's long-poll.
+// ── N1 Stage 5 — netTask: command poll ──────────────────────────────────────
+// GET /api/command, map the wire string to a DashCmd, enqueue a DashboardCmd
+// event for the main task, then ack. Runs on netTask (Core 0) — never touches
+// state; application happens in dispatchDashboardCmd on the main task.
+// R11's bounded drain is kept: up to 8 queued commands per poll, so a flooded
+// dashboard queue can't wedge this loop. Ack-after-enqueue preserves the
+// at-least-once semantics of the old synchronous poll — an enqueue failure
+// (evQueue full) skips the ack so the command is re-fetched next poll.
+static void pollDashboardCommands() {
   for (int n = 0; n < 8; n++) {
     HTTPClient http;
     http.begin(String(DASHBOARD_BASE_URL) + "/api/command");
@@ -1542,55 +1649,36 @@ void pollDashboardCommand() {
     int cmdId     = doc["id"]    | -1;
     int cmdValue  = doc["value"] | -1;
 
-    Serial.println("Dashboard command: " + cmd + (cmdValue >= 0 ? " value=" + String(cmdValue) : ""));
-    if      (cmd == "NORMAL")     forceState(State::NORMAL);
-    else if (cmd == "SOFT_PAUSE") forceState(State::SOFT_PAUSE);
-    else if (cmd == "WIND_DOWN") {
-        forceState(State::WIND_DOWN);
-        if (cmdValue >= 0) windDownStep = min(cmdValue, 119);
+    static const struct { const char* name; DashCmd cmd; } CMD_MAP[] = {
+        {"NORMAL",                   DashCmd::Normal},
+        {"SOFT_PAUSE",               DashCmd::SoftPause},
+        {"WIND_DOWN",                DashCmd::WindDown},
+        {"WAKE",                     DashCmd::Wake},
+        {"HARD_OFF",                 DashCmd::HardOff},
+        {"LOCKED_OUT",               DashCmd::LockedOut},
+        {"SET_WIND_DOWN_STEP",       DashCmd::SetWindDownStep},
+        {"SET_WAKE_STEP",            DashCmd::SetWakeStep},
+        {"SET_SOFT_PAUSE_REMAINING", DashCmd::SetSoftPauseRemaining},
+        {"SET_STABLE_LUX_COUNT",     DashCmd::SetStableLuxCount},
+        {"EXCLUDE_LIGHT",            DashCmd::ExcludeLight},
+        {"INCLUDE_LIGHT",            DashCmd::IncludeLight},
+    };
+    bool known = false;
+    Event ev;
+    ev.type = EvType::DashboardCmd;
+    ev.i    = cmdValue;
+    ev.tMs  = millis();
+    for (auto& m : CMD_MAP) {
+        if (cmd == m.name) { ev.a = (uint8_t)m.cmd; known = true; break; }
     }
-    else if (cmd == "WAKE") {
-        forceState(State::WAKE);
-        if (cmdValue >= 0) wakeStep = cmdValue;
-    }
-    else if (cmd == "HARD_OFF")   forceState(State::HARD_OFF);
-    else if (cmd == "LOCKED_OUT") forceState(State::LOCKED_OUT);
-    else if (cmd == "SET_WIND_DOWN_STEP" && state == State::WIND_DOWN && cmdValue >= 0) {
-        windDownStep = min(cmdValue, 119);
-        Serial.println("Wind-down seek → step " + String(windDownStep));
-    }
-    else if (cmd == "SET_WAKE_STEP" && state == State::WAKE && cmdValue >= 0) {
-        wakeStep = cmdValue;
-        Serial.println("Wake seek → step " + String(wakeStep));
-    }
-    // Soft-pause remaining-time control (slider scrub + "+10 min" extend button).
-    // cmdValue is the absolute minutes-remaining target from *now*. Recomputed as
-    // (already-elapsed + requested remaining) so softPauseStart stays put and the
-    // unsigned millis() math never wraps — extends past 60 min just enlarge the
-    // target. Dragging to 0 puts the TIMER_PAUSE_EXPIRY deadline in the past, so
-    // the pause ends on the next loop() pass (Stage 4 — was the next tick).
-    // The extend button is absolute (displayed + 10) on
-    // the dashboard side, so rapid taps converge instead of cancelling to +10.
-    else if (cmd == "SET_SOFT_PAUSE_REMAINING" && state == State::SOFT_PAUSE && cmdValue >= 0) {
-        softPauseDurationMs = (millis() - softPauseStart) + (unsigned long)cmdValue * 60000UL;
-        Serial.println("Soft pause remaining → " + String(cmdValue) + " min");
-    }
-    else if (cmd == "SET_STABLE_LUX_COUNT" && state == State::NORMAL && cmdValue >= 0) {
-        stableLuxCount = min(cmdValue, 59);
-        Serial.println("Stable lux count → " + String(stableLuxCount));
-    }
-    // Cycle-exclusion toggles (cmdValue = LIGHT_* cache index). Setting the flag is
-    // all that's needed: tickNormal enforces the off (cache-guarded) and every driving
-    // state skips excluded lights. INCLUDE resets sentTarget to the sentinel so the next
-    // NORMAL tick re-PUTs the re-admitted light at the current curve target.
-    else if (cmd == "EXCLUDE_LIGHT" && cmdValue >= 0 && cmdValue < LIGHT_COUNT) {
-        excludedLight[cmdValue] = true;
-        Serial.println("Excluded " + String(lightName(cmdValue)) + " from cycle");
-    }
-    else if (cmd == "INCLUDE_LIGHT" && cmdValue >= 0 && cmdValue < LIGHT_COUNT) {
-        excludedLight[cmdValue] = false;
-        sentTarget = {-1.0f, 0};  // force a refresh so the light re-joins next tick
-        Serial.println("Re-included " + String(lightName(cmdValue)) + " into cycle");
+    if (known) {
+        Serial.println("Dashboard command: " + cmd + (cmdValue >= 0 ? " value=" + String(cmdValue) : ""));
+        if (!evQueue || xQueueSend(evQueue, &ev, 0) != pdTRUE) return; // full → no ack, retry next poll
+    } else {
+        // Unknown command: nothing to enqueue, but still ack it below or it
+        // blocks the dashboard's pending queue forever — same fall-through
+        // the old synchronous if-chain had.
+        Serial.println("Unknown dashboard command: " + cmd);
     }
 
     // No id → can't ack; looping again would refetch the same command forever.
@@ -1601,6 +1689,106 @@ void pollDashboardCommand() {
     ack.POST("");
     ack.end();
   }
+}
+
+// Main-task side: apply one dashboard command (the body of the old synchronous
+// pollDashboardCommand if-chain, switch-form). Runs from the dispatcher, so
+// everything it mutates is main-task-owned. The per-command state guards
+// re-check `state` here because classification happened against whatever the
+// dashboard believed when the button was pressed, seconds ago.
+static void dispatchDashboardCmd(const Event& ev) {
+    DashCmd cmd  = (DashCmd)ev.a;
+    int cmdValue = ev.i;
+
+    switch (cmd) {
+        case DashCmd::Normal:    forceState(State::NORMAL);     break;
+        case DashCmd::SoftPause: forceState(State::SOFT_PAUSE); break;
+        case DashCmd::WindDown:
+            forceState(State::WIND_DOWN);
+            if (cmdValue >= 0) windDownStep = min(cmdValue, 119);
+            break;
+        case DashCmd::Wake:
+            forceState(State::WAKE);
+            if (cmdValue >= 0) wakeStep = cmdValue;
+            break;
+        case DashCmd::HardOff:   forceState(State::HARD_OFF);   break;
+        case DashCmd::LockedOut: forceState(State::LOCKED_OUT); break;
+        case DashCmd::SetWindDownStep:
+            if (state == State::WIND_DOWN && cmdValue >= 0) {
+                windDownStep = min(cmdValue, 119);
+                Serial.println("Wind-down seek → step " + String(windDownStep));
+            }
+            break;
+        case DashCmd::SetWakeStep:
+            if (state == State::WAKE && cmdValue >= 0) {
+                wakeStep = cmdValue;
+                Serial.println("Wake seek → step " + String(wakeStep));
+            }
+            break;
+        // Soft-pause remaining-time control (slider scrub + "+10 min" extend button).
+        // cmdValue is the absolute minutes-remaining target from *now*. Recomputed as
+        // (already-elapsed + requested remaining) so softPauseStart stays put and the
+        // unsigned millis() math never wraps — extends past 60 min just enlarge the
+        // target. Dragging to 0 puts the TIMER_PAUSE_EXPIRY deadline in the past, so
+        // the pause ends on the next loop() pass (Stage 4 — was the next tick).
+        // The extend button is absolute (displayed + 10) on the dashboard side,
+        // so rapid taps converge instead of cancelling to +10.
+        case DashCmd::SetSoftPauseRemaining:
+            if (state == State::SOFT_PAUSE && cmdValue >= 0) {
+                softPauseDurationMs = (millis() - softPauseStart) + (unsigned long)cmdValue * 60000UL;
+                Serial.println("Soft pause remaining → " + String(cmdValue) + " min");
+            }
+            break;
+        case DashCmd::SetStableLuxCount:
+            if (state == State::NORMAL && cmdValue >= 0) {
+                stableLuxCount = min(cmdValue, 59);
+                Serial.println("Stable lux count → " + String(stableLuxCount));
+            }
+            break;
+        // Cycle-exclusion toggles (cmdValue = LIGHT_* cache index). Setting the flag is
+        // all that's needed: tickNormal enforces the off (cache-guarded) and every driving
+        // state skips excluded lights. INCLUDE resets sentTarget to the sentinel so the next
+        // NORMAL tick re-PUTs the re-admitted light at the current curve target.
+        case DashCmd::ExcludeLight:
+            if (cmdValue >= 0 && cmdValue < LIGHT_COUNT) {
+                excludedLight[cmdValue] = true;
+                Serial.println("Excluded " + String(lightName(cmdValue)) + " from cycle");
+            }
+            break;
+        case DashCmd::IncludeLight:
+            if (cmdValue >= 0 && cmdValue < LIGHT_COUNT) {
+                excludedLight[cmdValue] = false;
+                sentTarget = {-1.0f, 0};  // force a refresh so the light re-joins next tick
+                Serial.println("Re-included " + String(lightName(cmdValue)) + " into cycle");
+            }
+            break;
+    }
+
+    // Push a fresh snapshot so the dashboard sees the commanded state on
+    // netTask's next pass (~100 ms) instead of at the next 30 s tick. Shrinks
+    // the June 11 ack-before-status display window to near zero.
+    queueDashboardStatus(lastLux);
+}
+
+// The dashboard networking task (Core 0, priority 1 — same as sseTask). Each
+// pass: drain queued log lines, POST the latest status snapshot, poll for
+// commands on the NET_CMD_POLL_MS cadence. Railway round-trips block only this
+// task — the main task's tick cost drops to bridge-PUT time.
+static void netTask(void*) {
+    uint32_t lastCmdPollMs = millis() - NET_CMD_POLL_MS; // first poll fires immediately
+    for (;;) {
+        LogMsg m;
+        while (xQueueReceive(logQueue, &m, 0) == pdTRUE) sendDashboardLog(m.text);
+
+        StatusSnapshot s;
+        if (xQueueReceive(statusQueue, &s, 0) == pdTRUE) postDashboardStatus(s);
+
+        if (millis() - lastCmdPollMs >= NET_CMD_POLL_MS) {
+            lastCmdPollMs = millis();
+            pollDashboardCommands();
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 }
 
 void saveLastState(float bri, uint16_t ct) {
@@ -2040,6 +2228,14 @@ void setup() {
     xTaskCreatePinnedToCore(sseTask, "sse", 12288, nullptr, 1, &sseTaskHandle, 0);
     Serial.println("SSE task started on core 0.");
 
+    // N1 Stage 5 — dashboard networking task + its queues, started before the
+    // Online log so even the boot log rides the queue (setup() no longer
+    // blocks on a Railway round-trip).
+    logQueue    = xQueueCreate(12, sizeof(LogMsg));
+    statusQueue = xQueueCreate(1,  sizeof(StatusSnapshot)); // depth 1 — xQueueOverwrite, latest wins
+    xTaskCreatePinnedToCore(netTask, "net", 12288, nullptr, 1, &netTaskHandle, 0);
+    Serial.println("Net task started on core 0.");
+
     sendLog("Online — " + getTimeString());
 
     // N1 Stage 2 — first LuxTick fires immediately (boot status/log lands right
@@ -2048,9 +2244,11 @@ void setup() {
 }
 
 // ── N1 Stage 2 — LuxTick: the old monolithic tick body, now just an event ───
-// Behavior identical to the pre-Stage-2 loop(): status print, lux read, command
-// poll (stays synchronous until Stage 5), state switch, status POST. The wait
-// loop is gone — pacing lives in the loop() scheduler below.
+// Status print, lux read, state switch, status snapshot. The wait loop is gone
+// (pacing lives in the loop() scheduler below) and since Stage 5 so is all
+// dashboard HTTP: commands arrive as DashboardCmd events from netTask, and the
+// status POST is a queue overwrite netTask ships from Core 0 — the only
+// network I/O left on this path is bridge PUTs inside the state ticks.
 static void dispatchLuxTick() {
     timeClient.update();
     printStatus();
@@ -2061,8 +2259,6 @@ static void dispatchLuxTick() {
     Serial.print("Lux: "); Serial.print(lux, 1);
     Serial.print(" → bri="); Serial.print(target.bri, 1); Serial.print("%");
     Serial.print(", ct="); Serial.println(target.ct);
-
-    pollDashboardCommand();
 
     switch (state) {
         case State::LOCKED_OUT:
@@ -2086,7 +2282,7 @@ static void dispatchLuxTick() {
 
     }
 
-    sendDashboardStatus(lux);
+    queueDashboardStatus(lux);
 }
 
 // Compute the next LuxTick deadline. With ALIGNED_TICKS (N5), ticks land on

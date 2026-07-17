@@ -20,7 +20,7 @@ Before ending a session: update the Status table and the per-stage checklist.
 | 2 | `loop()` → consumer/dispatcher; LuxTick; N5 alignment; buttons commented out | **COMPLETE — soak verified (July 14–15, user-accepted)** — overnight soak (`logs/device-monitor-260714-180314.log`): one uninterrupted boot session ~6 h+ (SSE stack watermark continuity 10,040→7,432→7,388→7,340 proves no reboot), heap flat at ~8,584,600 ± 400 B, every tick on :00/:30 with clean skip-ahead events, dashboard commands applied (SOFT_PAUSE + 4× `SET_SOFT_PAUSE_REMAINING`), natural SOFT_PAUSE→resume→wind-down→LOCKED_OUT progression while unobserved. The 10-min `SSE: stale` reconnect cadence on an idle evening is designed behavior (no Hue v2 keepalive). Both capture gaps were host-side: laptop Modern Standby 8:43 PM–12:20 AM, then a Windows Update restart at 1:38 AM killed the logger (device kept running; COM5 re-enumerated). Override regression not explicitly re-run — accepted; Stage 1 path unchanged by Stage 2 and covered by the cross-stage checklist after Stages 4/5. |
 | 3 | G22 + G23 — floor edge & lockout re-arm via SSE events; delete `checkFloorState()` | **COMPLETE — overnight soak user-accepted (July 15–16)** — soak (`logs/device-monitor-260715-210725.log`): dashboard-forced wind-down completed 21:10 → LOCKED_OUT via normal completion handoff; user's floor-lamp off-flip 21:26:08 exercised the re-arm falling-edge path as a harmless no-op re-clear (already LOCKED_OUT — floor stays on as the night-light at wind-down completion, so the all-off condition first holds when the user kills the floor lamp); heap flat ~8,584,900 B; SSE stack floor 6,880/12,288 across multiple reconnects; zero false overrides. Capture gaps host-side again (Modern Standby 21:26→01:59; port dead from 03:22). Wake edge verified live July 15 20:43:54 (Stage 3 flash day). *Not strictly exercised:* re-arm from a non-LOCKED_OUT state, Ethernet-pull synthetic-edge wake — both folded into the cross-stage checklist. Same-day follow-up (`56d2841`/`6b2646d`): `WIND_DOWN_GATE_HOUR 19` + `LOCKOUT_RESET_MIN_OF_DAY 1230` (schedule shift; re-arm gate now minute-granular). Side quest: R3's `setCACert()` approach failed on hardware (CN mismatch — see Decisions Log) and was revised to manual pin comparison; the `ensureBridgeCert()` boot probe had been silently failing + re-fetching every boot for the same reason, now fixed. |
 | 4 | Ramps & soft-pause expiry → soft timers | **CODE COMPLETE + FLASHED (July 16)** — reconciler design (see Decisions Log); `ECHO_TRACE` off; boots clean, ticks on :00/:30, curve driving in NORMAL. Ramp timers await first live transitions (tonight's natural wind-down; dashboard pause/extend/expiry checks below). |
-| 5 | Dashboard networking → dedicated task (unblocks N2 long-poll) | NOT STARTED |
+| 5 | Dashboard networking → dedicated task (unblocks N2 long-poll) | **CODE COMPLETE (July 16) — not yet flashed** — `netTask` (Core 0, prio 1, 12288 stack) owns all Railway HTTP; `sendLog()` → drop-oldest `logQueue` (12× `LogMsg[120]`); status POST split into main-task `queueDashboardStatus()` (POD snapshot → depth-1 `statusQueue`, `xQueueOverwrite`) + netTask `postDashboardStatus()`; command poll every `NET_CMD_POLL_MS` (5 s, config.h) → `DashboardCmd` events, applied by `dispatchDashboardCmd()` on the main task, ack-after-enqueue; heap/SSE-stack/net-stack telemetry rides every `/api/status` POST with matching columns + migration and an owner-only `/api/telemetry/history` endpoint (48 h default) in `app.py`. Deviation: a fresh snapshot is queued after every applied command (see Decisions Log). Builds clean; **flash after Stage 4's live checks pass** so two unverified stages don't stack on the device. |
 
 Each stage is **independently shippable**: compiles, flashes, runs a full day.
 One git commit per stage minimum. Verify before moving on.
@@ -79,6 +79,20 @@ One git commit per stage minimum. Verify before moving on.
   re-checks elapsed-vs-duration on fire to reject a queued-but-stale expiry
   racing an extend command (FIFO: a LuxTick carrying the extend can sit ahead
   of the TimerFire in the queue).
+- **July 16, 2026 — Stage 5 pushes a status snapshot after every applied
+  command** (small deliberate addition to the plan). `dispatchDashboardCmd()`
+  ends with `queueDashboardStatus(lastLux)`, so the snapshot reflecting a
+  commanded state chases the ack by ~one netTask pass (~100 ms) instead of
+  waiting out the rest of the 30 s tick. This shrinks the June 11
+  ack-before-status display window (the frontend's pending-preview hold now
+  clears almost immediately) at the cost of a few extra `status_snapshots`
+  rows per command — the rows carry `lastLux` (≤ 30 s old, same seed the ramps
+  use), so the lux timeline is unaffected. Also locked in: ack-after-enqueue
+  (an evQueue-full or dropped ack → command re-fetched next poll — the same
+  at-least-once semantics the synchronous poll had, so a rare duplicate apply
+  is possible and harmless, as before); unknown commands are still acked so
+  they can't wedge the dashboard's pending queue; `Serial` command echo moved
+  to netTask fetch time (the wire string doesn't cross the queue).
 
 ---
 

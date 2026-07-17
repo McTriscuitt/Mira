@@ -53,6 +53,11 @@ class StatusSnapshot(db.Model):
     excl_dresser = db.Column(db.Boolean)
     excl_ceiling = db.Column(db.Boolean)
     stable_lux_count = db.Column(db.Integer)
+    # N1 Stage 5 — firmware soak telemetry (free heap + task stack watermarks,
+    # bytes). Lets long soaks be read from the dashboard instead of a serial log.
+    heap_free = db.Column(db.BigInteger)
+    sse_stack_free = db.Column(db.Integer)
+    net_stack_free = db.Column(db.Integer)
 
 
 class Command(db.Model):
@@ -93,6 +98,9 @@ with app.app_context():
             ('status_snapshots', 'excl_dresser',          'BOOLEAN'),
             ('status_snapshots', 'excl_ceiling',          'BOOLEAN'),
             ('status_snapshots', 'stable_lux_count',     'INTEGER'),
+            ('status_snapshots', 'heap_free',             'BIGINT'),
+            ('status_snapshots', 'sse_stack_free',        'INTEGER'),
+            ('status_snapshots', 'net_stack_free',        'INTEGER'),
             ('commands',         'value',                 'INTEGER'),
         ]:
             conn.execute(text(
@@ -152,6 +160,9 @@ def ingest_status():
         excl_dresser=excl.get('dresser', False),
         excl_ceiling=excl.get('ceiling', False),
         stable_lux_count=d.get('stable_lux_count'),
+        heap_free=d.get('heap_free'),
+        sse_stack_free=d.get('sse_stack_free'),
+        net_stack_free=d.get('net_stack_free'),
     ))
     db.session.commit()
     return jsonify({'ok': True})
@@ -275,6 +286,12 @@ def latest_status():
     }
     if session.get('role') != 'demo':
         result['timestamp'] = snap.timestamp.isoformat() + 'Z'
+        # N1 Stage 5 — firmware soak telemetry (owner-only, internal detail)
+        result['telemetry'] = {
+            'heap_free': snap.heap_free,
+            'sse_stack_free': snap.sse_stack_free,
+            'net_stack_free': snap.net_stack_free,
+        }
     return jsonify(result)
 
 
@@ -351,3 +368,25 @@ def lux_history():
              .order_by(StatusSnapshot.timestamp.asc())
              .all())
     return jsonify([{'t': s.timestamp.isoformat() + 'Z', 'lux': s.lux, 'state': s.state} for s in snaps])
+
+
+@app.route('/api/telemetry/history')
+def telemetry_history():
+    # N1 Stage 5 — heap/stack soak telemetry (owner-only). Default window 48 h
+    # to match the Stage 5 heap-stability verification check; ?hours=N widens
+    # it (capped at 14 days).
+    if not _owner_authed():
+        return jsonify({'error': 'unauthorized'}), 403
+    hours = request.args.get('hours', 48, type=int)
+    start = datetime.utcnow() - timedelta(hours=max(1, min(hours, 24 * 14)))
+    snaps = (StatusSnapshot.query
+             .filter(StatusSnapshot.timestamp >= start,
+                     StatusSnapshot.heap_free.isnot(None))
+             .order_by(StatusSnapshot.timestamp.asc())
+             .all())
+    return jsonify([{
+        't': s.timestamp.isoformat() + 'Z',
+        'heap_free': s.heap_free,
+        'sse_stack_free': s.sse_stack_free,
+        'net_stack_free': s.net_stack_free,
+    } for s in snaps])
