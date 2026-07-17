@@ -49,10 +49,11 @@ mark it **SHIPPED** here (don't delete — the IDs stay referenceable).
 
 ## N1 — Event-driven reactive core *(the architecture question)*
 
-> **IN PROGRESS — Stages 1–3 of 5 SHIPPED** (Stage 1 June 11, Stage 2 July 14,
-> Stage 3 July 15 — **G22 + G23 are live**: wake/re-arm via SSE edge dispatch,
-> `checkFloorState()`/`lastFloorOn` deleted, reconnect resync with synthetic
-> edges). Stages 4 (soft timers) + 5 (network task) pending. Status/specs:
+> **SHIPPED — all 5 stages flashed** (Stage 1 June 11, Stage 2 July 14, Stage 3
+> July 15, Stage 4 July 16 live-verified, Stage 5 July 16 flashed +
+> boot-verified — netTask owns all Railway HTTP, command latency ~5 s, heap/
+> stack telemetry on /api/status + /api/telemetry/history). Remaining: Stage 5
+> final checks + the cross-stage regression checklist. Status/specs:
 > `N1_MIGRATION.md`.
 
 > CLAUDE.md / SSE_BRAINSTORM note: "how can we turn this into an sse/event
@@ -135,6 +136,18 @@ curve. Effort: the largest item in this file — plan ~2–4 sessions, staged.
 ---
 
 ## N2 — Near-instant dashboard, both directions
+
+> **NEXT UP — session planned July 17.** N1 Stage 5 (the prerequisite) shipped
+> July 16; user confirmed the residual lag live the same night: commands apply
+> in ~5 s but the display waits on the browser's 30 s status poll. Agreed plan,
+> in order: **(1) burst polling** — frontend-only quick win, after a command
+> the browser polls every ~2 s until the snapshot matches (capped ~20 s), then
+> reverts to 30 s; no reflash, just a Railway deploy. **(2) Flask → browser
+> SSE** (`/api/status/stream`, the D13–15 fan-out; mind gunicorn worker config
+> for held connections). **(3) firmware long-poll** on `/api/command` from
+> netTask, killing the last ~5 s. Firmware already pushes a status snapshot
+> ~100 ms after applying any command (Stage 5 deviation), so each piece
+> compounds: all three ≈ press → lights → dashboard confirm in ~1 s.
 
 > CLAUDE.md note: "is there a way to do sse-like updates (near-instant) with the
 > dashboard?"
