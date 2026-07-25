@@ -146,12 +146,22 @@ curve. Effort: the largest item in this file — plan ~2–4 sessions, staged.
 > command (`_pendingCommand` cleared), with an 8 s floor (covers the
 > firmware's 5 s command pickup + snapshot push for chip toggles, which never
 > set `_pendingCommand`) and a 20 s cap; refreshes the log once on burst end;
-> no reflash, Railway deploy only. **(2) Flask → browser SSE**
-> (`/api/status/stream`, the D13–15 fan-out; mind gunicorn worker config
-> for held connections). **(3) firmware long-poll** on `/api/command` from
-> netTask, killing the last ~5 s. Firmware already pushes a status snapshot
-> ~100 ms after applying any command (Stage 5 deviation), so each piece
-> compounds: all three ≈ press → lights → dashboard confirm in ~1 s.
+> no reflash, Railway deploy only. **(2) Flask → browser SSE — SHIPPED
+> July 24**: `/api/status/stream` (dashboard-authed, demo-redacted via the
+> shared `_status_payload()` helper) pushes `status` frames + `log` poke
+> events; in-process `_Broadcast` (threading.Condition + two version
+> counters) bumped by `/api/status`, `/api/log`, and command
+> queue/cancel/ack; 25 s keepalive pings; `db.session.remove()` between
+> events so held streams don't exhaust the connection pool. Procfile →
+> `gunicorn app:app -w 1 --threads 16` (threads so held connections don't
+> pin the app; `-w 1` REQUIRED — the broadcaster is process-local). Frontend
+> `EventSource` feeds the same `applyStatus()` path as the polls; 30 s polls
+> + step-1 bursts stay as fallback. Mechanics smoke-tested locally (bump →
+> push, ping, log poke all verified). **(3) firmware long-poll** on
+> `/api/command` from netTask, killing the last ~5 s. Firmware already
+> pushes a status snapshot ~100 ms after applying any command (Stage 5
+> deviation), so each piece compounds: all three ≈ press → lights →
+> dashboard confirm in ~1 s.
 
 > CLAUDE.md note: "is there a way to do sse-like updates (near-instant) with the
 > dashboard?"

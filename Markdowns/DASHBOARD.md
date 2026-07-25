@@ -1,6 +1,6 @@
 # DASHBOARD.md — Mira Web Dashboard
 
-Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `config.h` as `DASHBOARD_BASE_URL`. The ESP32 polls the dashboard for commands and posts status on every 30 s tick.
+Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `secrets.h` as `DASHBOARD_BASE_URL`. The ESP32's Core-0 `netTask` polls `/api/command` every 5 s and POSTs a status snapshot every 30 s tick plus ~100 ms after applying any command (N1 Stage 5). Browsers get server-pushed updates over `/api/status/stream` SSE with a 30 s poll as fallback (N2 step 2). Served by gunicorn `-w 1 --threads 16` — single process (the SSE fan-out is in-process state), threaded so held stream connections don't block other requests.
 
 ---
 
@@ -15,7 +15,8 @@ Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `
 | Frontend | HTML / CSS / JS | No framework — keep it lean |
 | Database | PostgreSQL (Railway service) | StatusSnapshots, Commands, EventLog tables |
 | Hosting | Railway (Hobby plan) | |
-| ESP32 comms | HTTP REST, firmware-polled | ESP32 POSTs status + polls commands each tick; dashboard is passive server |
+| ESP32 comms | HTTP REST, firmware-polled | `netTask` POSTs status (every tick + on command apply) + polls commands every 5 s; dashboard is passive server toward the ESP32 |
+| Browser comms | SSE push + poll fallback | `/api/status/stream` (`EventSource`) pushes status frames + log pokes; 30 s polls remain as fallback; post-command burst polling (2 s, 8–20 s window) covers stream-down gaps |
 
 ---
 
@@ -35,12 +36,13 @@ Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `
 | Feature | Notes |
 |---------|-------|
 | User auth / login | Session-based, 90-day cookie. Two roles: `owner` (full access, `DASHBOARD_PASSWORD`) and `demo` (read-only, `DEMO_PASSWORD` env var — optional). `/lux` and `/api/lux/history` are owner-only (demo cannot access). |
-| Live status display | Lux, bri (+ %), ct, overhead on/off, last seen — polls `/api/status/latest` every 30 s |
+| Live status display | Lux, bri (+ %), ct, overhead on/off, last seen — pushed near-instantly via `/api/status/stream` SSE; `/api/status/latest` polled every 30 s as fallback (N2 step 2) |
+| Burst polling (N2 step 1) | After any command, `startStatusBurst()` polls status every 2 s until the snapshot confirms (`_pendingCommand` clears), 8 s floor (covers fire-and-forget chip toggles) / 20 s cap; refetches the log once on burst end |
 | State control buttons | Normal, Soft Pause, Wind Down, Wake, Hard Off — send pending commands; active button stays highlighted until server confirms command gone; button text/border darkens dynamically as ambient lux increases past 1000 to maintain contrast against the light cone; Hard Off requires two-click confirm (first click arms "confirm?" for 3 s, second click sends) |
 | Pending command tracking | `pending_command_id` in status response lets client preserve pending state across polls without false clears |
 | Progress block | Shows current state name + detail; slider for Wake/Wind-down with seek; finish button jumps ramp to end |
 | Live slider preview | Dragging the slider updates text live before committing |
-| Event log (index) | Last 10 entries shown inline; "Event log" label is a clickable link to `/logs`; refreshed every 30 s |
+| Event log (index) | Last 10 entries shown inline; "Event log" label is a clickable link to `/logs`; refetched on SSE `log` pokes, plus every 30 s as fallback |
 | Event log page | Full paginated log at `/logs`; date separators; "load more" hides when DB is exhausted; filter buttons: all / normal / wake / wind down / soft pause / hard off — normal uses exclusion filter (strips state-transition events, shows routine operation logs) |
 | Command queue | `commands` table; firmware GETs oldest pending, ACKs after execution; dashboard can cancel before pickup |
 | Mobile hover fix | All `:hover` rules wrapped in `@media (hover: hover)` — no sticky-tap on touch devices |
@@ -86,6 +88,7 @@ Dashboard-only (session auth):
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/status/latest` | Latest snapshot + `pending_command_id` |
+| GET | `/api/status/stream` | SSE: `status` events (same payload/redaction as `latest`, pushed on snapshot ingest and command queue/cancel/ack) + `log` poke events (client refetches `/api/log/recent`); 25 s keepalive pings |
 | GET | `/api/log/recent` | Log entries — `?limit=N&search=<term>&exclude=<term1,term2>` |
 | POST | `/api/command` | Queue new command |
 | POST | `/api/command/<id>/cancel` | Cancel pending command |

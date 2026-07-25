@@ -1,7 +1,10 @@
+import json
 import os
 import re
+import threading
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, session, redirect, render_template, url_for
+from flask import (Flask, Response, request, jsonify, session, redirect,
+                   render_template, url_for, stream_with_context)
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 
@@ -123,6 +126,46 @@ with app.app_context():
             conn.commit()
 
 
+# --- SSE fan-out (N2 step 2) ---
+
+class _Broadcast:
+    """In-process change notifier for /api/status/stream.
+
+    Two monotonic version counters (status snapshots, log lines) under one
+    Condition; stream generators wait on it and re-query the DB when a counter
+    moves. Process-local by design — the Procfile must keep gunicorn at
+    `-w 1` (threads are fine) or browsers on other workers would never wake.
+    """
+
+    def __init__(self):
+        self._cond = threading.Condition()
+        self._status_v = 0
+        self._log_v = 0
+
+    def bump_status(self):
+        with self._cond:
+            self._status_v += 1
+            self._cond.notify_all()
+
+    def bump_log(self):
+        with self._cond:
+            self._log_v += 1
+            self._cond.notify_all()
+
+    def versions(self):
+        with self._cond:
+            return self._status_v, self._log_v
+
+    def wait(self, status_v, log_v, timeout):
+        with self._cond:
+            if (self._status_v, self._log_v) == (status_v, log_v):
+                self._cond.wait(timeout)
+            return self._status_v, self._log_v
+
+
+_broadcast = _Broadcast()
+
+
 # --- Auth helpers ---
 
 def _esp32_authed():
@@ -165,6 +208,7 @@ def ingest_status():
         net_stack_free=d.get('net_stack_free'),
     ))
     db.session.commit()
+    _broadcast.bump_status()
     return jsonify({'ok': True})
 
 
@@ -174,6 +218,7 @@ def ingest_log():
         return jsonify({'error': 'unauthorized'}), 401
     db.session.add(EventLog(message=request.json.get('message', '')))
     db.session.commit()
+    _broadcast.bump_log()
     return jsonify({'ok': True})
 
 
@@ -196,6 +241,7 @@ def cancel_command(cmd_id):
         return jsonify({'error': 'not found or already executed'}), 404
     cmd.status = 'cancelled'
     db.session.commit()
+    _broadcast.bump_status()
     return jsonify({'ok': True})
 
 
@@ -209,6 +255,7 @@ def ack_command(cmd_id):
     cmd.status = 'executed'
     cmd.executed_at = datetime.utcnow()
     db.session.commit()
+    _broadcast.bump_status()
     return jsonify({'ok': True})
 
 
@@ -257,13 +304,13 @@ def index():
     return render_template('index.html', role=session.get('role', ''))
 
 
-@app.route('/api/status/latest')
-def latest_status():
-    if not _dashboard_authed():
-        return jsonify({'error': 'unauthorized'}), 401
+def _status_payload(include_private):
+    """Latest snapshot + pending command as a dict; None if no snapshot yet.
+    Shared by /api/status/latest and /api/status/stream — keep redaction here
+    so the two views can never drift."""
     snap = StatusSnapshot.query.order_by(StatusSnapshot.timestamp.desc()).first()
     if not snap:
-        return jsonify(None)
+        return None
     pending = Command.query.filter_by(status='pending').order_by(Command.created_at).first()
     result = {
         'state': snap.state,
@@ -284,7 +331,7 @@ def latest_status():
         },
         'stable_lux_count': snap.stable_lux_count,
     }
-    if session.get('role') != 'demo':
+    if include_private:
         result['timestamp'] = snap.timestamp.isoformat() + 'Z'
         # N1 Stage 5 — firmware soak telemetry (owner-only, internal detail)
         result['telemetry'] = {
@@ -292,7 +339,53 @@ def latest_status():
             'sse_stack_free': snap.sse_stack_free,
             'net_stack_free': snap.net_stack_free,
         }
-    return jsonify(result)
+    return result
+
+
+@app.route('/api/status/latest')
+def latest_status():
+    if not _dashboard_authed():
+        return jsonify({'error': 'unauthorized'}), 401
+    return jsonify(_status_payload(session.get('role') != 'demo'))
+
+
+@app.route('/api/status/stream')
+def status_stream():
+    if not _dashboard_authed():
+        return jsonify({'error': 'unauthorized'}), 401
+    # Session is only readable while the request context is fresh — capture the
+    # role now, before the generator starts yielding.
+    include_private = session.get('role') != 'demo'
+
+    def gen():
+        status_v, log_v = _broadcast.versions()
+        # Immediate first frame so a (re)connecting client paints without
+        # waiting for the firmware's next POST.
+        yield 'event: status\ndata: ' + json.dumps(_status_payload(include_private)) + '\n\n'
+        db.session.remove()
+        while True:
+            new_sv, new_lv = _broadcast.wait(status_v, log_v, timeout=25.0)
+            if (new_sv, new_lv) == (status_v, log_v):
+                # Keepalive comment — invisible to EventSource, defeats
+                # idle-connection reaping by proxies along the way.
+                yield ': ping\n\n'
+                continue
+            if new_sv != status_v:
+                yield 'event: status\ndata: ' + json.dumps(_status_payload(include_private)) + '\n\n'
+                # Release the pooled DB connection between events — a handful
+                # of open streams would otherwise sit idle-in-transaction and
+                # exhaust the default pool.
+                db.session.remove()
+            if new_lv != log_v:
+                # Log lines carry role-dependent redaction; just poke the
+                # client to refetch /api/log/recent instead of pushing content.
+                yield 'event: log\ndata: {}\n\n'
+            status_v, log_v = new_sv, new_lv
+
+    resp = Response(stream_with_context(gen()), mimetype='text/event-stream')
+    resp.headers['Cache-Control'] = 'no-cache'
+    resp.headers['X-Accel-Buffering'] = 'no'
+    return resp
 
 
 @app.route('/api/log/recent')
@@ -328,6 +421,7 @@ def send_command():
     cmd = Command(action=data['action'], value=data.get('value'))
     db.session.add(cmd)
     db.session.commit()
+    _broadcast.bump_status()
     return jsonify({'ok': True, 'id': cmd.id})
 
 

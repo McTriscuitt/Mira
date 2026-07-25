@@ -479,7 +479,12 @@
 
     async function fetchStatus() {
       const response = await fetch('/api/status/latest');
-      const data = await response.json();
+      applyStatus(await response.json());
+    }
+
+    // Single render path for both transports: the 30 s poll (+ command bursts)
+    // and the /api/status/stream SSE push (N2 step 2) all land here.
+    function applyStatus(data) {
       if (!data) return;
       _lastData = data;
       const sentinel = data.ct === 0;
@@ -782,8 +787,21 @@
       startStatusBurst();
     }
 
+    // ── Live status stream (N2 step 2) ───────────────────────────────────
+    // Server-pushed updates: the firmware POSTs a snapshot ~100 ms after
+    // applying any command (and every 30 s tick), Flask fans it out here, so
+    // state changes paint near-instantly. The 30 s polls below stay as the
+    // fallback if the stream is down; EventSource reconnects on its own.
+    function connectStatusStream() {
+      if (!window.EventSource) return;
+      const es = new EventSource('/api/status/stream');
+      es.addEventListener('status', e => applyStatus(JSON.parse(e.data)));
+      es.addEventListener('log', () => fetchLog());
+    }
+
     fetchStatus();
     fetchLog();
+    connectStatusStream();
     setInterval(fetchStatus, 30000);
     setInterval(fetchLog, 30000);
 
