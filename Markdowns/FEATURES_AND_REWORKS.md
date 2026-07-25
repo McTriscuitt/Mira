@@ -137,13 +137,17 @@ curve. Effort: the largest item in this file — plan ~2–4 sessions, staged.
 
 ## N2 — Near-instant dashboard, both directions
 
-> **NEXT UP — session planned July 17.** N1 Stage 5 (the prerequisite) shipped
-> July 16; user confirmed the residual lag live the same night: commands apply
-> in ~5 s but the display waits on the browser's 30 s status poll. Agreed plan,
-> in order: **(1) burst polling** — frontend-only quick win, after a command
-> the browser polls every ~2 s until the snapshot matches (capped ~20 s), then
-> reverts to 30 s; no reflash, just a Railway deploy. **(2) Flask → browser
-> SSE** (`/api/status/stream`, the D13–15 fan-out; mind gunicorn worker config
+> **IN PROGRESS.** N1 Stage 5 (the prerequisite) shipped July 16; user
+> confirmed the residual lag live the same night: commands apply in ~5 s but
+> the display waits on the browser's 30 s status poll. Agreed plan, in order:
+> **(1) burst polling — SHIPPED July 24**: after any command (`sendCommand`
+> and the fire-and-forget light chips) `startStatusBurst()` in `index.html`
+> polls `/api/status/latest` every 2 s until the snapshot confirms the
+> command (`_pendingCommand` cleared), with an 8 s floor (covers the
+> firmware's 5 s command pickup + snapshot push for chip toggles, which never
+> set `_pendingCommand`) and a 20 s cap; refreshes the log once on burst end;
+> no reflash, Railway deploy only. **(2) Flask → browser SSE**
+> (`/api/status/stream`, the D13–15 fan-out; mind gunicorn worker config
 > for held connections). **(3) firmware long-poll** on `/api/command` from
 > netTask, killing the last ~5 s. Firmware already pushes a status snapshot
 > ~100 ms after applying any command (Stage 5 deviation), so each piece

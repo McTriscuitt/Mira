@@ -433,6 +433,36 @@
 
     const STATE_CMDS = new Set(['NORMAL', 'WAKE', 'WIND_DOWN', 'SOFT_PAUSE', 'HARD_OFF']);
 
+    // ── Burst polling (N2 step 1) ────────────────────────────────────────
+    // The firmware's netTask polls /api/command every 5 s and pushes a fresh
+    // status snapshot ~100 ms after applying one, but the browser's baseline
+    // 30 s poll can leave the display stale for up to a poll cycle after a
+    // command. After sending any command, poll fast until the snapshot
+    // confirms it (fetchStatus clears _pendingCommand on confirmation), with
+    // a floor so fire-and-forget commands (light chips, which never set
+    // _pendingCommand) still cover the firmware's 5 s pickup + snapshot push,
+    // and a cap so a lost command can't burst forever.
+    const BURST_INTERVAL_MS = 2000;
+    const BURST_MIN_MS      = 8000;
+    const BURST_MAX_MS      = 20000;
+    let _burstTimer = null;
+
+    function startStatusBurst() {
+      if (_burstTimer) clearInterval(_burstTimer);
+      const burstStart = Date.now();
+      _burstTimer = setInterval(async () => {
+        await fetchStatus();
+        const elapsed = Date.now() - burstStart;
+        const done = elapsed >= BURST_MAX_MS
+                  || (!_pendingCommand && elapsed >= BURST_MIN_MS);
+        if (done) {
+          clearInterval(_burstTimer);
+          _burstTimer = null;
+          fetchLog();  // the applied command's log lines have landed by now
+        }
+      }, BURST_INTERVAL_MS);
+    }
+
     function updateLetterOpacity(letters, lux) {
       const maxLux = 2000;
       const t = Math.min(1, Math.max(0, lux / maxLux));
@@ -698,6 +728,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, value: idx })
       });
+      startStatusBurst();
     }
 
     function _cancelHardOff() {
@@ -748,6 +779,7 @@
       _pendingCommand = { action, id: cmd.id, value };
       _updateButtonStates();
       renderProgress(_lastData);
+      startStatusBurst();
     }
 
     fetchStatus();
