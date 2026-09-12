@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <esp_system.h>  // esp_reset_reason() — boot-reason reporting in the Online log
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <mbedtls/x509_crt.h>
@@ -757,6 +758,88 @@ void connectWiFi() {
     setRGB(false, true, false); // solid green = connected
     Serial.println("\nWiFi connected — IP: " + WiFi.localIP().toString());
     delay(800);
+}
+
+// ── WiFi watchdog + boot-reason reporting (Sept 12, 2026) ───────────────────
+// Root-caused from Railway telemetry: the STA link occasionally drops and the
+// core's auto-reconnect wedges — total system silence (bridge + Railway share
+// the link) until a manual power cycle. Escalation ladder in wifiWatchdog()
+// below; constants in config.h. The RTC-memory marker survives ESP.restart()
+// (but not power-on) so the next boot's Online log can attribute the reboot.
+
+void   sendLog(const String& message); // defined below — needed by wifiWatchdog()
+String getTimeString();
+
+RTC_NOINIT_ATTR uint32_t bootMarker;             // survives soft reset, garbage on power-on
+static const uint32_t BOOT_MARKER_WIFI_WDT = 0x57494644UL; // "WIFD"
+
+static uint32_t wifiLastCheckMs = 0;
+static uint32_t wifiDownSinceMs = 0;
+static uint32_t wifiLastKickMs  = 0;
+static bool     wifiDown        = false;
+
+static String bootReason = "unknown";  // composed once in setup(), rides the Online log
+
+static const char* resetReasonStr() {
+    switch (esp_reset_reason()) {
+        case ESP_RST_POWERON:   return "power-on";
+        case ESP_RST_SW:        return "sw-restart";
+        case ESP_RST_PANIC:     return "PANIC";
+        case ESP_RST_INT_WDT:   return "INT-WDT";
+        case ESP_RST_TASK_WDT:  return "TASK-WDT";
+        case ESP_RST_WDT:       return "WDT";
+        case ESP_RST_BROWNOUT:  return "BROWNOUT";
+        case ESP_RST_DEEPSLEEP: return "deepsleep";
+        case ESP_RST_SDIO:      return "sdio";
+        default:                return "other";
+    }
+}
+
+// Call once, first thing in setup(): resolve why we booted, then clear the marker.
+static void captureBootReason() {
+    bootReason = resetReasonStr();
+    if (esp_reset_reason() == ESP_RST_SW && bootMarker == BOOT_MARKER_WIFI_WDT)
+        bootReason = "wifi-watchdog";
+    bootMarker = 0;
+    Serial.println("Boot reason: " + bootReason);
+}
+
+static void wifiWatchdog() {
+    if (millis() - wifiLastCheckMs < WIFI_CHECK_MS) return;
+    wifiLastCheckMs = millis();
+
+    if (WiFi.status() == WL_CONNECTED) {
+        if (wifiDown) {
+            wifiDown = false;
+            uint32_t downS = (millis() - wifiDownSinceMs) / 1000UL;
+            Serial.printf("WiFi: reconnected after %lu s down\n", (unsigned long)downS);
+            // Queued, so it flushes to Railway now that the link is back.
+            sendLog("WiFi reconnected after " + String(downS) + " s — " + getTimeString());
+        }
+        return;
+    }
+
+    if (!wifiDown) {
+        wifiDown        = true;
+        wifiDownSinceMs = millis();
+        wifiLastKickMs  = millis(); // auto-reconnect gets the first WIFI_RETRY_MS uncontested
+        Serial.println("WiFi: link down — watchdog armed");
+        return;
+    }
+
+    if (millis() - wifiDownSinceMs >= WIFI_REBOOT_MS) {
+        Serial.println("WiFi: down past reboot threshold — restarting");
+        bootMarker = BOOT_MARKER_WIFI_WDT;
+        delay(100);
+        ESP.restart();
+    }
+
+    if (millis() - wifiLastKickMs >= WIFI_RETRY_MS) {
+        wifiLastKickMs = millis();
+        Serial.println("WiFi: manual reconnect kick");
+        WiFi.disconnect();
+        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    }
 }
 
 // Convert Hue v1 HSB (hue 0–65535, sat 0–254) to CIE xy for the v2 API.
@@ -2182,6 +2265,7 @@ void forceState(State next) {
 
 void setup() {
     Serial.begin(115200);
+    captureBootReason(); // before anything can touch bootMarker — names PANIC/WDT/brownout/wifi-watchdog in the Online log
     pinMode(LEDR, OUTPUT);
     pinMode(LEDG, OUTPUT);
     pinMode(LEDB, OUTPUT);
@@ -2236,7 +2320,7 @@ void setup() {
     xTaskCreatePinnedToCore(netTask, "net", 12288, nullptr, 1, &netTaskHandle, 0);
     Serial.println("Net task started on core 0.");
 
-    sendLog("Online — " + getTimeString());
+    sendLog("Online (" + bootReason + ") — " + getTimeString());
 
     // N1 Stage 2 — first LuxTick fires immediately (boot status/log lands right
     // away); scheduleNextLuxTick() aligns every subsequent tick to :00/:30.
@@ -2425,4 +2509,5 @@ void loop() {
     serviceLuxTickSchedule();
     syncSoftTimers();  // reconcile before ticking so a just-entered state arms first
     softTimersTick();
+    wifiWatchdog();    // STA-loss recovery — see config.h WIFI_* constants
 }

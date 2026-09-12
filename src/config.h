@@ -80,3 +80,20 @@
 // latency ≈ this interval (was ~30 s when the poll rode the lux tick).
 // Interim until N2's long-poll makes it push-driven.
 #define NET_CMD_POLL_MS 5000UL
+
+// WiFi watchdog (Sept 12, 2026) — the firmware previously had NO recovery path
+// after a dropped STA link (WiFi.begin ran once in setup; the core's
+// auto-reconnect is known to wedge against some APs). Bridge PUTs and Railway
+// both ride this one link, so a dead STA froze the whole system silently —
+// observed as total telemetry silences Sept 8 (3 h) and Sept 12 (98 min),
+// recoverable only by power cycle. Escalation ladder, checked every
+// WIFI_CHECK_MS on the main loop:
+//   0–WIFI_RETRY_MS down    → trust the core's auto-reconnect (brief AP blips
+//                             self-recovered in telemetry; don't fight it)
+//   past WIFI_RETRY_MS      → manual disconnect+begin kick, repeated each
+//                             WIFI_RETRY_MS (recovers a stuck STA)
+//   past WIFI_REBOOT_MS     → ESP.restart() (marked in RTC memory so the boot
+//                             log says "wifi-watchdog", not just "sw-restart")
+#define WIFI_CHECK_MS    2000UL
+#define WIFI_RETRY_MS   30000UL
+#define WIFI_REBOOT_MS 300000UL  // 5 min
