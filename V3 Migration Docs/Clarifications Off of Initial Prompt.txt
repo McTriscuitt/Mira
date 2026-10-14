@@ -1,0 +1,19 @@
+1. From when the lights are turned off (be that 9pm or 1am, whichever happened the night before) to 6am
+2. this will have to be tested, so lets begin with with the new night level, 25%
+3. i like your suggestion. 
+4. keep 60 minute pause, but short 15 second fade in. 
+5. color change will be used to tell whether a light should be used for the rest of the day; refer to 8 for more on this. all lights turned off should be counted as a pause (specifically, a nap). brightness level changes should be held until manually changed in the dashboard. 
+6. fire when the pause ends.
+7. i like your suggestion of no scheduled turn-ons while everything is off, but i feel as if that has certain implications that will end up feeding other interactions. although the ceiling light turning on is scheduled for 10am, this system shouldnt necessarily run on a "schedule." it should put one command and leave it to just that unless the system is interfered with. once the system comes back to being "in charge," it should read the current brightness and step to the next time threshold and brightness. if this description is poor, please tell me how i can clarify it. 
+8. all. this is extrapolating to the rest of the system now: if only one light is color/temp changed at any point, treat it as turned off (and actually put a tunr off) for the rest of the day until it is manually turned back on. if all lights are turned off, treat it as a pause in the system. i think this + 5 covers pausing/ individual lights on/off behaviors, but if not, please ask for clarification. 
+9. keep as reporting only, but it will most likely be fully depricated at some point in the near future. 
+10. as you suggested.
+11. branch the code. this should be mira 3.0, as 2.0 was meant to be the super reactive system that we did not finish. with the new branch, remove all unnecessary lux related code and files. 
+
+assumptions: 
+i dont think this system needs to be ramped as previously done in this system. if i remember corectly, we can do one put for the target brightness, color temp, and the amount of time it should take to do it. this is how we should approach this from now on. if, for example, the system is paused and then resumes, say, at 8:15, then the system will take the time left until the next state (the 9pm) and will push one put for 45 minutes. this will let the lights do the change in temp and brightness, rather than the system.
+
+most old things will not need to stay. light exclusions are explained above, override detection is explained above. hard off is no longer necessary as described above (i believe what i explained provides good reason for hard off to be removed). however, i will need you to reexplain the watchdog and dashboard telemetry to me. yes, leave the dashboard for a future session. 
+
+Required:
+yes, adjust the time and daylight time as needed.

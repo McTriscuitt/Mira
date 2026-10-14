@@ -1,0 +1,19 @@
+If a light is already on once the 6am time is hit, the system should treat it as a wakeup call and begin that sequence.
+this new system really shouldnt have any "states" per se, but rather just puts that change the lights.
+1. i think if we are to treat a light turned off like a color change, then we should just swap them. let a light turned off be turned off for the day, and do not pick up color changes. i dont change them anyways
+2. keep your suggestions.
+3. keep your suggestion. For clarification, if the resume would land within a fade period, let the system resume as if it was already mid-fade. otherwise, 15-second fade.
+i think this brings up the fact that certain periods should be marked as "fade periods." this should be self explainatory, but repeat it back to me as you understand so i can make sure that i explained it well.
+4. as you suggest.
+5. as you suggest, but remind me what would cause a hold again? how are we defining hold vs pause?
+6. no longer necessary as talked about in 1.
+
+small choices:
+1. yes, turn off everything.
+2. perfect, we are on the same page for this.
+3. agreed. 15second fades is perfect.
+4. okay.
+5. yes, a light turned off should join the next day if it is not manually reset that day.
+
+
+yes, keep the watchdog and telemetry. i think override detection will be reworked as a consequence of this migration.

@@ -1,5 +1,9 @@
 # Mira — Hue API v1 → v2 Migration Planning
 
+> **Mira 2.x (historical).** Written for the lux-reactive system, tagged `mira-2-final`.
+> Mira 3.0 (time-of-day, Oct 2026) replaced the behavior described here — see
+> `MIRA_3.md`. Kept for history; code it references may no longer exist.
+
 We've been discussing migrating Mira's Hue integration from API v1 (local HTTP) to API v2 (local HTTPS). Nothing has been implemented yet — this is a planning conversation. Here's what was decided.
 
 ---

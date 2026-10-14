@@ -1,5 +1,9 @@
 # N1_MIGRATION.md — Event-Driven Reactive Core
 
+> **Historical (2.x).** N1 shipped July 2026. Its event-queue + Core-0-task shape carried
+> into Mira 3.0, but the state machine, LuxTick, and soft timers it describes were
+> replaced — see `MIRA_3.md`.
+
 Migration plan for **N1** in `FEATURES_AND_REWORKS.md`: replace the monolithic
 30-second tick with an event queue + per-state dispatch, with SSE drained on a
 dedicated FreeRTOS task. Subsumes **G22** (instant lockout re-arm), **G23**

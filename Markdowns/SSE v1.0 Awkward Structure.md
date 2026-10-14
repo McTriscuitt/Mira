@@ -1,3 +1,7 @@
+> **Mira 2.x (historical).** Written for the lux-reactive system, tagged `mira-2-final`.
+> Mira 3.0 (time-of-day, Oct 2026) replaced the behavior described here — see
+> `MIRA_3.md`. Kept for history; code it references may no longer exist.
+
 Layer 9: What I think is awkward, and where there's room to redesign
 
 A few structural choices feel load-bearing in ways that probably aren't necessary. In rough order of "biggest    

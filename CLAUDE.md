@@ -1,10 +1,12 @@
- # CLAUDE.md
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project: Mira
 
-Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (ABX00083)**. It reads ambient lux via a VEML7700 sensor and adjusts 4 Philips Hue bulbs through the local Hue Bridge HTTP REST API.
+Smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (ABX00083)**. **Mira 3.0** (October 2026) drives 4 Philips Hue bulbs on a **time-of-day timeline** through the local Hue Bridge v2 API: at each point in the day where the lights should change, it sends one command per light with a target brightness, color temperature, and duration, and the bulbs do the fading. A VEML7700 lux sensor is read for reporting only.
+
+**Start every firmware session with `Markdowns/MIRA_3.md`.** It's the 3.0 spec, architecture, decisions log, and first-flash checklist; the user's verbatim inputs are in `V3 Migration Docs/`. The lux-reactive 2.x system is tagged `mira-2-final` (3.0 is on branch `mira-3` until it's verified on the board).
 
 ## User Notes
 - all .md's for error parsing and rectifying are in \Mira\Bug Records\
@@ -23,12 +25,15 @@ Adaptive smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (
 
 - is there a way to do sse-like updates (near-instant) with the dashboard? 
 - should the wind down and wake ramps catch soft pause-esque changes?
+  - *3.0: yes — a brightness change in any state is a hold (MIRA_3.md §6).*
 
 - add a nap button on the dashboard
   - turns off the lights and set to soft pause for 90 minutes
+  - *3.0: turning every light off before 9 PM is now a 60-min nap; a dashboard button is a dashboard-session item.*
 
 - ~~this may seem silly, but change it so that polls happen on :00 and :30, instead of whenever 
 the system reflashes. make it commentable so that it can be ignored for testing.~~ **SHIPPED July 14 (N5/`ALIGNED_TICKS` in config.h — comment out to revert to flash-relative 30 s)**
+  - *3.0: the 30 s tick only carries telemetry now and is always aligned; `ALIGNED_TICKS` is gone.*
 
 - maybe add another secret page for dashboard error logs?
 
@@ -37,6 +42,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
   window light the way the curve/thresholds assume. Wind-down should be able to begin
   earlier without lux having to drop all the way to ≤ 10. Revisit the `lux <= 10` gate in
   `tickNormal` (and possibly the placement story generally) — deferred, different day.
+  - *3.0: obsolete — there's no lux gate; the evening is time-driven.*
 
 ### Priority Bugs
 
@@ -47,122 +53,94 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
-Change history lives in `git log` and the Markdowns docs — `Markdowns/FEATURES_AND_REWORKS.md` (feature/rework index with status banners) and `Markdowns/N1_MIGRATION.md` (N1 status table + decisions log). Shipped through: **N1 all 5 stages** (flashed July 16), **N2 steps 1+2** (dashboard-side burst polling + Flask→browser SSE, July 24; step 3 netTask long-poll still open).
+- **Mira 3.0 built, not yet flashed (Oct 14, 2026)** — ground-up rewrite on branch `mira-3`: pure core (`timeline` + `director` + `echo`) with 31 native tests, new hardware shell, SNTP + Central TZ with automatic DST. Status table and first-flash checklist: `Markdowns/MIRA_3.md`.
+- 2.x history lives in `git log` and the Markdowns docs: N1 all 5 stages (flashed July 16), N2 steps 1+2 (July 24), WiFi watchdog + boot reasons (Sept 12). `Markdowns/FEATURES_AND_REWORKS.md` and `N1_MIGRATION.md` describe 2.x.
 
-## Build & Flash (PlatformIO)
+## Build, Flash & Test (PlatformIO)
 
-Standard PlatformIO CLI: `pio run` / `pio run --target upload` / `pio device monitor` (115200 baud). PlatformIO is the only build system. The IDE is CLion with the PlatformIO plugin. `.pio/libdeps/` is auto-generated — do not edit files there.
+- `pio run` / `pio run --target upload` / `pio device monitor` (115200 baud) build and flash the board (`default_envs = arduino_nano_esp32`).
+- **Native tests:** `pio test -e native -e native_legs`. They run the pure core through simulated days on the host and need a host gcc/g++ on PATH (CLion's bundled MinGW works: `<CLion>\bin\mingw\bin`). The board env ignores tests.
+- PlatformIO is the only build system. The IDE is CLion with the PlatformIO plugin. `.pio/libdeps/` is auto-generated — do not edit files there.
+- The board build is `-std=gnu++11` (Arduino-ESP32 2.0.17, GCC 8.4). Keep the core C++11: the native env compiles it with the same standard.
 
 ## Hardware
 
 | Component | Detail |
 |-----------|--------|
 | MCU | Arduino Nano ESP32-S3 (ABX00083) |
-| Lux sensor | Adafruit VEML7700 — I2C, SDA=A4/GPIO11, SCL=A5/GPIO12 |
-| Button (Mode) | D9 (GPIO18) — **retired June 2026, code commented out** (was: short = NORMAL/pause toggle, long = hard off) |
-| Button (Cycle) | D10 (GPIO21) — **retired June 2026, code commented out** (was: short press cycles through all 6 states) |
-| Bulbs | 4× Philips Hue E26 White & Color Ambiance (chest, dresser, ceiling 1+2) + 1× Signe gradient floor lamp; bri 0–254 / ct 153–447 Mired in v1 units, driven in v2 percent + mirek |
-| Onboard RGB | Active LOW (LOW = on, HIGH = off) |
+| Lux sensor | Adafruit VEML7700 — I2C, SDA=A4/GPIO11, SCL=A5/GPIO12. Reporting only in 3.0; optional (a missing sensor no longer hangs boot) |
+| Buttons | D9 / D10 — retired June 2026; the code was deleted in 3.0 (it drove 2.x states; `mira-2-final` keeps it) |
+| Bulbs | Floor (Signe gradient), dresser, chest, ceiling 1 — Hue White & Color Ambiance, driven in v2 percent + mirek. Ceiling 2 exists but is out of the system |
+| Onboard RGB | Active LOW. Boot: red blink = WiFi, blue blink = waiting for the time, solid blue = time synced, off = boot complete |
 
 **LCD was attempted and abandoned** — HD44780 requires 3.5V logic minimum (0.7 × 5V VDD) but ESP32-S3 outputs 3.3V. Level shifting was not pursued. No display is planned.
 
-## Key Configuration (`src/config.h` + `src/secrets.h`)
+## Key Configuration
 
-Config is split in two:
-- **`src/config.h`** — **tracked/public** behavior + tuning constants (curve gates, tolerances, timing, button pins, cache indices). No secrets. It `#include`s `secrets.h` at the top, so `main.cpp` only needs `#include "config.h"`.
-- **`src/secrets.h`** — **gitignored**, deployment-specific values: WiFi creds, `HUE_API_KEY`/`ESP32_API_KEY`, `HUE_V2_BASE_URL`/`HUE_BRIDGE_HOST` (bridge IP), `LIGHT_UUID_*`, `DASHBOARD_BASE_URL`. Copy **`src/secrets.h.example`** (tracked template) → `secrets.h` and fill it in on a fresh clone. Because it's gitignored, edits to these values (and to firmware tuning constants you keep there) never reach the repo.
+- **`src/config.h`** — tracked, public: every behavior and tuning constant (the day's times and levels, fades, windows, tolerances, watchdog timing). **3.0: it no longer `#include`s `secrets.h`** — the pure core includes it and must build on a host with no secrets; the shell files (`main.cpp`, `bridge.cpp`, `dashboard.cpp`) include `secrets.h` directly.
+- **`src/secrets.h`** — gitignored: WiFi creds, `HUE_API_KEY`/`ESP32_API_KEY`, `HUE_V2_BASE_URL`/`HUE_BRIDGE_HOST`, `LIGHT_UUID_*`, `DASHBOARD_BASE_URL`. Copy `src/secrets.h.example` on a fresh clone.
+- **Hue Bridge:** `192.168.1.186`; `HUE_V2_BASE_URL = "https://192.168.1.186/clip/v2"`; the key goes in the `hue-application-key` header.
+- **Roster (`src/lights.h`):** `LIGHT_FLOOR=0, LIGHT_DRESSER=1, LIGHT_CHEST=2, LIGHT_CEIL_1=3, LIGHT_COUNT=4`. This order indexes masks, the bridge cache, the echo ring, and persisted state. UUIDs live in `bridge.cpp`'s `LIGHT_UUIDS[]` in the same order. The timeline speaks in `Role`s, so a re-enabled `LIGHT_CEIL_2` (a commented-out row) would follow the ceiling with no other change.
+- **Clock:** `MIRA_TZ "CST6CDT,M3.2.0,M11.1.0"` via `configTzTime()` — US Central with automatic DST. `UTC_OFFSET_SEC` and NTPClient are gone.
 
-- **Hue Bridge:** `192.168.1.186`; `HUE_V2_BASE_URL = "https://192.168.1.186/clip/v2"` + `HUE_API_KEY` (passed as `hue-application-key` header); `HUE_BRIDGE_HOST = "192.168.1.186"` for the SSE/cert connection probe
-- **Cache indices:** `LIGHT_CHEST=0`, `LIGHT_DRESSER=1`, `LIGHT_CEIL_1=2`, `LIGHT_CEIL_2=3`, `LIGHT_FLOOR=4` — index into `lightCache[LIGHT_COUNT]` (`LIGHT_COUNT=5`) in `main.cpp`. `LIGHT_CHEST`/`LIGHT_DRESSER` are the **renamed** bedside/desk bulbs (same physical UUIDs, label-only change); `LIGHT_FLOOR` is the Signe gradient floor lamp added as the wake start-point + wind-down night-light anchor. `LIGHT_COUNT` sizes `lightCache[]` / `recentPuts[]` and bounds-checks `idx`.
-- **Light UUIDs (v2):** `LIGHT_UUID_CHEST`, `LIGHT_UUID_DRESSER`, `LIGHT_UUID_CEIL_1`, `LIGHT_UUID_CEIL_2`, `LIGHT_UUID_FLOOR` — hardcoded in `secrets.h` from discovery; stable Zigbee identities, only change on factory reset. Used as the v2 endpoint path component and resolved back to cache indices via `idxByUuid()`. A `lightName(idx)` helper maps the index back to a friendly label (`Chest`/`Dresser`/`Ceiling_1`/`Ceiling_2`/`Floor`) for Serial + bootstrap logging.
-- **UTC offset:** `UTC_OFFSET_SEC` — currently `-14400` (UTC-4 / Eastern Daylight)
-- **`STATE_TOLERANCE_BRI 1.2f`** — min bri delta (percent) before a PUT is sent by `tickNormal`'s drift check (≈ 3/254 in old v1 units). No longer used for SSE override detection — that uses the wider `TRAJECTORY_TOLERANCE_BRI` instead.
-- **`STATE_TOLERANCE_CT 3`** — min ct delta (mirek) before a PUT is sent by `tickNormal`'s drift check. No longer used for SSE override detection — see `TRAJECTORY_TOLERANCE_CT`.
-- **`TRAJECTORY_TOLERANCE_BRI 5.0f`** — width of the per-light echo-discrimination window used by both `eventMatchesRecentPut()` (trajectory check) and the no-op event filter (event vs pre-event cache check) in `handleLightUpdate()`. Percent. Wider than `STATE_TOLERANCE_BRI` because it sizes Zigbee/bulb-side step quantization (~1–3% slop), not curve-drift sensitivity. User-driven overrides are double-digit percent, comfortably outside this window.
-- **`TRAJECTORY_TOLERANCE_CT 15`** — same purpose for ct (mirek), same dual-use in both filters. White-ambiance bulbs quantize ct to discrete steps; 15 mirek absorbs the slop without masking real CT overrides (typically 50+ mirek).
-- **`RECENT_PUT_GRACE_MS 5000UL`** — post-`dynamics.duration` slack window during which an incoming SSE event for a light is still considered a possible echo of a recent PUT. Sized for Zigbee mesh settle latency. After this expires, the no-op filter takes over as the catch for late settling echoes.
-- **`RECENT_PUT_RING_SIZE 3`** — slots per light in the trajectory ring. Lets overlapping in-flight PUTs (wake-ramp tick + state-change PUT, or lux-driven PUT after an overhead toggle) keep their trajectories live simultaneously.
-- **`SSE_EVENT_RING_SIZE 16`** — depth of the diagnostic `sseEventRing[]` that records every classified SSE light event with pre-event cache + outcome. Dumped on `Override` fire.
-- **Wake-ramp turn-on gates** (in `config.h`) — the wake ramp is a brightness staircase that doubles as a sunrise: the floor lamp leads from tick 0, then `WAKE_SECONDARY_BRI 40.0f` + `WAKE_SECONDARY_LUX 250.0f` gate chest+dresser joining, then `WAKE_OVERHEAD_LUX 500.0f` (with the `S2_BRI_LO` 70% bri gate) gates the overheads. Both stages now **match** their NORMAL breakpoints: `WAKE_SECONDARY_LUX` (250) == `S3_LUX_HI` (250) and `WAKE_OVERHEAD_LUX` (500) == `S2_LUX_HI` (500), so neither the chest nor the overheads show a step at the WAKE→NORMAL handoff. Neither curve breakpoint should be repurposed.
-- **`BTN_MODE 9` / `BTN_CYCLE 10`** — still defined, but physical buttons are retired (June 2026); all button code is commented out, not deleted (`[buttons removed 2026-06]` markers)
-- **`LOCKOUT_RESET_MIN_OF_DAY 1230`** — minutes-since-midnight after which all-lights-off re-arms the morning lockout (1230 = 8:30 PM, aligned with the earliest wind-down completion; minute-granular since July 15, was hour-granular `LOCKOUT_RESET_HOUR 21`)
-- **`WIND_DOWN_GATE_HOUR 19`** — 24h hour after which the stable-lux counter may accumulate toward WIND_DOWN; earliest completion = gate + 30 min counter + 60 min ramp (7 PM gate → lights down by 8:30 PM on a dark evening; lux still rules, the hour is only the floor). Lowered from 21 July 15, 2026 (schedule change)
-- **`SOFT_PAUSE_MS 3600000UL`** — soft pause auto-resume duration (60 min)
-- **`WAKE_RAMP_TICKS 40`** — wake ramp duration (20 min at 30 s/tick)
-- **Turn-on order (wake):** Floor (tick 0) → Chest + Dresser (`rampBri ≥ 40% && lux ≥ 250`) → Overhead 1+2 (`rampBri ≥ 70% && lux ≥ 500`)
-- **Turn-off order (wind-down):** Overhead 1+2 (start) → Chest (midpoint, step 60) → Dresser (end, step 120); Floor stays on at floor brightness (19.7%) as the night-light anchor
+## Core Behavior (summary — the spec is `Markdowns/MIRA_3.md` §1–§7)
 
-## Core Behavior & State Machine
+The day: wake (the first light on after 6 AM, a light already on at 6 AM, or 9 AM) → 25→75% over 15 min (floor, dresser +5 min, chest +10 min) → 10:00 ceiling on, →100% by 11:00 → 17:00–18:00 →75% → 19:00 ceiling off → 20:00–21:00 →40%, chest off → 23:00–23:30 →25%, dresser off → 01:00 lights-out. CT follows the 2.x brightness→CT map everywhere (280 mirek at 100% … 400 at 19.7%).
 
-State machine: `enum class State { LOCKED_OUT, NORMAL, WAKE, WIND_DOWN, SOFT_PAUSE, HARD_OFF }` in `main.cpp`. Since N1 Stage 2, `loop()` is a **consumer/dispatcher**: it blocks ≤50 ms on `evQueue` (`xQueueReceive`), dispatches events (`LuxTick` → `dispatchLuxTick()`, `SseLight` → `dispatchSseLight()`, `TimerFire` → `dispatchTimerFire()`, `DashboardCmd` → `dispatchDashboardCmd()`), arms the next LuxTick (`:00/:30`-aligned under `ALIGNED_TICKS` — N5), and services the Stage 4 soft timers (`syncSoftTimers()` + `softTimersTick()`). `dispatchLuxTick()` holds the tick body: status print, lux read (refreshes `lastLux`), `tickNormal()` when NORMAL, status snapshot. **Since N1 Stage 5 all dashboard HTTP lives on the Core-0 `netTask`** (log POSTs via drop-oldest `logQueue`, status POSTs via depth-1 `statusQueue`, `/api/command` poll every 5 s → `DashboardCmd` events; command *application* stays on the main task) — the tick's only network I/O is bridge PUTs. **Since N1 Stage 4 (July 16), ramp advancement and soft-pause expiry run on soft timers, not the tick**: `TIMER_WAKE_STEP`/`TIMER_WINDDOWN_STEP`/`TIMER_RESUME_STEP` (30 s periodic) and `TIMER_PAUSE_EXPIRY` (one-shot). No transition site arms/disarms anything — `syncSoftTimers()` reconciles the active-timer set with `(state, pauseResumeActive)` every loop pass, and ramp timers arm due-now, so a dashboard WIND_DOWN/WAKE command or SSE wake edge starts its ramp in ~50 ms instead of at the next 30 s boundary. SSE events are produced by the Core-0 `sseTask`.
+There is **no state machine**. Each light has a *want on* bit (you and the schedule both write it; last writer wins) and an *out for today* bit. `Director::reconcile()` makes the lights match: lights that want on are on, following the period in force. It sends a command only when the plan differs from the last command sent, so a whole day is 24 commands. Three conditions pause it, and while paused the schedule keeps writing *want on*:
+- **asleep** — everything off at/after 9 PM, or the 1 AM lights-out. Lights you turn on before 6 AM are left alone.
+- **nap** — everything off before 9 PM → 60 min, then back with a 15 s fade-in. A light on ends it early; still napping at 9 PM → asleep.
+- **hold** — a manual brightness change → everything freezes until the next fade period starts (10:00/17:00/20:00/23:00), which then fades all lights to that period's target. Dashboard NORMAL resumes early.
 
-1. **LOCKED_OUT** — no auto-on. A manual **floor-lamp** on-flip fires wake via SSE edge dispatch (`dispatchSseLight()`, ~100 ms — Stage 3 replaced the old per-tick `checkFloorState()` poll). Lockout re-arm is likewise edge-driven: any falling edge after `LOCKOUT_RESET_MIN_OF_DAY` (8:30 PM) with floor/chest/dresser/ceil1 all off re-arms from **any state except HARD_OFF** (clears exclusions, cancels pause/resume). *(Boot default is **NORMAL**, not LOCKED_OUT — confirmed intended July 15.)*
-2. **WAKE** — `tickWakeRamp()` linearly interpolates bri and ct from the actual **floor-lamp** state at trigger → `luxToTarget(ambientLux)` over `WAKE_RAMP_TICKS` (20 min). The floor lamp leads from tick 0; chest+dresser join when `lux ≥ WAKE_SECONDARY_LUX (250) && rampBri ≥ WAKE_SECONDARY_BRI (40%)`; overheads turn on when `lux ≥ WAKE_OVERHEAD_LUX (500) && rampBri ≥ S2_BRI_LO (70%)`. Both thresholds match their NORMAL counterparts (`WAKE_SECONDARY_LUX` == `S3_LUX_HI` == 250; `WAKE_OVERHEAD_LUX` == `S2_LUX_HI` == 500), so there is no step at the WAKE→NORMAL handoff at any lux level. Hands off to NORMAL on completion.
-3. **NORMAL** — `tickNormal()` runs the lux→bri/ct curve, edge detection for the two conditionally-driven bulbs (**chest at `S3_LUX_HI` 250 lux**, **overheads at `S2_LUX_HI` 500 lux** — each cuts below its threshold with the remaining lamps stepping up to compensate), cycle-exclusion enforcement, and the stable-lux counter each tick (override detection is real-time in the SSE handler, not the tick). Floor + dresser are the always-driven core (full lux participants); chest joins above 250, overheads above 500. Transitions to WIND_DOWN when stable counter hits 60.
-4. **WIND_DOWN** — `tickWindDown()` linearly dims floor+chest+dresser toward floor over 60 min; **chest off at the midpoint (step 60), dresser off at the end (step 120)**, floor lamp holds at floor brightness; transitions to LOCKED_OUT.
-5. **SOFT_PAUSE** — all commands suspended; auto-resumes to NORMAL when the one-shot `TIMER_PAUSE_EXPIRY` fires after `softPauseDurationMs` (seeded to `SOFT_PAUSE_MS` on entry, adjustable at runtime via the dashboard remaining-time slider / `+10 min` extend button — `SET_SOFT_PAUSE_REMAINING`; the reconciler re-aims the deadline automatically). `expireSoftPause()` seeds the 10-min resume ramp (`advanceResumeRamp()` on `TIMER_RESUME_STEP`).
-6. **HARD_OFF** — loop does nothing; no polling, no commands.
+One light off → out for today (back when you turn it on, or at the next wake). A light you turn on joins in line near-instantly (0.3 s snap). Color/CT changes aren't tracked.
 
-Evening phases are lux-driven (not time-driven) so the system adapts to seasonal sunset variation automatically.
+## Code Map (MIRA_3.md §8 has the detail)
 
-## Hue API Patterns (current — v2 HTTPS + SSE, all 3 phases complete)
+Pure core (no Arduino; also compiled on the host by the tests):
+- `timeline.*` — the day profile in "Mira-day seconds" (since 06:00, so the evening runs past midnight), the CT map, the fixed events, `crossedLocal()` (midnight wrap; the DST fall-back hour crosses nothing)
+- `director.*` — the behavior engine. Inputs: `tick()` 1 Hz, `onEdge()`, `onUserBrightness()`, `onStaleRevert()`, `onCommand()`. Output: `Env::put()`
+- `echo.h` — the own-echo test
 
-Two PUT helpers exist in `main.cpp`:
-- `setLight(uuid, on, bri, ct, durationMs)` — white/CT mode; `bri` is `float` (0.0–100.0%, native v2 units); `durationMs` in ms (e.g., `30000` = 30 s poll interval, `1000` = 1 s snap)
-- `setLightColor(uuid, on, bri, hueV1, satV1, durationMs)` — HSB color mode; internally converts v1 hue (0–65535) + sat (0–254) to CIE xy via `_hsbToXY()`. Used only for the startup purple flourish.
+Shell:
+- `main.cpp` — WiFi + watchdog, boot reason, clock, lux, RTC persistence, the loop
+- `bridge.cpp` — cert pin, cache, `bridgePut()`, the Core-0 SSE task + classifier
+- `dashboard.cpp` — the Core-0 net task: logs, status, command poll
+- `events.h` — the queue type both tasks feed
 
-Both use `WiFiClientSecure` in insecure-mode TLS with the `hue-application-key` header (see the cert-pinning note below for why CA-mode verification is impossible here). Both call `noteRecentPut()` *before* the HTTP request so the SSE handler can recognize echoes of the PUT — see `Markdowns/SSE.md`. Both also **short-circuit at the top** if `overridePending || state == SOFT_PAUSE || state == HARD_OFF`, returning before `noteRecentPut()` and the HTTP request: this is the **mid-batch abort guard** that prevents the remaining bulbs in a chained `tickNormal` / `tickWakeRamp` / `tickWindDown` batch from getting PUT after the Core-0 SSE task classifies an Override mid-chain (the task sets `overridePending` the instant it classifies; the SOFT_PAUSE transition itself waits in `evQueue` for the dispatcher).
+## Hue API Patterns
 
-GET is used once per boot by `bootstrapLightStates()` (a single `GET /clip/v2/resource/light`) to seed `lightCache[]`, and re-run by the SSE task after every reconnect (`bootstrapLightStates(true)`, Stage 3) to resync the cache and enqueue synthetic edge events for on/off flips missed while the stream was down. Between those, the cache is kept fresh by the persistent SSE event stream — no per-tick GETs.
+- **Commands:** `bridgePut(idx, on, bri, ct, durMs)` sends `on` + `dimming.brightness` + `color_temperature.mirek` + `dynamics.duration` (or just `on:false` + duration). 200 and 207 count as sent. Bodies are built with `snprintf` (no `String` churn). `bridgePreset()` (experimental, `PRESET_OFF_LIGHTS`) sends dimming to a light that's off; `bridgeFlourish()` is the boot purple flash. Every command is recorded in the echo ring (`noteRecentPut()`) **before** the HTTP request — the bridge can echo faster than HTTPClient returns.
+- **Mid-batch abort:** `holdPending` (set by the SSE task the instant it sees your brightness change) makes `bridgePut()` return `Aborted` until the main task applies the hold, so the rest of a multi-light batch can't land on top of your change.
+- **Bootstrap/resync:** one `GET /clip/v2/resource/light` (ArduinoJson filter) seeds the cache at boot. It runs again right after the first stream connect and after every reconnect, turning each missed on/off flip into an edge event.
+- **NVS cert pinning (2.x, unchanged):** `ensureBridgeCert()` loads/fetches the bridge cert (`Preferences` "mira", `hueCert`/`hueCertExpiry`). **CA-mode `setCACert` is impossible here** — Mira dials by IP and the cert's CN is the bridge ID, and the core always verifies the hostname. Instead `peerMatchesPinned()` byte-compares the peer cert post-handshake on the boot probe and the SSE stream (nothing is sent before it passes). HTTPClient paths transmit on connect, so they run insecure-mode TLS and inherit the boot-time check.
+- **Transition length:** every scheduled fade is ≤ 60 min, under Hue's believed ~109 min cap. `MAX_FADE_MS` splits longer fades into legs (hardware unknown #1 in MIRA_3.md).
 
-**NVS cert management + pinning (revised July 15):** `ensureBridgeCert()` runs at startup (after NTP sync). Loads cert + expiry from NVS (`Preferences` namespace `"mira"`, keys `hueCert`/`hueCertExpiry`). Re-fetches using `setInsecure()` if absent, expired, or within 30 days of expiry. **CA-mode verification (`setCACert`) is impossible on this stack** — the core always enforces mbedtls hostname matching, Mira dials by IP, and the bridge cert's CN is the bridge ID, so pinned handshakes die on CN mismatch (found live July 15; the old NVS-verify probe had been silently re-fetching every boot because of it). Instead, `peerMatchesPinned()` byte-compares the peer cert against the stored PEM post-handshake on the boot probe and the SSE stream (nothing, including the app key, is sent before it passes); the HTTPClient paths transmit on connect and therefore run insecure-mode TLS, inheriting the boot-time identity check.
+## Implementation Gotchas (3.0)
 
-**All three migration phases are complete.** See `Markdowns/HANDOFF_v2_migration.md` for the historical plan and `Markdowns/SSE.md` for the SSE subsystem reference. Post-Phase-3 refinements (recent-PUT trajectory ring replacing time-window mute, two-tier tolerance) are documented in `Markdowns/SSE v1.0 Awkward Structure.md` and `Markdowns/SSE.md`.
-
-## Hue API v2 Migration (historical — complete)
-
-All three phases (v1→v2: float bri percent, v2 HTTPS PUT schema + cert handling, SSE stream + `lightCache[]`) and the four post-Phase-3 echo-discrimination refinements are shipped. History and design rationale: `Markdowns/HANDOFF_v2_migration.md` (original plan + what shipped beyond it), `Markdowns/SSE.md` (subsystem reference), `Markdowns/SSE v1.0 Awkward Structure.md` (design critique), `Markdowns/ECHO_DISCRIMINATION.md` (design-space brainstorm).
-
-## millis() Rollover Safety
-
-`millis()` rolls over to zero after ~49.7 days. Subtraction-based elapsed time is safe across rollover due to unsigned wrap. Always use the safe form:
-
-```cpp
-// SAFE
-if (millis() - startTime >= interval)
-
-// UNSAFE — do not use
-if (millis() > startTime + interval)
-if (millis() >= someAbsoluteTimestamp)
-```
-
-Audit every `millis()` comparison in `main.cpp` and verify it uses the subtraction form before or during the v2 migration. **Audit complete — all comparisons already use safe subtraction form.**
-
-## Implementation gotchas (full narratives: `Markdowns/`, esp. `SSE.md`; the code is the reference)
-
-- **Lux curve** (`src/lightcurve.h`) — the two discontinuities (chest 250 lux, overheads 500) are **intentional**; the bri-jump magnitudes are tuning knobs. Keep the JS duplicates in `dashboard/templates/index.html` and `lux_curve.html` in sync with any curve change.
-- **`overheadsOn` / `chestOn` are firmware intent, not physical state** — synced from the cache on every NORMAL/LOCKED_OUT re-entry point to prevent stale edge detection after manual changes during SOFT_PAUSE/WAKE/HARD_OFF.
-- **Cycle exclusion is distinct from soft pause** — excluded lights are skipped by all driving states via `cyclePut()` but stay **override-watched** (a Hue-app change still fires the global soft pause); cleared on the daily lockout re-arm.
-- **Wind-down chest cut is cache-guarded** — chest goes off at step 60 even if a dashboard step-seek jumps past it.
-- **Override detection** — `handleLightUpdate()` classifies every SSE event into one of 10 `EchoOutcome`s; only `Override` fires SOFT_PAUSE. Four layers: recent-PUT trajectory ring → no-op filter → stale-revert filter (re-assert, don't pause) → mid-batch abort guard in `setLight()`/`setLightColor()`. The cache write happens **after** classification (the bridge splits combined changes across events — a cache-merged comparison would false-positive). Diagnostics always on: `sseEventRing[]` (16) + `echoOutcomeCounts[]`; `#define ECHO_TRACE 1` for per-event Serial tracing. Full reference: `Markdowns/SSE.md`.
-- **Soft pause duration is mutable** (`softPauseDurationMs`, rewritten by `SET_SOFT_PAUSE_REMAINING` as absolute minutes-from-now) rather than back-solving `softPauseStart` — extends past 60 min would otherwise wrap the unsigned `millis()` math. Resume ramp seeds from the floor lamp's **actual cached state** (R10) and suppresses override detection for its whole duration.
-- **Buttons are commented out, not deleted** (`[buttons removed 2026-06]` markers, comment-vs-delete convention); `EvType::ButtonPress` stays in the enum; `forceState()` remains fully live for dashboard commands and sets all per-state entry preconditions.
-- **`saveLastState()` NVS persistence is write-only now** — `triggerWake()` no longer reads it (seeds from the floor lamp's actual cached state).
-
+- **The classifier reads only `on` and `dimming`.** The cache write happens after classification (the bridge splits combined changes across events). On/off flips are Mira's echo only when on a live trajectory, otherwise yours — **there's no on/off stale-revert reading** (it would fight your switch). Brightness is checked in order: on-edge grace (3 s) → time-aware echo (`echo.h`) → no-op vs cache → stale revert (< 90 s, re-sent once) → yours → hold.
+- **Echo matching is time-aware.** For 10 s after a command, the full start→target range counts as Mira's echo; after that, only within 8% of where the fade should be by now. A blanket band would hide your changes inside an hour-long fade. Known blind spot: nudges within ~8% of the fade's position, or ~5% of its target, read as Mira's.
+- **On/off commands only count as done when echoed.** An unreachable bulb (wall switch off) backs off to 60 s instead of retrying every ~40 s, and the failure is logged once.
+- **Holds freeze with computed-level commands** (~0.4 s to each mid-fade light's current level, from the `Command` trajectory). The Director seeds each light's brightness from the bridge at boot — a freeze computed from an unknown start would drop lights to ~1%.
+- **Persistence:** `DirectorState` is POD in RTC-noinit memory with an FNV check. Soft resets restore it (if < 10 min old) without switching any lights; power-on infers from the clock and the bulbs. **Bump `Director::STATE_MAGIC`'s last byte whenever `DirectorState`'s layout changes.**
+- **Time** reaches the Director as `Now { epoch ms, local seconds }`. Only the shell touches the timezone. Nothing driven spans a DST change (those happen at 2 AM, while asleep).
+- **`millis()` rollover:** always compare with subtraction (`millis() - start >= interval`), never `millis() > start + interval`. The core uses epoch ms (int64), which doesn't roll over.
+- Diagnostics: the SSE event ring (16) + outcome counts are dumped to Serial on every hold; `#define ECHO_TRACE 1` traces every classified event.
 
 ## Web Dashboard
 
-Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL for persistence). `sendLog()` in `main.cpp` posts events to the dashboard only. Remote control of all 6 states via pending command queue polled by the firmware's `netTask` every 5 s (`NET_CMD_POLL_MS` — N1 Stage 5; was once per 30 s tick). Demo login (read-only) available via `DEMO_PASSWORD` env var. `/lux` page (lux curve + timeline) is owner-only — not visible to demo users.
+Flask + HTML/CSS/JS on Railway (Hobby plan, PostgreSQL). The firmware's net task posts logs and status and polls `/api/command` every 5 s (`NET_CMD_POLL_MS`). Demo login (read-only) via `DEMO_PASSWORD`. See `Markdowns/DASHBOARD.md`.
 
-See `DASHBOARD.md` for full feature specs, design system, and implementation notes.
+**Interim, until the dashboard session (MIRA_3.md §8):**
+- The status `state` carries 2.x names so the current UI keeps rendering: active → `NORMAL`, hold/nap → `SOFT_PAUSE`, asleep → `LOCKED_OUT`, wake → `WAKE`. It also carries `mode` (the 3.0 name) and `lights_on`; `excluded` shows out-for-today.
+- Commands: `NORMAL`/`RESUME`, `SOFT_PAUSE`/`HOLD`, `WAKE`, `LOCKED_OUT`/`SLEEP`, `SET_SOFT_PAUSE_REMAINING`/`NAP_REMAINING`. Retired 2.x commands are acked and logged.
+- The `/lux` page and the curve JS are 2.x leftovers; with HARD_OFF gone, an "away" toggle is a candidate.
 
 **Planned: GitHub Actions selective deploy** — disconnect Railway's built-in git auto-deploy; replace with a GitHub Actions workflow (~20 lines of YAML) that triggers Railway deploys only when dashboard-relevant files change (`app.py`, `requirements.txt`, dashboard HTML/CSS/JS). Firmware changes (`src/`, `platformio.ini`, etc.) must never trigger a Railway deploy. Requires storing a Railway API token as a GitHub Actions secret.
 
-**Open design: Webhooks / external triggers** — inbound webhooks to Flask (`/webhook/external`) so external services can trigger state changes (Google Calendar sleep event → `WIND_DOWN`, Siri Shortcut → any state, IFTTT → arbitrary triggers). The existing `ESP32_API_KEY` bearer token pattern should extend to any inbound webhook endpoints. Connects to the planned Google Calendar integration in `DASHBOARD.md`. No implementation decisions made yet.
+**Open design: Webhooks / external triggers** — inbound webhooks to Flask (`/webhook/external`) so external services can trigger Mira (Google Calendar, Siri Shortcuts, IFTTT). The existing `ESP32_API_KEY` bearer token pattern should extend to any inbound webhook endpoints. No implementation decisions made yet.
 
 ## Deprioritized / Maybe Later
 
-- Post-dark lockout — ~2 hr hold after lux first drops ≤10, suppresses dimming before wind-down; deemed unnecessary
 - **HD44780 LCD** — attempted 4/20; abandoned. ESP32-S3 outputs 3.3V logic; HD44780 at 5V VDD requires VIH ≥ 3.5V (0.7 × VCC). Signal levels fall below threshold. Level shifting not pursued. No display planned.
-- **3-button control scheme** (Mode / Confirm / Cycle) — abandoned alongside LCD. Config screen and simultaneous-press hard off depended on having 3 buttons. Replaced by two-button spec.
-- **DAY_TYPES / WORK / RELAXED** — per-weekday wake ramp duration removed; single `WAKE_RAMP_TICKS` constant used instead.
+- **3-button control scheme** (Mode / Confirm / Cycle) — abandoned alongside LCD.
+- **DAY_TYPES / WORK / RELAXED** — per-weekday schedules; 3.0 runs one schedule every day.

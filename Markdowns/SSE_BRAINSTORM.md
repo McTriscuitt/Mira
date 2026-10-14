@@ -1,5 +1,9 @@
 # Mira — SSE Extensions Brainstorm
 
+> **Mira 2.x (historical).** Written for the lux-reactive system, tagged `mira-2-final`.
+> Mira 3.0 (time-of-day, Oct 2026) replaced the behavior described here — see
+> `MIRA_3.md`. Kept for history; code it references may no longer exist.
+
 Phase 3 wired up the Hue v2 Server-Sent Events stream. Today we use it for one
 thing: light state echoes that update the local cache and detect manual overrides.
 The stream actually exposes a much wider event vocabulary, and the cache + handler

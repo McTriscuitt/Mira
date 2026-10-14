@@ -1,5 +1,11 @@
 # SSE.md — Mira Server-Sent Events Subsystem
 
+> **3.0 note (Oct 2026):** the stream, cache, trajectory ring, no-op filter, and
+> brightness stale-revert described here carried into 3.0's `bridge.cpp`, but the
+> classifier changed: it reads only `on`/`dimming`, matches echoes time-aware
+> (`echo.h`), has no on/off stale-revert, and its outcomes feed the Director (edges,
+> holds) instead of SOFT_PAUSE. See `MIRA_3.md` §8.
+
 Companion to `FIRMWARE.md` (state machine, polling, buttons) and `DASHBOARD.md` (Flask dashboard). This file is the single reference for how Mira uses the Hue v2 Server-Sent Events stream — connection, cache, echo discrimination, override detection, bootstrap, and reconnect behavior.
 
 ---

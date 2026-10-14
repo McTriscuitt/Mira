@@ -1,0 +1,24 @@
+I want to rework a lot of things right now. I am not a fan of how the system is currently working. to begin, i think we can make this system a lot simpler. i want to change this to be a (mostly) time of day system rather than a lux reactive one. it may still use the lux, but honestly, we might change that and get rid of it entirely. this will be considered the next major iteration of this project, so it should be documented as such. the current way the lights dim and rise during wind down and wake are good, but should be expanded. 
+
+the same color temperature map should be kept as previously used.
+
+during any state, a manual change in brightness will pause the system. this should be easy to code as the lights will be working on a schedule from now on as opposed to being lux-reactive.
+
+another difference is that all lights should update together, regardless of if the light is on or not. this way, if the ceiling light is manually turned on during a phase where it is not typically on, it will not be too bright or too dim, but rather just right and in line with the other lights' brightness's
+
+the wake up sequence should begin when the user turns on ANY light, or at 9am, whichever comes first. this means that the system will automatically begin the wake sequence at 9am, without  the user doing anything. this will begin with the floor lamp and expand to the dresser and chest, reaching the immediate brightness cap (75%) within 15 minutes. although any light can be turned on to begin the sequence, it will still proceed through in order. so if the chest is turned on, it will turn on the floor lamp and increase the brightness for both, until the sequence would have reached the part for turning on the chest. this is a consequence of the previous paragraph explaining all the lights moving together, not its own function. please keep that in mind when designing this. 
+
+beginning at 10am, the ceiling light should turn on and all the lights should begin to incrementally increase in brightness until they reach max brightness at 11am. 
+
+the lights should stay at max until 5pm, when they begin to step down to 75% incrementally until 6pm.
+
+the ceiling light should turn off at 7pm. it will no longer be used past that time. at 8pm, the lights will being dimming. beginning at 75%, they will work their way down to 40%, hitting that at 9pm. the chest light should turn off at this time. 
+
+if the user manually turns off the lights after 9pm, the system should be counted as asleep and should on longer update the lights. 
+
+at 11pm, the lights should begin stepping down in brightness until they reach 25% at 11:30, with the dresser light turning off once 25% is reached. the floor light will stay on until manually turned off or at 1am, whichever comes first. 
+
+this should provide a good description of how to change the systems behaviors, however, should questions arise as to functions unspecified, please ask instead of taking liberties. 
+
+after the system is updated, we will begin work on migrating and updating the dashboard. 
+

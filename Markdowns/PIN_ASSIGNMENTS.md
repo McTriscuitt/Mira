@@ -1,5 +1,8 @@
 # Mira — Pin Assignments Reference
 
+> **3.0 note (Oct 2026):** the button code was deleted in Mira 3.0 (it drove 2.x states;
+> `mira-2-final` keeps it) — D9/D10 are free. The VEML7700 wiring is unchanged.
+
 Arduino Nano ESP32-S3 (ABX00083). All logic is 3.3 V.
 
 ---

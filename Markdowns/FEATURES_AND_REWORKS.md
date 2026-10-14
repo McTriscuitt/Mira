@@ -1,5 +1,11 @@
 # FEATURES_AND_REWORKS.md — Mira Feature & Rework Brainstorm
 
+> **3.0 note (Oct 2026):** this backlog was written for the 2.x lux system. Under Mira 3.0
+> (`MIRA_3.md`): **R8** (real timezone) shipped; **N3** (wake/wind-down catching changes)
+> is answered by holds; **R9** is partly done (snprintf PUT bodies, fixed SSE line buffer);
+> lux-specific items (F1, F2, F4, F7, R7, and F5's lux framing) are obsolete or need
+> rethinking against the timeline. Dashboard/portfolio items (N2 step 3, N4, N6, P*) stand.
+
 Catalogued June 9, 2026, from a full read of `main.cpp`, `config.h`, `lightcurve.h`,
 `CLAUDE.md`, `DASHBOARD.md`, `SSE.md`, `SSE_BRAINSTORM.md`, and
 `SSE v1.0 Awkward Structure.md`.

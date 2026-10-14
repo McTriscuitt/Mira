@@ -1,99 +1,131 @@
 #pragma once
 //
-// config.h — tracked, public behavior/tuning constants. No secrets here.
-// Deployment-specific values (WiFi creds, Hue/dashboard keys, bridge IP, light
-// UUIDs) live in secrets.h, which is gitignored. Copy secrets.h.example →
-// secrets.h and fill it in. main.cpp includes config.h, which pulls in secrets.h.
+// config.h — Mira 3.0 behavior and tuning constants (tracked, public).
 //
-#include "secrets.h"
+// 3.0 change: this file no longer #includes secrets.h. The pure core
+// (timeline.cpp / director.cpp) includes it and must also build on a host
+// machine for the native tests, where no secrets exist. Files that need
+// credentials (bridge.cpp, dashboard.cpp, main.cpp) include secrets.h directly.
+//
+// Behavior reference: Markdowns/MIRA_3.md.
+//
+#include <stdint.h>
 
-// UTC offset in seconds — e.g. UTC-4 = -14400, UTC-5 = -18000, UTC-6 = -21600, UTC-7 = -25200
-#define UTC_OFFSET_SEC  (-18000)
+// ── Clock ───────────────────────────────────────────────────────────────────
+// US Central with automatic DST (2nd Sunday of March → 1st Sunday of November),
+// POSIX TZ format. Replaces 2.x's fixed UTC_OFFSET_SEC, which drifted an hour
+// at every DST change — fatal for a schedule-driven system.
+#define MIRA_TZ             "CST6CDT,M3.2.0,M11.1.0"
+#define NTP_SERVER_1        "pool.ntp.org"
+#define NTP_SERVER_2        "time.nist.gov"
+#define NTP_SYNC_TIMEOUT_MS 120000UL   // no first sync by then → restart and try again
 
-// Minimum delta before a new PUT is sent to the bridge by tickNormal's drift check.
-// bri is in percent (0.0–100.0); ct is in mirek — different units require separate tolerances.
-// (Override/echo discrimination uses the wider TRAJECTORY_TOLERANCE_* in main.cpp, not these.)
-#define STATE_TOLERANCE_BRI 1.2f  // ≈ 3/254 in v1 bri units
-#define STATE_TOLERANCE_CT  3
+// ── The day (local time) ────────────────────────────────────────────────────
+// Seconds since local midnight. The awake day runs from the wake window
+// (06:00) to lights-out (01:00 the next morning). MIRA_3.md §2 has the table.
+#define HHMM(h, m) ((int32_t)(h) * 3600L + (int32_t)(m) * 60L)
 
-// Time of day (minutes since midnight, local) after which all-lights-off
-// re-arms the morning lockout. 1230 = 20:30 — aligned with the earliest
-// wind-down completion (WIND_DOWN_GATE_HOUR 19 + 30 min counter + 60 min
-// ramp). Minute-granular since July 15, 2026 (was hour-granular, 21).
-#define LOCKOUT_RESET_MIN_OF_DAY 1230
+#define WAKE_WINDOW_OPEN     HHMM(6, 0)    // a light on (or turned on) from here starts the wake
+#define AUTO_WAKE            HHMM(9, 0)    // ...or this, whichever comes first
+#define MIDDAY_FADE_START    HHMM(10, 0)   // ceiling on; 75 → 100%
+#define MIDDAY_FADE_END      HHMM(11, 0)
+#define AFTERNOON_FADE_START HHMM(17, 0)   // 100 → 75%
+#define AFTERNOON_FADE_END   HHMM(18, 0)
+#define CEILING_OFF_AT       HHMM(19, 0)
+#define EVENING_FADE_START   HHMM(20, 0)   // 75 → 40%
+#define EVENING_FADE_END     HHMM(21, 0)   // chest off
+#define SLEEP_CUTOFF         HHMM(21, 0)   // everything off from here = asleep (before it = nap)
+#define LATE_FADE_START      HHMM(23, 0)   // 40 → 25%
+#define LATE_FADE_END        HHMM(23, 30)  // dresser off
+#define LIGHTS_OUT_AT        HHMM(1, 0)    // next morning: whatever's still on goes off → asleep
 
-// Hour (24h, local time) after which the stable-lux counter may accumulate
-// toward WIND_DOWN. Earliest possible wind-down completion is this hour
-// + 30 min (counter: 60 low-lux readings) + 60 min (ramp) — gate 19 → done by
-// 20:30 when the room is already dark at 19:00; a brighter evening pushes it
-// later (lux stays in charge, the hour only sets the floor). Lowered from 21
-// on July 15, 2026 — schedule change, user wants lights down by ~8:30 PM.
-#define WIND_DOWN_GATE_HOUR 19
+#define CEILING_ON_AT   MIDDAY_FADE_START
+#define CHEST_OFF_AT    EVENING_FADE_END
+#define DRESSER_OFF_AT  LATE_FADE_END
 
-// Cache indices into lightCache[] in main.cpp (Phase 3 — repurposed from old v1 integer IDs).
-// These index the LIGHT_UUID_* defines in secrets.h (resolved via idxByUuid/lightUuid).
-#define LIGHT_CHEST    0   // was LIGHT_BEDSIDE
-#define LIGHT_DRESSER  1   // was LIGHT_DESK
-#define LIGHT_CEIL_1   2
-#define LIGHT_CEIL_2   3
-#define LIGHT_FLOOR    4   // Signe floor lamp — wake start-point + wind-down night-light anchor
-#define LIGHT_COUNT    5   // sizes lightCache[] / recentPuts[] / excludedLight[] and bounds-checks idx
+// Brightness levels (percent — Hue v2 native units)
+#define WAKE_START_BRI  25.0f    // where the wake starts — "the new night level", to be tested
+#define MORNING_BRI     75.0f    // the wake's "immediate brightness cap", held until 10:00
+#define DAY_BRI        100.0f
+#define EVENING_BRI     75.0f
+#define NIGHT_BRI       40.0f
+#define LATE_BRI        25.0f
 
-// Wake sequence — total poll ticks for the lux ramp (30 s per tick)
-#define WAKE_RAMP_TICKS 40   // 20 min
+// Wake sequence (seconds after the trigger)
+#define WAKE_FADE_S          900   // 15 min, WAKE_START_BRI → MORNING_BRI
+#define WAKE_JOIN_DRESSER_S  300   // +5 min
+#define WAKE_JOIN_CHEST_S    600   // +10 min (the ceiling joins here too on a late wake after 10:00)
 
-// Wake ramp turn-on gates (a brightness staircase that doubles as a sunrise sequence):
-// the floor lamp leads from tick 0; chest+dresser join once the ramp is meaningfully
-// lit AND the morning is bright enough; the overheads come last and only on bright
-// mornings. The two stages use *different* lux gates so a moderately bright morning
-// (250–600 lux) lights floor+chest+dresser but no overheads — the adaptive, seasonal
-// behavior the system is built around. Brightness gates are in percent (v2 units).
-// WAKE_SECONDARY_LUX (250) is aligned with the lux-curve's chest breakpoint S3_LUX_HI
-// (250), so the chest has no WAKE→NORMAL handoff seam. WAKE_OVERHEAD_LUX (500) now
-// matches NORMAL's overhead breakpoint S2_LUX_HI (500), closing the 500–600 lux
-// morning seam where overheads would snap on at the WAKE→NORMAL handoff.
-#define WAKE_SECONDARY_BRI  40.0f   // chest+dresser join once rampBri ≥ this
-#define WAKE_SECONDARY_LUX 250.0f   // ...and ambient lux ≥ this (matches S3_LUX_HI)
-#define WAKE_OVERHEAD_LUX  500.0f   // overheads join once rampBri ≥ S2_BRI_LO (70%) and lux ≥ this (matches S2_LUX_HI — no WAKE→NORMAL seam)
+// ── Color temperature ───────────────────────────────────────────────────────
+// The 2.x brightness→CT map, unchanged: linear from CT_WARM at CT_WARM_BRI up to
+// CT_COOL at 100%, clamped. 400 mirek = 2500 K, 280 mirek ≈ 3570 K. One command
+// moves brightness and CT together, so CT tracks the map through every fade.
+#define CT_COOL      280
+#define CT_WARM      400
+#define CT_WARM_BRI  19.7f
 
-// Soft pause — auto-resume after this many milliseconds (60 min). Seeds the runtime
-// softPauseDurationMs, which the dashboard slider / +10 extend button can rewrite.
-#define SOFT_PAUSE_MS 3600000UL
+// ── Transitions ─────────────────────────────────────────────────────────────
+#define FADE_MS       15000UL   // every light Mira turns on or off; steady-period catch-ups
+#define JOIN_SNAP_MS    300UL   // a light you turn on is brought in line near-instantly
+#define FREEZE_MS       400UL   // a hold stops in-progress fades where they are
+#define MIN_FADE_MS    1000UL   // floor for any fade command's duration
+// Longest single transition sent to a bulb. Hue's limit is believed to be ~109 min
+// (hardware unknown #1); every scheduled fade is ≤ 60 min, so this never splits
+// one today. If the bridge rejects long durations, lower this: longer fades then
+// go out in legs, each landing before the next is sent.
+#ifndef MAX_FADE_MS                 // (overridable — env:native_legs tests the legs path)
+#define MAX_FADE_MS 3600000UL
+#endif
 
-// N5 — align lux ticks to wall-clock :00/:30 instead of flash-relative 30 s.
-// Comment out for testing (reverts to "30 s from whenever the tick fired").
-// NTPClient is second-granular, so alignment is ±1 s. See N1_MIGRATION.md Stage 2.
-#define ALIGNED_TICKS 1
+// ── Your changes (MIRA_3.md §5–§6) ──────────────────────────────────────────
+#define NAP_MS            3600000UL  // all off before SLEEP_CUTOFF → 60 min nap
+#define OFF_GROUP_MS         3000UL  // offs this close together are one action (Hue-app room toggle)
+#define ON_EDGE_GRACE_MS     3000UL  // brightness reports this soon after a turn-on belong to it
+#define CLOBBER_WINDOW_MS    3000UL  // a Mira command this recent may land on top of your change
 
-// Button pins — active LOW, internal pull-up
-#define BTN_MODE  9   // D9  — short: NORMAL/pause toggle, long: hard off
-#define BTN_CYCLE 10  // D10 — short: cycle through all states
+// ── Command bookkeeping ─────────────────────────────────────────────────────
+#define ALIGN_BRI_TOL       0.5f     // a sent command already matches the plan within this...
+#define ALIGN_END_TOL_MS    5000L    // ...and ends within this of the period's end
+#define OFF_CONFIRM_MS     20000UL   // on/off not echoed by the bridge by then → re-send
+#define RETRY_BASE_MS       5000UL   // failed-command backoff: 5 s, 10 s, 20 s, ... capped
+#define RETRY_MAX_MS       60000UL
+#define RESTORE_MAX_AGE_MS 600000L   // RTC state older than this at boot is ignored (inferred instead)
 
-// Button timing
-#define DEBOUNCE_MS    50UL
-#define LONG_PRESS_MS 700UL
+// ── Echo recognition (bridge.cpp) ───────────────────────────────────────────
+// Every command Mira sends comes back over the bridge's event stream looking
+// exactly like a change you made; these size the window that tells them apart.
+#define TRAJECTORY_TOLERANCE_BRI 5.0f    // Zigbee/bulb quantization slop, percent
+#define RECENT_PUT_GRACE_MS      5000UL  // post-duration slack for late echoes
+// 3.0's fades run up to an hour, so "anywhere between start and end" would hide
+// your changes for the whole fade. Only right after a command (the bridge echoes
+// its target at once) is the whole range accepted; after that, only values near
+// where the fade should be by now — the bridge's mid-fade progress reports, if it
+// sends any (hardware unknown #2). Wider than the quantization slop in case the
+// bulb's fade isn't perfectly linear in the reported percent.
+#define ECHO_EARLY_MS            10000UL
+#define ECHO_PROGRESS_TOL_BRI    8.0f
+#define RECENT_PUT_RING_SIZE     3
+#define STALE_REVERT_LOOKBACK_MS 90000UL // the bridge walks back an unapplied PUT ~35 s out
+#define SSE_EVENT_RING_SIZE      16
+// #define ECHO_TRACE 1                  // per-event Serial trace of the classifier
 
-// Soft pause resume ramp — ticks to drift from pre-pause bri/ct to current ambient (30s/tick)
-#define PAUSE_RESUME_TICKS 20  // 10 min
+// Experimental — hardware unknown #4 in MIRA_3.md. Also send each fade to lights
+// that are off (without turning them on), so a light switched on later comes up
+// already in line — if the bulbs honor dimming while "soft off". Off until tested.
+// #define PRESET_OFF_LIGHTS 1
 
-// N1 Stage 5 — cadence of netTask's /api/command poll. Dashboard command
-// latency ≈ this interval (was ~30 s when the poll rode the lux tick).
-// Interim until N2's long-poll makes it push-driven.
-#define NET_CMD_POLL_MS 5000UL
+// ── Telemetry + dashboard ───────────────────────────────────────────────────
+#define TELEMETRY_TICK_S  30        // lux read + status snapshot, aligned to :00/:30
+#define NET_CMD_POLL_MS   5000UL    // dashboard command poll (netTask)
 
-// WiFi watchdog (Sept 12, 2026) — the firmware previously had NO recovery path
-// after a dropped STA link (WiFi.begin ran once in setup; the core's
-// auto-reconnect is known to wedge against some APs). Bridge PUTs and Railway
-// both ride this one link, so a dead STA froze the whole system silently —
-// observed as total telemetry silences Sept 8 (3 h) and Sept 12 (98 min),
-// recoverable only by power cycle. Escalation ladder, checked every
-// WIFI_CHECK_MS on the main loop:
-//   0–WIFI_RETRY_MS down    → trust the core's auto-reconnect (brief AP blips
-//                             self-recovered in telemetry; don't fight it)
-//   past WIFI_RETRY_MS      → manual disconnect+begin kick, repeated each
-//                             WIFI_RETRY_MS (recovers a stuck STA)
-//   past WIFI_REBOOT_MS     → ESP.restart() (marked in RTC memory so the boot
-//                             log says "wifi-watchdog", not just "sw-restart")
+// ── WiFi watchdog (Sept 12, 2026) ───────────────────────────────────────────
+// The STA link occasionally drops and the core's auto-reconnect can wedge
+// against some APs. Bridge PUTs and Railway both ride this one link, so a dead
+// STA froze the whole system silently (observed Sept 8, 3 h; Sept 12, 98 min).
+// Escalation ladder, checked every WIFI_CHECK_MS on the main loop:
+//   0–WIFI_RETRY_MS down  → trust the core's auto-reconnect (brief blips self-heal)
+//   past WIFI_RETRY_MS    → manual disconnect+begin kick, repeated each WIFI_RETRY_MS
+//   past WIFI_REBOOT_MS   → ESP.restart() (RTC-marked so the boot log says "wifi-watchdog")
 #define WIFI_CHECK_MS    2000UL
 #define WIFI_RETRY_MS   30000UL
 #define WIFI_REBOOT_MS 300000UL  // 5 min

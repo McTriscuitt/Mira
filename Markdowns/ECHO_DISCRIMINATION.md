@@ -1,5 +1,9 @@
 # Mira — Echo Discrimination Strategies
 
+> **Mira 2.x (historical).** Written for the lux-reactive system, tagged `mira-2-final`.
+> Mira 3.0 (time-of-day, Oct 2026) replaced the behavior described here — see
+> `MIRA_3.md`. Kept for history; code it references may no longer exist.
+
 > **What shipped (post-brainstorm):** This doc was written when the firmware
 > still used a single-slot `prevTarget`/`lastTarget` double-buffer. The
 > trajectory-ring rewrite shipped in commit `8811d5c` already addressed the

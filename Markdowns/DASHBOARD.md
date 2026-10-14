@@ -1,5 +1,10 @@
 # DASHBOARD.md — Mira Web Dashboard
 
+> **3.0 note (Oct 2026):** the firmware now runs Mira 3.0 behind an interim mapping
+> (2.x names in `state`, the 3.0 name in `mode`; old command names still work) —
+> `MIRA_3.md` §8. The dashboard rework is its own session; this doc still describes
+> the 2.x UI.
+
 Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `secrets.h` as `DASHBOARD_BASE_URL`. The ESP32's Core-0 `netTask` polls `/api/command` every 5 s and POSTs a status snapshot every 30 s tick plus ~100 ms after applying any command (N1 Stage 5). Browsers get server-pushed updates over `/api/status/stream` SSE with a 30 s poll as fallback (N2 step 2). Served by gunicorn `-w 1 --threads 16` — single process (the SSE fan-out is in-process state), threaded so held stream connections don't block other requests.
 
 ---
