@@ -1,13 +1,14 @@
-"""Long-running serial soak logger for the Mira Stage 2 verification.
+"""Long-running serial soak logger for Mira.
 
+Usage: python tools/serial_soak_logger.py <out.log> [PORT]   (PORT defaults to COM4)
 Writes host-timestamped serial lines to a device-monitor-style log in logs/.
 Auto-reconnects if the port drops (USB hiccup); exits only at DURATION_S or
-if the port stays gone for RECONNECT_GIVE_UP_S.
+if the port stays gone for RECONNECT_GIVE_UP_S. Kill it before flashing: it holds the port.
 """
 import sys, time
 import serial
 
-PORT = "COM5"
+PORT = sys.argv[2] if len(sys.argv) > 2 else "COM4"
 BAUD = 115200
 DURATION_S = 72 * 3600          # 72-hour cap
 RECONNECT_GIVE_UP_S = 6 * 3600  # stop if the board is gone this long
