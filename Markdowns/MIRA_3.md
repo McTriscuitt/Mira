@@ -37,7 +37,7 @@ little 2.x code survives beyond what §8 lists as kept.
 | 2 | Native tests: simulated days through the core | **DONE (Oct 14).** 31 cases (`test_core` 30, `test_legs` 1), all passing. A mutation check (freeze disabled) was caught. |
 | 3 | Hardware shell: clock (SNTP + Central TZ), bridge (commands, SSE classifier, cert pin), dashboard task, lux telemetry, RTC persistence | **DONE (Oct 14)** |
 | 4 | Compiles clean for the board + code review | **DONE (Oct 14).** `pio run`: 0 warnings, RAM 19.4%, flash 31.0%. Review found and fixed 5 issues (Decisions Log → "Found in build/review"). |
-| 5 | First flash + hardware-unknowns verification | **NOT STARTED** (user's go-ahead). Checklist at the end. |
+| 5 | First flash + hardware-unknowns verification | **IN PROGRESS**: flashed Oct 14 23:33 (`4ba1a97`); first-night findings in `MIRA_3_FIRST_NIGHT.md`. Checklist at the end. |
 | 6 | Docs: delete lux-era docs, rewrite CLAUDE.md, merge `mira-3` → `main` | **PARTIAL.** Docs deleted and CLAUDE.md rewritten for 3.0. Merge waits for step 5. |
 
 **DST note:** the board runs 2.x until step 5. DST ends Nov 1. If 3.0 isn't flashed
