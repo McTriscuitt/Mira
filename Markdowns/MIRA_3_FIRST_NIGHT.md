@@ -89,3 +89,24 @@ _(Times are CT, from the serial log.)_
   bridge must have sent something unrelated to lights around 00:20 that reset the
   10-min timer). SSE stack held at 6,928 through it. Heap stays in its 8.514–8.568 MB
   band. Logger alive.
+- **01:00 lights-out ✓ (no-op)**: already asleep with everything off, so nothing was
+  sent and nothing logged, which is correct. Reconnects ran like clockwork every
+  10 min 1–2 s (00:40, 00:50, 01:00, 01:10). The extra ~1–2 s each is the reconnect
+  itself plus the 1 s check granularity.
+- **SSE stack low-water 6,928 → 6,868** (−60 B) at the 01:00:51 reconnect. The
+  series so far is 10,112 → 7,008 → 6,928 → 6,868, stepping at 3 of 8 reconnects.
+  This isn't a leak: a high-water mark records the deepest the stack has ever been,
+  and stack use can't build up across calls. It's TLS/resync paths occasionally
+  running a bit deeper (different record sizes, response lengths), and the steps
+  are shrinking. ~56% free. Worth flagging only if it gets under ~4 KB.
+- **01:16–02:31 quiet ✓**: all `ASLEEP 0.0%`, no commands/holds/errors, reconnects
+  every ~10 min. SSE stack 6,848 at the last line (−20 B more). Heap normal.
+- **~02:31 serial capture stopped. This is not a board problem.** Claude Code killed the
+  logger's background process because the **laptop** was critically low on memory
+  while the session sat idle. The last captured line (02:31:35) was a normal
+  `ASLEEP` status. Per that notice, the logger was **not** restarted automatically,
+  and the hourly check-in and Monitor were cancelled (nothing left to read).
+  **The board keeps running regardless.** For the morning wake and the 10:00 fade,
+  use the dashboard log on Railway, or restart the capture:
+  `python -u tools/serial_soak_logger.py logs/mira3_first_night_2026-10-14.log COM4`
+  (it appends to the same file).
