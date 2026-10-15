@@ -144,9 +144,11 @@ All of these can be changed. Tell me which ones you don't like.
 
 **Running them yourself (PowerShell):**
 ```
+cd "C:\Users\dtdeo\OneDrive\Documents\Personal\Personal Projects\Mira"
 $env:PATH = "C:\Program Files\JetBrains\CLion 2024.3.1.1\bin\mingw\bin;" + $env:PATH
 pio test -e native -e native_legs
 ```
+`pio` has to run from the project folder (where `platformio.ini` is).
 They need a PC compiler. CLion's bundled one is the only one on this machine.
 
 ---
