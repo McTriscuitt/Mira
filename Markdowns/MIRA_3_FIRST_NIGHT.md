@@ -110,3 +110,42 @@ _(Times are CT, from the serial log.)_
   use the dashboard log on Railway, or restart the capture:
   `python -u tools/serial_soak_logger.py logs/mira3_first_night_2026-10-14.log COM4`
   (it appends to the same file).
+
+## Day 1 (Oct 15): from the dashboard log and telemetry
+
+_(Serial capture was off all day. Sources: `/api/log/recent`, `/api/telemetry/history`,
+`/api/status/latest` on Railway. Times CT.)_
+
+- **Overnight ✓**: no log lines from 23:55 to 09:00. Telemetry has 1,331 snapshots
+  from 22:26 to 09:25 with no gap over 90 s, so no reset or WiFi wedge. Heap stayed at
+  8.511–8.570 MB. SSE stack low-water went 6,848 → 6,784 at 03:11, then flat for 6 h
+  across ~36 reconnects: a settled worst case, not a leak.
+- **09:00:04 wake ✓** (the 09:00 auto-wake; nothing was turned on 06:00–09:00):
+  `Wake — 9:00AM (25% → 75% over 15 min)`, dresser on 09:05, chest on 09:10,
+  `Wake complete — 75%` 09:15. Status at 09:25: active (`NORMAL`), 75%, 317 mirek,
+  ceiling off. Checklist item 9 (next morning's wake) ✓.
+- **10:00:02 `Ceiling on`, 10:00:03 `Fading to 100% by 10:59AM`.** The command went
+  out. **Whether the bulbs reached 100% on time is unverified** (no serial, and the
+  dashboard doesn't record bulb levels). Hardware unknown #1 is still open. Retry on a
+  day with the logger running: watch for any `bridge said:` line and check the bulbs
+  at 11:00.
+- **14:51:01, power lost.** The last telemetry snapshot was normal (no panic, no
+  error); the laptop powering the board ran out of battery. Next snapshot 23:36:33:
+  **8 h 45 min (31,531 s) dark.** The bulbs held their last command (the 100% midday
+  level) the whole time.
+- **23:36:30 and 23:36:45, two `Online (power-on) — Mira 3.0` boots** 15 s apart,
+  each followed by `Boot — lights on; taking over`. Both are `power-on`, not
+  panic/watchdog. Most likely the laptop power-cycled its USB ports while starting up.
+  Not a firmware fault.
+- **Bug: after the outage, three lights were on at 25% at 23:38. Only the floor
+  should be on after 23:30.** A power loss wipes RTC memory, so the boot took §7's
+  power-on inference: any light on before 01:00 → take control of *every* light
+  that's on (`want = physOn`), and `lastLocalSec = now`, so the missed 19:00 ceiling
+  off, 21:00 chest off, and 23:30 dresser off were never replayed. The brightness was
+  right (25%, 392 mirek); which lights stayed on was wrong. This is how §7 was designed,
+  but §7 didn't anticipate a long outage. **Fix proposed (design only): `MIRA_3.md` §10**
+  (save the day's facts to NVS on change; at power-on, restore and replay missed events
+  in Mira-day seconds). Immediate workaround: turn the extra lights off by hand (each
+  one → out for today).
+- **Takeaway:** the board's uptime depends on the laptop. A USB wall adapter removes
+  this class of outage regardless of §10.

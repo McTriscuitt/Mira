@@ -39,6 +39,7 @@ little 2.x code survives beyond what §8 lists as kept.
 | 4 | Compiles clean for the board + code review | **DONE (Oct 14).** `pio run`: 0 warnings, RAM 19.4%, flash 31.0%. Review found and fixed 5 issues (Decisions Log → "Found in build/review"). |
 | 5 | First flash + hardware-unknowns verification | **IN PROGRESS**: flashed Oct 14 23:33 (`4ba1a97`); first-night findings in `MIRA_3_FIRST_NIGHT.md`. Checklist at the end. |
 | 6 | Docs: delete lux-era docs, rewrite CLAUDE.md, merge `mira-3` → `main` | **PARTIAL.** Docs deleted and CLAUDE.md rewritten for 3.0. Merge waits for step 5. |
+| 7 | Power-loss replay: save the day's facts to NVS, replay missed events at power-on | **DESIGN ONLY (Oct 15)**: sketch in §10, open questions there. Not built; needs the user's OK because it changes the §7 power-on rule. |
 
 **DST note:** the board runs 2.x until step 5. DST ends Nov 1. If 3.0 isn't flashed
 by then, 2.x's fixed `UTC_OFFSET_SEC` puts its evening gates an hour off (stopgap on
@@ -236,6 +237,11 @@ Answered Oct 14; the user then redefined when a hold ends. 3.0 retires the word
 - **The purple boot flourish** fires only on power-on outside the sleep window. A
   3 AM crash shouldn't flash the chest.
 
+> **Known gap (found Oct 15):** after a long power loss, the power-on row "any light
+> on → take control" keeps every light that's on, including lights the schedule
+> turned off while the board was dead. On Oct 15 the board lost power 14:51–23:36 and
+> came back with the dresser and chest still on (dimmed to 25%). Proposed fix: §10.
+
 ---
 
 ## 8. Firmware architecture (as built)
@@ -404,6 +410,126 @@ Plus the reconnect resync, which turns each missed on/off flip into an edge.
 - the dashboard exclusion chips and the HARD_OFF/WIND_DOWN buttons
 - with HARD_OFF gone, nothing stops the 09:00 wake while you're away. An "away"
   toggle is a candidate.
+
+---
+
+## 10. Proposed: surviving a power loss (design sketch, not built)
+
+*(Oct 15. The laptop powering the board died; see `MIRA_3_FIRST_NIGHT.md` → Day 1.
+Nothing here is built. It needs the user's OK because it changes §7.)*
+
+### The problem
+
+`DirectorState` lives in RTC-noinit memory. That survives a panic or watchdog reset
+but not a power loss. With no memory, the §7 power-on rule takes control of **every
+light that's on** (`s_.want = physOn_`, `director.cpp:140`) and sets
+`lastLocalSec = now`, so the timeline events missed while the board was dead never
+fire. Hue bulbs hold their last command, so they also sat at the 11:00–17:00 level
+(100%) the whole time the board was out.
+
+Oct 15: power lost 14:51, back 23:36. Missed: 17:00 fade, 19:00 ceiling off, 20:00
+fade + 21:00 chest off, 23:00 fade + 23:30 dresser off. At boot Mira dimmed the
+lights that were on to 25% (correct) and left the dresser and chest on (wrong).
+
+The soft-reset path already does the right thing: it restores the state, re-seeds
+*want on* from the bulbs, then the first tick fires every event crossed since
+`lastLocalSec`, and those events switch lights. **The fix is to give power-on that
+same path, from a copy that survives losing power.**
+
+### The design
+
+**1. Save the day's facts to NVS when they change.**
+- New POD struct `DayFacts`: `magic`, `asleep`, `wakeFlags`, `want`, `out`,
+  `wakeEndBri`, `wakeStartMs`, `napUntilMs`, `holdUntilMs`, plus a stamp `savedMs` /
+  `savedLocalSec` (≈ 48 bytes). Leave out `cmd[]` and `lastTickMs`. Those change on
+  every command and every tick, and boot rebuilds commands anyway (one takeover
+  command per light).
+- `main.cpp` compares the Director's current facts with the last saved copy on each
+  loop pass. When they differ, it writes them (stamped with now) with one
+  `Preferences.putBytes("dayFacts")` in the existing `"mira"` namespace.
+- Estimated write rate: wake (≈4), the 19:00/21:00/23:30 offs, asleep, plus each
+  hold, nap, and light you switch. Roughly **10–40 writes a day** at ~48 bytes, well
+  within NVS wear-leveling. A fade start changes only `cmd[]`, so it doesn't write.
+- **Why stamping at save time is enough** (there's no heartbeat, so the board's actual
+  time of death is unknown): any event that changed a fact would have written a new
+  save. So every event between the last save and the power loss was a no-op, and
+  replaying it again is also a no-op. Replaying from `savedLocalSec` is therefore
+  exact. (Oct 15: the last save was the 10:00 ceiling-on; replaying 10:00→23:36 means
+  the 10:00 event fires again, which does nothing, then the evening offs.)
+
+**2. At power-on, restore if the save is from the same Mira-day.**
+- Valid means: magic and check pass, and the save's **Mira-day** (local date, with
+  the day starting at 06:00) equals now's. A save from yesterday's Mira-day falls
+  through to today's §7 inference, so a power cut overnight still ends in the normal
+  wake.
+- Restore exactly like a soft reset: copy the facts. If not asleep, `want = physOn`
+  and `out &= ~physOn` ("the bulbs are the truth"). Then replay.
+
+**3. Replay in Mira-day seconds, not `crossedLocal()`.**
+- `crossedLocal()` assumes ticks are close together. Its 12 h midnight heuristic
+  misreads long gaps: 07:00 → 05:00 the next morning (prev − now = 2 h) reads as a
+  DST step back and crosses nothing.
+- Within one Mira-day, `toMds()` only goes up, so the replay fires each
+  `TIMELINE_EVENTS` entry with `savedMds < toMds(ev) ≤ nowMds`, in order, through the
+  same `processEvents` switch. Then it sets `lastLocalSec = now`. A new
+  `Director::replay(prevMds, nowMds)` (pure core, testable on the host).
+- Timers sort themselves out on the first tick: an expired `holdUntilMs` ends the
+  hold (fade to the period target), an expired nap ends (or became sleep, if the
+  replay crossed 21:00).
+
+**4. One new rule: everything off at restore.**
+If the restored state isn't asleep but every bulb is off (you switched everything off
+while the board was dead), apply §5's all-off rule *without* starting a nap: at or
+after 21:00 → asleep; before → idle, waiting for a light-on (matching §7's "a power
+blip mid-nap shouldn't switch lights on").
+
+**5. The no-save fallback** (first boot ever, a save from another Mira-day, a
+corrupt save) keeps §7's inference. Open question 1 asks whether to tighten it.
+
+### What Oct 15 would have looked like
+
+Restore at 23:36 → `want = {floor, dresser, chest, ceiling}` (whatever was on) →
+replay fires 19:00 ceiling off, 21:00 chest off, 23:30 dresser off → reconcile: three
+15 s fade-offs, and the floor gets the 25% steady-period level. Log: `Boot — power
+loss; caught up from 10:00AM (3 events)`.
+
+### Known limits
+
+- **A light you turned on while the board was dead can get switched off.** If you'd
+  turned the ceiling on at 22:00 with the board out, the 19:00 ceiling-off replay
+  clears it, because the bridge doesn't say *when* a light came on. That's acceptable
+  for an outage. Once the board is on wall power, outages should be rare.
+- **The double boot** (Oct 15: two `power-on`s 15 s apart, likely USB power-cycling
+  during laptop startup): the first boot's restore + replay writes a fresh save, so
+  the second boot restores that and replays nothing. No special handling needed.
+- **DST fall-back** repeats 1–2 AM. A replay across it fires the 01:00 lights-out
+  once (one entry in the table), which is right.
+
+### Tests to add (native)
+
+1. `test_power_loss_replays_evening_offs`: Oct 15 exactly. Save at 10:00, power-on
+   23:36 with all four at 100% → ceiling, chest, dresser fade off; floor → 25%.
+2. `test_power_loss_save_from_yesterday_infers`: save from the previous Mira-day →
+   §7 inference, no replay.
+3. `test_power_loss_long_gap_same_mira_day`: save 07:00, power-on 05:00 next
+   morning → replay crosses the whole day and ends asleep (the case `crossedLocal()`
+   gets wrong).
+4. `test_power_loss_all_off_after_2100_sleeps`, and the before-21:00 idle case.
+5. `test_power_loss_mid_hold_ends_hold`: a hold saved at 15:00, power-on 17:30 →
+   the hold ended, fade to the 17:00–18:00 target over the remaining 30 min.
+6. `test_save_only_on_fact_change`: a full simulated day writes ≤ ~15 saves, and fade
+   starts don't write.
+
+### Open questions for the user
+
+1. **Tighten the no-save fallback too?** With no save, take control of only the
+   lights that are both on *and* scheduled on now (`physOn ∩ roleScheduledOn`). It
+   would have fixed Oct 15 even without NVS, but after a blip it switches off a light
+   you'd deliberately added. Recommendation: **no**; with NVS the fallback only
+   covers the first boot of a Mira-day.
+2. **Log line wording** for a catch-up boot (proposal above).
+3. **Wall power.** A USB wall adapter instead of the laptop removes the cause. The
+   fix is still worth having for real power cuts.
 
 ---
 
