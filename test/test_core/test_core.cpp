@@ -84,14 +84,14 @@ struct Sim {
     }
     void set(int64_t t) { ms = t; env.nowMs = t; }
     // Lights that are on at boot sit at the profile's level for that moment.
-    void boot(int64_t t, LightMask physOn, const DirectorState* restored = 0) {
+    void boot(int64_t t, LightMask physOn, const DirectorState* restored = 0, const DayFacts* saved = 0) {
         set(t);
         float level = profileBri(toMds(now().localSec));
         for (int i = 0; i < LIGHT_COUNT; i++) {
             env.on[i]  = (physOn & lightBit(i)) != 0;
             env.bri[i] = env.on[i] ? level : 0.0f;
         }
-        d.boot(now(), physOn, env.bri, restored);
+        d.boot(now(), physOn, env.bri, restored, saved);
     }
     void deliver() {
         while (!env.echoes.empty()) {
@@ -121,6 +121,21 @@ struct Sim {
         env.bri[idx] = b;
         d.onUserBrightness(now(), idx, b, 0);
         deliver();
+    }
+    void powerLost(int idx) {  // cut at the wall: the bulb goes dark and hears nothing
+        env.on[idx] = false; env.deaf[idx] = true;
+        d.onPower(now(), (uint8_t)idx, false, 0.0f);
+        deliver();
+    }
+    void powerBack(int idx, float b) {  // the bulb comes back at its own level
+        env.on[idx] = true; env.bri[idx] = b; env.deaf[idx] = false;
+        d.onPower(now(), (uint8_t)idx, true, b);
+        deliver();
+    }
+    bool logged(const char* text) const {
+        for (size_t k = 0; k < env.logs.size(); k++)
+            if (env.logs[k].find(text) != std::string::npos) return true;
+        return false;
     }
     void command(Director::Cmd c, int32_t v = 0) {
         d.onCommand(now(), c, v);
@@ -177,20 +192,21 @@ void test_profile_levels() {
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 100.0f, profileBri(toMds(HHMM(12, 0))));
     TEST_ASSERT_FLOAT_WITHIN(0.01f,  87.5f, profileBri(toMds(HHMM(17, 30))));
     TEST_ASSERT_FLOAT_WITHIN(0.01f,  75.0f, profileBri(toMds(HHMM(19, 0))));
-    TEST_ASSERT_FLOAT_WITHIN(0.01f,  57.5f, profileBri(toMds(HHMM(20, 30))));
-    TEST_ASSERT_FLOAT_WITHIN(0.01f,  40.0f, profileBri(toMds(HHMM(22, 0))));
-    TEST_ASSERT_FLOAT_WITHIN(0.01f,  32.5f, profileBri(toMds(HHMM(23, 15))));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f,  57.5f, profileBri(toMds(HHMM(19, 30))));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f,  40.0f, profileBri(toMds(HHMM(20, 15))));
+    TEST_ASSERT_FLOAT_WITHIN(0.01f,  32.5f, profileBri(toMds(HHMM(20, 52) + 30)));
     TEST_ASSERT_FLOAT_WITHIN(0.01f,  25.0f, profileBri(toMds(HHMM(0, 30))));
     TEST_ASSERT_FALSE(periodAt(toMds(HHMM(2, 0))).driven);
-    TEST_ASSERT_TRUE(periodAt(toMds(HHMM(20, 30))).fade);
+    TEST_ASSERT_TRUE(periodAt(toMds(HHMM(19, 30))).fade);
     TEST_ASSERT_FALSE(periodAt(toMds(HHMM(12, 0))).fade);
 }
 
 void test_next_fade_start_is_the_hold_end() {
-    TEST_ASSERT_EQUAL_INT32(toMds(HHMM(10, 0)), nextFadeStartAfter(toMds(HHMM(9, 5))));
-    TEST_ASSERT_EQUAL_INT32(toMds(HHMM(17, 0)), nextFadeStartAfter(toMds(HHMM(12, 0))));
-    TEST_ASSERT_EQUAL_INT32(toMds(HHMM(23, 0)), nextFadeStartAfter(toMds(HHMM(20, 15))));  // not the fade it's in
-    TEST_ASSERT_EQUAL_INT32(toMds(HHMM(1, 0)),  nextFadeStartAfter(toMds(HHMM(23, 45))));  // lights-out
+    TEST_ASSERT_EQUAL_INT32(toMds(HHMM(10, 0)), holdEndAfter(toMds(HHMM(9, 5))));
+    TEST_ASSERT_EQUAL_INT32(toMds(HHMM(17, 0)), holdEndAfter(toMds(HHMM(12, 0))));
+    TEST_ASSERT_EQUAL_INT32(toMds(HHMM(20, 45)), holdEndAfter(toMds(HHMM(19, 15))));  // not the fade it's in
+    TEST_ASSERT_EQUAL_INT32(toMds(HHMM(22, 30)), holdEndAfter(toMds(HHMM(20, 50))));  // the dresser's off
+    TEST_ASSERT_EQUAL_INT32(toMds(HHMM(1, 0)),  holdEndAfter(toMds(HHMM(23, 45))));   // lights-out
 }
 
 void test_crossing_midnight_and_dst() {
@@ -285,27 +301,25 @@ void test_full_day_auto_wake_one_command_per_change() {
     assertPut(s.find(m, LIGHT_CEIL_1), true, 75.0f, 3600000);
 
     m = s.mark();
-    s.runTo(T(0, 19, 0, 1));
-    TEST_ASSERT_EQUAL(1, s.count(m));
+    s.runTo(T(0, 19, 0, 1));  // ceiling off as the three that remain start down
+    TEST_ASSERT_EQUAL(4, s.count(m));
     assertPut(s.find(m, LIGHT_CEIL_1), false, 0, FADE_MS, 0);
-
-    m = s.mark();
-    s.runTo(T(0, 20, 0, 1));
-    TEST_ASSERT_EQUAL(3, s.count(m));
     assertPut(s.find(m, LIGHT_FLOOR), true, 40.0f, 3600000);
 
     m = s.mark();
-    s.runTo(T(0, 21, 0, 1));
+    s.runTo(T(0, 20, 0, 1));
     TEST_ASSERT_EQUAL(1, s.count(m));
     assertPut(s.find(m, LIGHT_CHEST), false, 0, FADE_MS, 0);
 
     m = s.mark();
-    s.runTo(T(0, 23, 0, 1));
+    s.runTo(T(0, 20, 45, 1));
     TEST_ASSERT_EQUAL(2, s.count(m));
-    assertPut(s.find(m, LIGHT_DRESSER), true, 25.0f, 1800000);
+    assertPut(s.find(m, LIGHT_DRESSER), true, 25.0f, 900000);
 
     m = s.mark();
-    s.runTo(T(0, 23, 30, 1));
+    s.runTo(T(0, 22, 29, 59));  // 21:00 → 22:30 steady at 25%: nothing to send
+    TEST_ASSERT_EQUAL(0, s.count(m));
+    s.runTo(T(0, 22, 30, 1));
     TEST_ASSERT_EQUAL(1, s.count(m));
     assertPut(s.find(m, LIGHT_DRESSER), false, 0, FADE_MS, 0);
 
@@ -386,13 +400,13 @@ void test_dashboard_wake_ignored_at_night() {
 
 void test_light_turned_on_mid_fade_snaps_in_line_then_follows() {
     Sim s;
-    s.boot(T(0, 20, 29), FLOOR | DRESSER);
-    s.runTo(T(0, 20, 30));
+    s.boot(T(0, 19, 29), FLOOR | DRESSER);
+    s.runTo(T(0, 19, 30));
     size_t m = s.mark();
     s.userOn(LIGHT_CEIL_1, 75.0f);  // ceiling after its window: it joins, right level
     assertPut(s.find(m, LIGHT_CEIL_1), true, 57.5f, JOIN_SNAP_MS, 0);
     m = s.mark();
-    s.runTo(T(0, 20, 30, 2));
+    s.runTo(T(0, 19, 30, 2));
     assertPut(s.find(m, LIGHT_CEIL_1), true, 40.0f, 1800000);
 }
 
@@ -414,8 +428,8 @@ void test_hold_in_steady_lasts_until_next_fade_period() {
 
 void test_hold_mid_fade_freezes_others_and_defers_events() {
     Sim s;
-    s.boot(T(0, 19, 59), FLOOR | DRESSER | CHEST);
-    s.runTo(T(0, 20, 15));
+    s.boot(T(0, 18, 59), FLOOR | DRESSER | CHEST);
+    s.runTo(T(0, 19, 15));
     size_t m = s.mark();
     s.userBri(LIGHT_FLOOR, 60.0f);
     // the bulbs were mid-fade: dresser and chest stop where they are (66.25%)
@@ -425,26 +439,26 @@ void test_hold_mid_fade_freezes_others_and_defers_events() {
     TEST_ASSERT_NULL(s.find(m, LIGHT_FLOOR));
 
     m = s.mark();
-    s.runTo(T(0, 22, 59, 59));  // the 21:00 chest-off waits for the hold
+    s.runTo(T(0, 20, 44, 59));  // the 20:00 chest-off waits for the hold
     TEST_ASSERT_EQUAL(0, s.count(m));
     TEST_ASSERT_TRUE(s.env.on[LIGHT_CHEST]);
 
-    s.runTo(T(0, 23, 0, 1));  // hold over: catch up — chest off, the rest fade to 25%
+    s.runTo(T(0, 20, 45, 1));  // hold over: catch up — chest off, the rest fade to 25%
     TEST_ASSERT_EQUAL(3, s.count(m));
     assertPut(s.find(m, LIGHT_CHEST), false, 0, FADE_MS, 0);
-    assertPut(s.find(m, LIGHT_FLOOR), true, 25.0f, 1800000);
-    assertPut(s.find(m, LIGHT_DRESSER), true, 25.0f, 1800000);
+    assertPut(s.find(m, LIGHT_FLOOR), true, 25.0f, 900000);
+    assertPut(s.find(m, LIGHT_DRESSER), true, 25.0f, 900000);
 }
 
 void test_resume_mid_fade_glides_for_the_time_left() {
     Sim s;
-    s.boot(T(0, 20, 29), FLOOR | DRESSER);
-    s.runTo(T(0, 20, 30));
+    s.boot(T(0, 19, 29), FLOOR | DRESSER);
+    s.runTo(T(0, 19, 30));
     s.command(Director::Cmd::Hold);
     TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
-    s.runTo(T(0, 20, 40));
+    s.runTo(T(0, 19, 40));
     size_t m = s.mark();
-    s.command(Director::Cmd::Resume);  // 8:40 PM → 40% over the 20 min left
+    s.command(Director::Cmd::Resume);  // 7:40 PM → 40% over the 20 min left
     TEST_ASSERT_EQUAL(2, s.count(m));
     assertPut(s.find(m, LIGHT_FLOOR), true, 40.0f, 1200000);
 }
@@ -461,7 +475,7 @@ void test_resume_in_steady_fades_only_the_changed_light() {
     assertPut(s.find(m, LIGHT_FLOOR), true, 100.0f, FADE_MS, 0);
 }
 
-void test_hold_after_23_ends_at_lights_out() {
+void test_hold_after_the_dresser_goes_off_ends_at_lights_out() {
     Sim s;
     s.boot(T(0, 23, 44), FLOOR);
     s.runTo(T(0, 23, 45));
@@ -472,6 +486,152 @@ void test_hold_after_23_ends_at_lights_out() {
     s.runTo(T(1, 1, 0, 1));
     assertPut(s.find(m, LIGHT_FLOOR), false, 0, FADE_MS, 0);
     TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)s.mode());
+}
+
+void test_hold_after_last_fade_ends_when_the_dresser_goes_off() {
+    Sim s;
+    s.boot(T(0, 21, 29), FLOOR | DRESSER);
+    s.runTo(T(0, 21, 30));
+    s.userBri(LIGHT_FLOOR, 50.0f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+    size_t m = s.mark();
+    s.runTo(T(0, 22, 29, 59));
+    TEST_ASSERT_EQUAL(0, s.count(m));
+    s.runTo(T(0, 22, 30, 1));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    TEST_ASSERT_EQUAL(2, s.count(m));
+    assertPut(s.find(m, LIGHT_DRESSER), false, 0, FADE_MS, 0);
+    assertPut(s.find(m, LIGHT_FLOOR), true, 25.0f, FADE_MS, 0);
+}
+
+// ── reports on the plan's path aren't holds ─────────────────────────────────
+
+void test_late_report_on_the_wake_path_is_not_a_hold() {
+    Sim s;  // Oct 17: "Hold — Chest set to 60%", 28 s after the chest came on
+    s.boot(T(0, 8, 59), 0);
+    s.runTo(T(0, 9, 10, 29));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Wake, (int)s.mode());
+    size_t m = s.mark();
+    s.userBri(LIGHT_CHEST, s.d.inLineBri(s.now()) + 0.1f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Wake, (int)s.mode());
+    TEST_ASSERT_TRUE(s.logged("in line, no hold"));
+    // Only that light is re-sent, and the others keep fading untouched.
+    TEST_ASSERT_EQUAL(1, s.count(m));
+    assertPut(s.find(m, LIGHT_CHEST), true, 75.0f, 271000, 3000);
+}
+
+void test_report_off_the_path_is_still_a_hold() {
+    Sim s;
+    s.boot(T(0, 8, 59), 0);
+    s.runTo(T(0, 9, 10, 29));
+    s.userBri(LIGHT_CHEST, s.d.inLineBri(s.now()) + IN_LINE_TOL_BRI + 1.0f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+}
+
+void test_in_line_nudge_in_steady_goes_back_to_the_level() {
+    Sim s;
+    s.boot(T(0, 11, 59), ALL);
+    s.runTo(T(0, 12, 0));
+    size_t m = s.mark();
+    s.userBri(LIGHT_FLOOR, 98.0f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    TEST_ASSERT_EQUAL(1, s.count(m));
+    assertPut(s.find(m, LIGHT_FLOOR), true, 100.0f, FADE_MS, 0);
+}
+
+void test_in_line_report_during_a_hold_changes_nothing() {
+    Sim s;
+    s.boot(T(0, 11, 59), ALL);
+    s.runTo(T(0, 12, 0));
+    s.userBri(LIGHT_FLOOR, 50.0f);
+    size_t m = s.mark();
+    s.userBri(LIGHT_DRESSER, 100.0f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+    TEST_ASSERT_EQUAL(0, s.count(m));
+}
+
+// ── wall switches ───────────────────────────────────────────────────────────
+
+void test_power_lost_is_out_for_today() {
+    Sim s;
+    s.boot(T(0, 13, 59), ALL);
+    s.runTo(T(0, 14, 0));
+    size_t m = s.mark();
+    s.powerLost(LIGHT_DRESSER);
+    s.runTo(T(0, 14, 0, 5));
+    TEST_ASSERT_TRUE(s.logged("Dresser lost power"));
+    TEST_ASSERT_TRUE(s.logged("Dresser off — out for today"));
+    TEST_ASSERT_TRUE((s.d.outMask() & DRESSER) != 0);
+    s.runTo(T(0, 17, 0, 1));  // the next fade skips it
+    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_DRESSER));
+    TEST_ASSERT_EQUAL(1, s.countFor(m, LIGHT_FLOOR));
+}
+
+void test_power_back_fades_into_the_current_trajectory() {
+    Sim s;
+    s.boot(T(0, 19, 14), FLOOR | DRESSER | CHEST);
+    s.runTo(T(0, 19, 15));
+    s.powerLost(LIGHT_CHEST);
+    s.runTo(T(0, 19, 20));
+    size_t m = s.mark();
+    s.powerBack(LIGHT_CHEST, 100.0f);  // back at its own level, nowhere near the fade
+    TEST_ASSERT_TRUE(s.logged("Chest has power again"));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    const float at = 75.0f - 35.0f * (20.25f / 60.0f);  // the fade, 15 s from now
+    const PutRec* p = s.find(m, LIGHT_CHEST);
+    assertPut(p, true, at, FADE_MS, 0);
+    TEST_ASSERT_EQUAL_UINT16(ctForBri(p->bri), p->ct);
+    TEST_ASSERT_FALSE((s.d.outMask() & CHEST) != 0);
+    m = s.mark();
+    s.runTo(T(0, 19, 20, 17));  // landed: one command for the rest of the fade
+    assertPut(s.find(m, LIGHT_CHEST), true, 40.0f, 2385000);
+}
+
+void test_power_lost_before_a_scheduled_on_stays_off() {
+    Sim s;
+    s.boot(T(0, 9, 29), FLOOR | DRESSER | CHEST);
+    s.runTo(T(0, 9, 30));
+    s.powerLost(LIGHT_CEIL_1);
+    s.runTo(T(0, 9, 30, 5));
+    size_t m = s.mark();
+    s.runTo(T(0, 10, 0, 5));
+    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_CEIL_1));
+    TEST_ASSERT_TRUE(s.logged("Ceiling stays off — out for today"));
+    m = s.mark();
+    s.runTo(T(0, 10, 30));
+    s.powerBack(LIGHT_CEIL_1, 40.0f);
+    assertPut(s.find(m, LIGHT_CEIL_1), true, 75.0f + 25.0f * (30.25f / 60.0f), FADE_MS, 0);
+}
+
+void test_power_back_during_a_hold_waits_for_the_hold() {
+    Sim s;
+    s.boot(T(0, 11, 59), ALL);
+    s.runTo(T(0, 12, 0));
+    s.powerLost(LIGHT_CHEST);
+    s.runTo(T(0, 12, 0, 5));
+    s.userBri(LIGHT_FLOOR, 50.0f);
+    size_t m = s.mark();
+    s.powerBack(LIGHT_CHEST, 80.0f);
+    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_CHEST));
+    s.command(Director::Cmd::Resume);
+    assertPut(s.find(m, LIGHT_CHEST), true, 100.0f, FADE_MS, 0);
+}
+
+void test_power_back_at_night_is_left_alone_and_in_the_morning_starts_the_wake() {
+    Sim s;
+    s.boot(T(0, 22, 0), 0);
+    s.powerLost(LIGHT_CHEST);
+    s.runTo(T(1, 3, 0));
+    size_t m = s.mark();
+    s.powerBack(LIGHT_CHEST, 80.0f);
+    TEST_ASSERT_EQUAL(0, s.count(m));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)s.mode());
+    s.powerLost(LIGHT_CHEST);
+    s.runTo(T(1, 7, 0));
+    m = s.mark();
+    s.powerBack(LIGHT_CHEST, 80.0f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Wake, (int)s.mode());
+    assertPut(s.find(m, LIGHT_CHEST), true, 25.0f + 50.0f * (15.0f / 900.0f), FADE_MS, 0);
 }
 
 void test_everything_off_before_9pm_is_a_nap() {
@@ -653,6 +813,121 @@ void test_soft_reset_catches_events_missed_while_down() {
     assertPut(b.find(0, LIGHT_CEIL_1), false, 0, FADE_MS, 0);
 }
 
+// ── power loss (MIRA_3.md §10) ──────────────────────────────────────────────
+
+DayFacts factsAt(int64_t bootAt, LightMask physOn, int64_t saveAt) {
+    Sim a;
+    a.boot(bootAt, physOn);
+    a.runTo(saveAt);
+    return a.d.facts(a.now());
+}
+
+void test_power_loss_replays_the_evening_offs() {
+    // Oct 15 exactly: last save after the 10:00 ceiling-on, dark until 23:36.
+    DayFacts saved = factsAt(T(0, 9, 59), FLOOR | DRESSER | CHEST, T(0, 10, 0, 30));
+    Sim b;
+    b.boot(T(0, 23, 36), ALL, 0, &saved);
+    TEST_ASSERT_TRUE(b.logged("power loss; caught up from 10:00AM"));
+    b.runTo(T(0, 23, 36, 2));
+    assertPut(b.find(0, LIGHT_CEIL_1), false, 0, FADE_MS, 0);
+    assertPut(b.find(0, LIGHT_CHEST), false, 0, FADE_MS, 0);
+    assertPut(b.find(0, LIGHT_DRESSER), false, 0, FADE_MS, 0);
+    assertPut(b.find(0, LIGHT_FLOOR), true, 25.0f, FADE_MS, 0);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)b.mode());
+}
+
+void test_power_loss_save_from_yesterday_infers() {
+    DayFacts saved = factsAt(T(0, 11, 59), FLOOR, T(0, 12, 0));
+    Sim b;
+    b.boot(T(1, 12, 0), ALL, 0, &saved);
+    TEST_ASSERT_FALSE(b.logged("caught up"));
+    TEST_ASSERT_TRUE(b.logged("taking over"));
+    TEST_ASSERT_EQUAL_UINT8(ALL, b.d.wantMask());
+}
+
+void test_power_loss_long_gap_same_mira_day() {
+    // 07:00 → 05:00 the next morning: crossedLocal() reads this gap as a DST step.
+    DayFacts saved = factsAt(T(0, 6, 59), FLOOR, T(0, 7, 0));
+    Sim b;
+    b.boot(T(1, 5, 0), FLOOR, 0, &saved);
+    TEST_ASSERT_TRUE(b.logged("caught up"));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)b.mode());
+    assertPut(b.find(0, LIGHT_FLOOR), false, 0, FADE_MS, 0);
+}
+
+void test_power_loss_all_off_infers_instead_of_replaying() {
+    DayFacts saved = factsAt(T(0, 9, 59), FLOOR, T(0, 10, 0));
+    Sim late;
+    late.boot(T(0, 22, 0), 0, 0, &saved);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)late.mode());
+    TEST_ASSERT_FALSE(late.logged("caught up"));
+
+    Sim day;  // before 21:00: idle, and a light on starts a late wake
+    day.boot(T(0, 14, 0), 0, 0, &saved);
+    day.runTo(T(0, 15, 0));
+    TEST_ASSERT_EQUAL(0, day.count(0));
+    day.userOn(LIGHT_FLOOR, 50.0f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Wake, (int)day.mode());
+}
+
+void test_power_loss_mid_hold_ends_the_hold() {
+    Sim a;
+    a.boot(T(0, 14, 59), ALL);
+    a.runTo(T(0, 15, 0));
+    a.userBri(LIGHT_FLOOR, 50.0f);
+    DayFacts saved = a.d.facts(a.now());
+    Sim b;
+    b.boot(T(0, 17, 30), ALL, 0, &saved);
+    b.runTo(T(0, 17, 30, 2));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)b.mode());
+    assertPut(b.find(0, LIGHT_FLOOR), true, 75.0f, 1800000);
+}
+
+void test_power_loss_keeps_out_for_today() {
+    Sim a;
+    a.boot(T(0, 13, 59), FLOOR | DRESSER | CHEST);
+    a.runTo(T(0, 14, 0));
+    a.userOff(LIGHT_CHEST);
+    a.runTo(T(0, 14, 0, 5));
+    DayFacts saved = a.d.facts(a.now());
+    Sim b;
+    b.boot(T(0, 16, 0), FLOOR | DRESSER, 0, &saved);
+    TEST_ASSERT_TRUE((b.d.outMask() & CHEST) != 0);
+    b.runTo(T(0, 16, 0, 2));
+    TEST_ASSERT_EQUAL(0, b.countFor(0, LIGHT_CHEST));
+}
+
+void test_soft_reset_wins_over_the_saved_facts() {
+    Sim a;
+    a.boot(T(0, 11, 59), ALL);
+    a.runTo(T(0, 12, 0, 30));
+    DirectorState rtc = a.d.state();
+    DayFacts saved = a.d.facts(a.now());
+    Sim b;
+    b.boot(T(0, 12, 0, 40), ALL, &rtc, &saved);
+    TEST_ASSERT_TRUE(b.logged("picked up where it left off"));
+    TEST_ASSERT_FALSE(b.logged("caught up"));
+}
+
+void test_a_full_day_saves_only_when_facts_change() {
+    Sim s;
+    s.boot(T(0, 8, 59), 0);
+    DayFacts last = s.d.facts(s.now());
+    int saves = 0, savesDuringFadeStarts = 0;
+    while (s.ms < T(1, 1, 0, 30)) {
+        s.runTo(s.ms + 1000);
+        DayFacts f = s.d.facts(s.now());
+        if (Director::sameFacts(f, last)) continue;
+        saves++;
+        last = f;
+        const int32_t sec = s.now().localSec;
+        if (sec >= HHMM(17, 0) && sec < HHMM(17, 0) + 5) savesDuringFadeStarts++;
+    }
+    TEST_ASSERT_LESS_OR_EQUAL(15, saves);
+    TEST_ASSERT_GREATER_THAN(4, saves);
+    TEST_ASSERT_EQUAL(0, savesDuringFadeStarts);
+}
+
 int main(int argc, char** argv) {
     (void)argc; (void)argv;
     UNITY_BEGIN();
@@ -673,7 +948,17 @@ int main(int argc, char** argv) {
     RUN_TEST(test_hold_mid_fade_freezes_others_and_defers_events);
     RUN_TEST(test_resume_mid_fade_glides_for_the_time_left);
     RUN_TEST(test_resume_in_steady_fades_only_the_changed_light);
-    RUN_TEST(test_hold_after_23_ends_at_lights_out);
+    RUN_TEST(test_hold_after_the_dresser_goes_off_ends_at_lights_out);
+    RUN_TEST(test_hold_after_last_fade_ends_when_the_dresser_goes_off);
+    RUN_TEST(test_late_report_on_the_wake_path_is_not_a_hold);
+    RUN_TEST(test_report_off_the_path_is_still_a_hold);
+    RUN_TEST(test_in_line_nudge_in_steady_goes_back_to_the_level);
+    RUN_TEST(test_in_line_report_during_a_hold_changes_nothing);
+    RUN_TEST(test_power_lost_is_out_for_today);
+    RUN_TEST(test_power_back_fades_into_the_current_trajectory);
+    RUN_TEST(test_power_lost_before_a_scheduled_on_stays_off);
+    RUN_TEST(test_power_back_during_a_hold_waits_for_the_hold);
+    RUN_TEST(test_power_back_at_night_is_left_alone_and_in_the_morning_starts_the_wake);
     RUN_TEST(test_everything_off_before_9pm_is_a_nap);
     RUN_TEST(test_light_on_during_nap_ends_it_and_brings_the_rest);
     RUN_TEST(test_nap_running_at_9pm_becomes_sleep);
@@ -686,5 +971,13 @@ int main(int argc, char** argv) {
     RUN_TEST(test_stale_revert_resends);
     RUN_TEST(test_soft_reset_restores_without_switching_anything);
     RUN_TEST(test_soft_reset_catches_events_missed_while_down);
+    RUN_TEST(test_power_loss_replays_the_evening_offs);
+    RUN_TEST(test_power_loss_save_from_yesterday_infers);
+    RUN_TEST(test_power_loss_long_gap_same_mira_day);
+    RUN_TEST(test_power_loss_all_off_infers_instead_of_replaying);
+    RUN_TEST(test_power_loss_mid_hold_ends_the_hold);
+    RUN_TEST(test_power_loss_keeps_out_for_today);
+    RUN_TEST(test_soft_reset_wins_over_the_saved_facts);
+    RUN_TEST(test_a_full_day_saves_only_when_facts_change);
     return UNITY_END();
 }

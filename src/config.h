@@ -32,16 +32,16 @@
 #define AFTERNOON_FADE_START HHMM(17, 0)   // 100 → 75%
 #define AFTERNOON_FADE_END   HHMM(18, 0)
 #define CEILING_OFF_AT       HHMM(19, 0)
-#define EVENING_FADE_START   HHMM(20, 0)   // 75 → 40%
-#define EVENING_FADE_END     HHMM(21, 0)   // chest off
+#define EVENING_FADE_START   HHMM(19, 0)   // 75 → 40%
+#define EVENING_FADE_END     HHMM(20, 0)   // chest off
 #define SLEEP_CUTOFF         HHMM(21, 0)   // everything off from here = asleep (before it = nap)
-#define LATE_FADE_START      HHMM(23, 0)   // 40 → 25%
-#define LATE_FADE_END        HHMM(23, 30)  // dresser off
+#define LATE_FADE_START      HHMM(20, 45)  // 40 → 25%
+#define LATE_FADE_END        HHMM(21, 0)
 #define LIGHTS_OUT_AT        HHMM(1, 0)    // next morning: whatever's still on goes off → asleep
 
 #define CEILING_ON_AT   MIDDAY_FADE_START
 #define CHEST_OFF_AT    EVENING_FADE_END
-#define DRESSER_OFF_AT  LATE_FADE_END
+#define DRESSER_OFF_AT  HHMM(22, 30)     // after this it's just the floor; also ends the evening's last hold
 
 // Brightness levels (percent — Hue v2 native units)
 #define WAKE_START_BRI  25.0f    // where the wake starts — "the new night level", to be tested
@@ -82,6 +82,8 @@
 #define OFF_GROUP_MS         3000UL  // offs this close together are one action (Hue-app room toggle)
 #define ON_EDGE_GRACE_MS     3000UL  // brightness reports this soon after a turn-on belong to it
 #define CLOBBER_WINDOW_MS    3000UL  // a Mira command this recent may land on top of your change
+#define IN_LINE_TOL_BRI      5.0f    // a report this close to the in-line level isn't a hold: nothing to protect
+#define POWER_BACK_GRACE_MS 30000UL  // reports this soon after a bulb regains power are the bulb restoring itself
 
 // ── Command bookkeeping ─────────────────────────────────────────────────────
 #define ALIGN_BRI_TOL       0.5f     // a sent command already matches the plan within this...

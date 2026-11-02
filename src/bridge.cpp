@@ -199,6 +199,7 @@ enum class Outcome : uint8_t {
     RevertIgnored,   // a second revert inside the lookback — not chased
     UserBrightness,  // you changed brightness → hold
     SyntheticEdge,   // stream-resync diff
+    PowerChange,     // a bulb lost or regained power
     COUNT
 };
 
@@ -218,6 +219,7 @@ static const char* outcomeName(Outcome o) {
         case Outcome::RevertIgnored:  return "revert-ignored";
         case Outcome::UserBrightness: return "USER-BRIGHTNESS";
         case Outcome::SyntheticEdge:  return "synthetic-edge";
+        case Outcome::PowerChange:    return "power-change";
         default:                      return "?";
     }
 }
@@ -408,12 +410,87 @@ static void ensureBridgeCert() {
     }
 }
 
+// ── Wall switches ───────────────────────────────────────────────────────────
+// A bulb cut at the wall can't report anything, so the bridge's light resource
+// keeps saying on: true. Its zigbee_connectivity resource is the signal: lost is
+// your off, and back is your on. Until it's back, lostPower overrides what the
+// bridge says about on/off. Connectivity belongs to the device, not the light.
+static char          deviceIds[LIGHT_COUNT][37]   = {{0}};
+static bool          lostPower[LIGHT_COUNT]       = {false};
+static unsigned long lastPowerBackMs[LIGHT_COUNT] = {0};
+
+static int idxByDevice(const char* id) {
+    if (!id || !*id) return -1;
+    for (int i = 0; i < LIGHT_COUNT; i++) {
+        if (strcmp(id, deviceIds[i]) == 0) return i;
+    }
+    return -1;
+}
+
+// post=false at boot: the director hasn't started, and its first snapshot reads
+// the cache this sets.
+static void applyConnectivity(int idx, const char* status, bool post) {
+    const bool lost = strcmp(status, "connectivity_issue") == 0 || strcmp(status, "disconnected") == 0;
+    const bool back = strcmp(status, "connected") == 0;
+    if (lost == lostPower[idx] || (!lost && !back)) return;
+    lostPower[idx] = lost;
+    if (back) {
+        lastPowerBackMs[idx] = millis();
+        lastOnEdgeMs[idx]    = millis();
+    }
+    portENTER_CRITICAL(&dataMux);
+    bool  prevOn = lightCache[idx].on;
+    float bri    = lightCache[idx].bri;
+    lightCache[idx].on = back;
+    portEXIT_CRITICAL(&dataMux);
+    Serial.printf("SSE: %s connectivity %s\n", lightName(idx), status);
+    recordEvent(idx, true, back, false, 0.0f, prevOn, bri, Outcome::PowerChange);
+    if (!post) return;
+    Event ev;
+    ev.type  = EvType::LightPower;
+    ev.a     = (uint8_t)idx;
+    ev.flags = back ? 1 : 0;
+    ev.f     = bri;
+    ev.tMs   = millis();
+    postEvent(ev);
+}
+
+static void syncConnectivity(bool post) {
+    WiFiClientSecure client;
+    client.setInsecure();  // HTTPClient transmits on connect — see peerMatchesPinned
+    HTTPClient http;
+    http.begin(client, String(HUE_V2_BASE_URL) + "/resource/zigbee_connectivity");
+    http.addHeader("hue-application-key", HUE_API_KEY);
+    int code = http.GET();
+    if (code != 200) {
+        Serial.printf("connectivity: HTTP %d\n", code);
+        http.end();
+        return;
+    }
+    String body = http.getString();
+    http.end();
+
+    JsonDocument filter;
+    filter["data"][0]["owner"]["rid"] = true;
+    filter["data"][0]["status"]       = true;
+    JsonDocument doc;
+    if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) {
+        Serial.println("connectivity: JSON parse failed");
+        return;
+    }
+    for (JsonObject entry : doc["data"].as<JsonArray>()) {
+        int idx = idxByDevice(entry["owner"]["rid"]);
+        if (idx >= 0) applyConnectivity(idx, entry["status"] | "", post);
+    }
+}
+
 // ── Bootstrap / resync ──────────────────────────────────────────────────────
 // One v2 GET seeds every light. resync=false: at boot, before the stream exists.
 // resync=true: from the SSE task after every reconnect — events during the gap
 // are gone, so each on/off flip we missed becomes a synthetic edge (yours, unless
 // it lands on one of our live trajectories).
 static void bootstrapLightStates(bool resync) {
+    if (resync) syncConnectivity(true);  // first, so the on/off diff below honors it
     WiFiClientSecure client;
     client.setInsecure();  // HTTPClient transmits on connect — see peerMatchesPinned
     HTTPClient http;
@@ -430,6 +507,7 @@ static void bootstrapLightStates(bool resync) {
 
     JsonDocument filter;
     filter["data"][0]["id"]                         = true;
+    filter["data"][0]["owner"]["rid"]               = true;
     filter["data"][0]["on"]["on"]                   = true;
     filter["data"][0]["dimming"]["brightness"]      = true;
     filter["data"][0]["color_temperature"]["mirek"] = true;
@@ -444,11 +522,14 @@ static void bootstrapLightStates(bool resync) {
         bool  on  = light["on"]["on"] | false;
         float bri = light["dimming"]["brightness"] | 0.0f;
         int   ct  = light["color_temperature"]["mirek"] | 0;
+        const char* device = light["owner"]["rid"] | "";
+        if (*device) strlcpy(deviceIds[idx], device, sizeof(deviceIds[idx]));
 
         portENTER_CRITICAL(&dataMux);
         bool  prevOn  = lightCache[idx].on;
         float prevBri = lightCache[idx].bri;
         bool  wasInit = lightCache[idx].initialized;
+        if (lostPower[idx]) on = prevOn;  // the bridge's "on" is stale for a bulb with no power
         lightCache[idx].on          = on;
         lightCache[idx].bri         = bri;
         if (ct) lightCache[idx].ct  = ct;
@@ -472,6 +553,7 @@ static void bootstrapLightStates(bool resync) {
             postEvent(ev);
         }
     }
+    if (!resync) syncConnectivity(false);  // needs the device ids just read
 }
 
 // ── Commands ────────────────────────────────────────────────────────────────
@@ -617,6 +699,8 @@ static void handleLightUpdate(JsonObjectConst upd) {
     bool  evOn   = hasOn  ? onF.as<bool>()   : false;
     float evBri  = hasBri ? briF.as<float>() : 0.0f;
     int   evCt   = hasCt  ? ctF.as<int>()    : 0;
+    // No power: only connectivity can bring this bulb back (Mira's own echoes still count).
+    if (lostPower[idx] && hasOn && evOn && !matchesRecentPut(idx, true, true, false, 0.0f)) hasOn = false;
 
     portENTER_CRITICAL(&dataMux);
     bool  cOn  = lightCache[idx].on;
@@ -639,6 +723,8 @@ static void handleLightUpdate(JsonObjectConst upd) {
     } else if (hasBri) {
         if (!cOn)                                                   o = Outcome::OffLightBri;
         else if (millis() - lastOnEdgeMs[idx] < ON_EDGE_GRACE_MS)   o = Outcome::OnGrace;
+        else if (lastPowerBackMs[idx] &&
+                 millis() - lastPowerBackMs[idx] < POWER_BACK_GRACE_MS) o = Outcome::OnGrace;
         else if (matchesRecentPut(idx, false, false, true, evBri))  o = Outcome::EchoMatch;
         else if (fabsf(evBri - cBri) <= TRAJECTORY_TOLERANCE_BRI)   o = Outcome::NoOpEcho;
         else if (matchesPriorPut(idx, false, false, true, evBri))   o = revertAllowed(idx) ? Outcome::StaleRevert
@@ -692,8 +778,13 @@ static void handleSseEventData(const char* json) {
     for (JsonObject event : doc.as<JsonArray>()) {
         if (strcmp(event["type"] | "", "update") != 0) continue;
         for (JsonObject upd : event["data"].as<JsonArray>()) {
-            if (strcmp(upd["type"] | "", "light") != 0) continue;
-            handleLightUpdate(upd);
+            const char* type = upd["type"] | "";
+            if (strcmp(type, "light") == 0) {
+                handleLightUpdate(upd);
+            } else if (strcmp(type, "zigbee_connectivity") == 0) {
+                int idx = idxByDevice(upd["owner"]["rid"]);
+                if (idx >= 0) applyConnectivity(idx, upd["status"] | "", true);
+            }
         }
     }
 }

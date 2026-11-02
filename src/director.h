@@ -15,6 +15,7 @@
 // schedule keeps writing "want on", so catching up afterwards is one reconcile.
 //
 #include <stdint.h>
+#include "config.h"
 #include "lights.h"
 
 struct Now {
@@ -51,6 +52,23 @@ struct DirectorState {
     Command   cmd[LIGHT_COUNT];
 };
 
+// The day's facts, the part of DirectorState worth surviving a power loss. The
+// shell keeps a copy in NVS and rewrites it only when these change. Commands and
+// tick times stay out: they change constantly, and boot rebuilds them anyway.
+struct DayFacts {
+    uint32_t  magic;
+    uint8_t   asleep;
+    uint8_t   wakeFlags;
+    LightMask want;
+    LightMask out;
+    float     wakeEndBri;
+    int64_t   wakeStartMs;
+    int64_t   napUntilMs;
+    int64_t   holdUntilMs;
+    int64_t   savedMs;        // when these became true: replay starts here
+    int32_t   savedLocalSec;
+};
+
 class Director {
 public:
     // The seams to the outside world (real bridge on the board, fakes in tests).
@@ -75,15 +93,22 @@ public:
     // DirectorState changes, so a soft reset across a firmware update infers
     // from the bulbs instead of misreading the old layout.
     static const uint32_t STATE_MAGIC = 0x4D490301UL;
+    // 'M' 'I' 'F' · DayFacts layout v1. Bump the last byte whenever DayFacts changes.
+    static const uint32_t FACTS_MAGIC = 0x4D494601UL;
 
     Director();
     void begin(Env* env) { env_ = env; }
     // physOn/bri: the bridge's view at boot (bri[LIGHT_COUNT], percent). restored:
-    // the RTC copy from before a soft reset, or nullptr (power-on → infer).
-    void boot(const Now& now, LightMask physOn, const float* bri, const DirectorState* restored);
+    // the RTC copy from before a soft reset, or nullptr. saved: the NVS copy, for a
+    // power-on with no RTC copy. With neither usable, boot infers from the bulbs.
+    void boot(const Now& now, LightMask physOn, const float* bri, const DirectorState* restored,
+              const DayFacts* saved = nullptr);
 
     void tick(const Now& now);  // ~1 Hz: timed events, timers, reconcile
-    void onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float bri);
+    // joinMs: how a light you turned on comes into line.
+    void onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float bri, uint32_t joinMs = JOIN_SNAP_MS);
+    // A bulb lost or regained power (its wall switch): your off or on, fading into line on the way back.
+    void onPower(const Now& now, uint8_t idx, bool hasPower, float bri);
     void onUserBrightness(const Now& now, int idx, float bri, uint16_t ct);  // idx −1: unknown light
     void onStaleRevert(const Now& now, uint8_t idx, bool nowOn);
     void onCommand(const Now& now, Cmd cmd, int32_t value);
@@ -96,6 +121,8 @@ public:
     LightMask wantMask() const   { return s_.want; }
     LightMask physOnMask() const { return physOn_; }
     const DirectorState& state() const { return s_; }
+    DayFacts  facts(const Now& now) const;            // today's facts, stamped now
+    static bool sameFacts(const DayFacts& a, const DayFacts& b);  // ignores the stamp
     bool      consumeDirty();     // true once after any change worth a status push
     static const char* modeName(Mode m);
 
@@ -121,6 +148,9 @@ private:
     bool holdActive() const { return s_.holdUntilMs != 0; }
     bool paused() const     { return s_.asleep || napActive() || holdActive(); }
 
+    bool factsUsable(const DayFacts& f, const Now& now) const;
+    void replay(const Now& now, int32_t fromMds);
+    void fireEvent(const Now& now, const struct TimelineEvent& ev);
     void processEvents(const Now& now);
     void processTimers(const Now& now);
     void noteFadeStart(const Now& now);

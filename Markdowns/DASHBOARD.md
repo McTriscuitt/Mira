@@ -4,6 +4,13 @@
 > (2.x names in `state`, the 3.0 name in `mode`; old command names still work) —
 > `MIRA_3.md` §8. The dashboard rework is its own session; this doc still describes
 > the 2.x UI.
+>
+> **Nov 2 firmware changes, for that session:** the status fields and commands didn't
+> change, so the rework needs no reflash for them. New log lines to expect: `X lost power`,
+> `X has power again`, `X reported N% — in line, no hold`, `Boot — power loss; caught up
+> from <time>`. `Hold over — the next fade period` is now `Hold over — on schedule`. The
+> day's times are in `MIRA_3.md` §2; take them from there, not from the 2.x UI. 3.0 is on
+> branch `mira-3`, and `main` is still 2.x until 3.0 is verified and merged.
 
 Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `secrets.h` as `DASHBOARD_BASE_URL`. The ESP32's Core-0 `netTask` polls `/api/command` every 5 s and POSTs a status snapshot every 30 s tick plus ~100 ms after applying any command (N1 Stage 5). Browsers get server-pushed updates over `/api/status/stream` SSE with a 30 s poll as fallback (N2 step 2). Served by gunicorn `-w 1 --threads 16` — single process (the SSE fan-out is in-process state), threaded so held stream connections don't block other requests.
 

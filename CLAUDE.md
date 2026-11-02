@@ -53,6 +53,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
+- **Nov 2, 2026, flashed, not yet verified:** new evening (19:00–20:00 →40%, chest off; 20:45–21:00 →25%; dresser off 22:30), in-line filter for false holds, wall-switch handling via `zigbee_connectivity`, NVS power-loss replay. Next step: the "Nov 2 reflash checklist" in `Markdowns/MIRA_3.md`.
 - **Mira 3.0 built, not yet flashed (Oct 14, 2026)** — ground-up rewrite on branch `mira-3`: pure core (`timeline` + `director` + `echo`) with 31 native tests, new hardware shell, SNTP + Central TZ with automatic DST. Status table and first-flash checklist: `Markdowns/MIRA_3.md`.
 - 2.x history lives in `git log` and the Markdowns docs: N1 all 5 stages (flashed July 16), N2 steps 1+2 (July 24), WiFi watchdog + boot reasons (Sept 12). `Markdowns/FEATURES_AND_REWORKS.md` and `N1_MIGRATION.md` describe 2.x.
 
@@ -85,20 +86,20 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Core Behavior (summary — the spec is `Markdowns/MIRA_3.md` §1–§7)
 
-The day: wake (the first light on after 6 AM, a light already on at 6 AM, or 9 AM) → 25→75% over 15 min (floor, dresser +5 min, chest +10 min) → 10:00 ceiling on, →100% by 11:00 → 17:00–18:00 →75% → 19:00 ceiling off → 20:00–21:00 →40%, chest off → 23:00–23:30 →25%, dresser off → 01:00 lights-out. CT follows the 2.x brightness→CT map everywhere (280 mirek at 100% … 400 at 19.7%).
+The day: wake (the first light on after 6 AM, a light already on at 6 AM, or 9 AM) → 25→75% over 15 min (floor, dresser +5 min, chest +10 min) → 10:00 ceiling on, →100% by 11:00 → 17:00–18:00 →75% → 19:00 ceiling off → 19:00–20:00 →40%, chest off → 20:45–21:00 →25% → 22:30 dresser off → 01:00 lights-out. CT follows the 2.x brightness→CT map everywhere (280 mirek at 100% … 400 at 19.7%).
 
 There is **no state machine**. Each light has a *want on* bit (you and the schedule both write it; last writer wins) and an *out for today* bit. `Director::reconcile()` makes the lights match: lights that want on are on, following the period in force. It sends a command only when the plan differs from the last command sent, so a whole day is 24 commands. Three conditions pause it, and while paused the schedule keeps writing *want on*:
 - **asleep** — everything off at/after 9 PM, or the 1 AM lights-out. Lights you turn on before 6 AM are left alone.
 - **nap** — everything off before 9 PM → 60 min, then back with a 15 s fade-in. A light on ends it early; still napping at 9 PM → asleep.
-- **hold** — a manual brightness change → everything freezes until the next fade period starts (10:00/17:00/20:00/23:00), which then fades all lights to that period's target. Dashboard NORMAL resumes early.
+- **hold** — a manual brightness change more than 5% from the in-line level → everything freezes until the next fade period starts (10:00/17:00/19:00/20:45), which then fades all lights to that period's target. After 20:45 it ends at 22:30, and after that at lights-out. Dashboard NORMAL resumes early.
 
-One light off → out for today (back when you turn it on, or at the next wake). A light you turn on joins in line near-instantly (0.3 s snap). Color/CT changes aren't tracked.
+One light off, in the app or at the wall → out for today (back when you turn it on, or at the next wake). A light you turn on joins in line near-instantly (0.3 s snap); one restored at the wall fades in over 15 s. Color/CT changes aren't tracked.
 
 ## Code Map (MIRA_3.md §8 has the detail)
 
 Pure core (no Arduino; also compiled on the host by the tests):
 - `timeline.*` — the day profile in "Mira-day seconds" (since 06:00, so the evening runs past midnight), the CT map, the fixed events, `crossedLocal()` (midnight wrap; the DST fall-back hour crosses nothing)
-- `director.*` — the behavior engine. Inputs: `tick()` 1 Hz, `onEdge()`, `onUserBrightness()`, `onStaleRevert()`, `onCommand()`. Output: `Env::put()`
+- `director.*` — the behavior engine. Inputs: `tick()` 1 Hz, `onEdge()`, `onPower()`, `onUserBrightness()`, `onStaleRevert()`, `onCommand()`. Output: `Env::put()`
 - `echo.h` — the own-echo test
 
 Shell:
@@ -117,11 +118,11 @@ Shell:
 
 ## Implementation Gotchas (3.0)
 
-- **The classifier reads only `on` and `dimming`.** The cache write happens after classification (the bridge splits combined changes across events). On/off flips are Mira's echo only when on a live trajectory, otherwise yours — **there's no on/off stale-revert reading** (it would fight your switch). Brightness is checked in order: on-edge grace (3 s) → time-aware echo (`echo.h`) → no-op vs cache → stale revert (< 90 s, re-sent once) → yours → hold.
+- **The classifier reads only `on` and `dimming`, plus `zigbee_connectivity` for wall switches.** While a bulb has no power, `lostPower` overrides the bridge's on/off, including in the 10-minute resync. The cache write happens after classification (the bridge splits combined changes across events). On/off flips are Mira's echo only when on a live trajectory, otherwise yours — **there's no on/off stale-revert reading** (it would fight your switch). Brightness is checked in order: on-edge grace (3 s) → time-aware echo (`echo.h`) → no-op vs cache → stale revert (< 90 s, re-sent once) → yours → hold.
 - **Echo matching is time-aware.** For 10 s after a command, the full start→target range counts as Mira's echo; after that, only within 8% of where the fade should be by now. A blanket band would hide your changes inside an hour-long fade. Known blind spot: nudges within ~8% of the fade's position, or ~5% of its target, read as Mira's.
 - **On/off commands only count as done when echoed.** An unreachable bulb (wall switch off) backs off to 60 s instead of retrying every ~40 s, and the failure is logged once.
 - **Holds freeze with computed-level commands** (~0.4 s to each mid-fade light's current level, from the `Command` trajectory). The Director seeds each light's brightness from the bridge at boot — a freeze computed from an unknown start would drop lights to ~1%.
-- **Persistence:** `DirectorState` is POD in RTC-noinit memory with an FNV check. Soft resets restore it (if < 10 min old) without switching any lights; power-on infers from the clock and the bulbs. **Bump `Director::STATE_MAGIC`'s last byte whenever `DirectorState`'s layout changes.**
+- **Persistence:** `DirectorState` is POD in RTC-noinit memory with an FNV check. Soft resets restore it (if < 10 min old) without switching any lights. `DayFacts` is the part that survives a power loss, in NVS, rewritten only when it changes; a power-on from earlier in the same Mira-day restores it and replays missed events (MIRA_3.md §10). With no usable save, or every bulb off, power-on infers from the clock and the bulbs. **Bump `Director::STATE_MAGIC`'s or `FACTS_MAGIC`'s last byte whenever that struct's layout changes.**
 - **Time** reaches the Director as `Now { epoch ms, local seconds }`. Only the shell touches the timezone. Nothing driven spans a DST change (those happen at 2 AM, while asleep).
 - **`millis()` rollover:** always compare with subtraction (`millis() - start >= interval`), never `millis() > start + interval`. The core uses epoch ms (int64), which doesn't roll over.
 - Diagnostics: the SSE event ring (16) + outcome counts are dumped to Serial on every hold; `#define ECHO_TRACE 1` traces every classified event.

@@ -39,7 +39,8 @@ little 2.x code survives beyond what §8 lists as kept.
 | 4 | Compiles clean for the board + code review | **DONE (Oct 14).** `pio run`: 0 warnings, RAM 19.4%, flash 31.0%. Review found and fixed 5 issues (Decisions Log → "Found in build/review"). |
 | 5 | First flash + hardware-unknowns verification | **IN PROGRESS**: flashed Oct 14 23:33 (`4ba1a97`); first-night findings in `MIRA_3_FIRST_NIGHT.md`. Checklist at the end. |
 | 6 | Docs: delete lux-era docs, rewrite CLAUDE.md, merge `mira-3` → `main` | **PARTIAL.** Docs deleted and CLAUDE.md rewritten for 3.0. Merge waits for step 5. |
-| 7 | Power-loss replay: save the day's facts to NVS, replay missed events at power-on | **DESIGN ONLY (Oct 15)**: sketch in §10, open questions there. Not built; needs the user's OK because it changes the §7 power-on rule. |
+| 7 | Power-loss replay: save the day's facts to NVS, replay missed events at power-on | **FLASHED Nov 2, boot not yet confirmed**: §10. Native tests pass; NVS and a real outage are unverified on the board. |
+| 8 | False holds + wall switches: in-line filter, `zigbee_connectivity` | **FLASHED Nov 2, boot not yet confirmed**: §6 and §8. The bridge side needs hardware unknown #7. |
 
 **DST note:** the board runs 2.x until step 5. DST ends Nov 1. If 3.0 isn't flashed
 by then, 2.x's fixed `UTC_OFFSET_SEC` puts its evening gates an hour off (stopgap on
@@ -78,11 +79,12 @@ the lights").
 | 10:00 → 11:00 | fade | 75 → 100% | + ceiling | ceiling fades on at 10:00 |
 | 11:00 → 17:00 | steady | 100% | all | — |
 | 17:00 → 18:00 | fade | 100 → 75% | all | — |
-| 18:00 → 20:00 | steady | 75% | all until 19:00 | ceiling fades off at 19:00 |
-| 20:00 → 21:00 | fade | 75 → 40% | floor, dresser, chest | chest fades off at 21:00 |
-| 21:00 → 23:00 | steady | 40% | floor, dresser | — |
-| 23:00 → 23:30 | fade | 40 → 25% | floor, dresser | dresser fades off at 23:30 |
-| 23:30 → 01:00 | steady | 25% | floor | **01:00 lights-out:** everything still on fades off → asleep |
+| 18:00 → 19:00 | steady | 75% | all | ceiling fades off at 19:00 |
+| 19:00 → 20:00 | fade | 75 → 40% | floor, dresser, chest | chest fades off at 20:00 |
+| 20:00 → 20:45 | steady | 40% | floor, dresser | — |
+| 20:45 → 21:00 | fade | 40 → 25% | floor, dresser | — |
+| 21:00 → 22:30 | steady | 25% | floor, dresser | dresser fades off at 22:30 |
+| 22:30 → 01:00 | steady | 25% | floor | **01:00 lights-out:** everything still on fades off → asleep |
 | asleep → wake | — | — | nothing driven | see §4 |
 
 "The ceiling" is Ceiling_1. Ceiling_2 stays out of the system, as in 2.x; it's a
@@ -115,8 +117,8 @@ native test `test_full_day_auto_wake_one_command_per_change` pins this exactly.
   - the wake (15 min from its trigger)
   - 10:00–11:00
   - 17:00–18:00
-  - 20:00–21:00
-  - 23:00–23:30
+  - 19:00–20:00
+  - 20:45–21:00
 - **At the start of a fade period**, Mira sends one command per light: the fade's end
   level, with the fade's full length as the duration. Nothing more goes out until the
   next event.
@@ -125,7 +127,7 @@ native test `test_full_day_auto_wake_one_command_per_change` pins this exactly.
 - **Taking back control** (end of a hold or nap) works like this:
   - Inside a fade period: Mira acts as if it had been fading all along. One command
     sends each light to the fade's end level, using the time left as its duration, so
-    the fade still finishes on schedule. Example: 8:15 PM → 40% over 45 min. Lights
+    the fade still finishes on schedule. Example: 7:15 PM → 40% over 45 min. Lights
     glide from wherever they are.
   - Inside a steady period: a 15 s fade to that period's level. This applies only to
     lights not already there.
@@ -163,9 +165,11 @@ native test `test_full_day_auto_wake_one_command_per_change` pins this exactly.
 | turn a light on | nap | ends the nap early. The rest of the nap set comes back too (15 s fade-in) |
 | turn a light on | hold | records *want on*. Nothing moves until the hold ends |
 | turn **one** light off | awake | marks it **out for today** (until you turn it back on, or tomorrow's wake) |
+| cut a light at the wall | awake | same as turning it off: **out for today** |
+| restore a light at the wall | in charge | it fades into line over 15 s (brightness and CT), then continues any fade |
 | turn **every** light off | before 21:00 | **nap** |
 | turn **every** light off | 21:00 or later | **asleep** |
-| change brightness | in charge (incl. the wake) | **hold** |
+| change brightness | in charge (incl. the wake) | **hold**, unless it lands within 5% of the in-line level (§6) |
 | change brightness | asleep / nap / hold | nothing |
 | change color or CT | anytime | nothing. Color changes aren't tracked; the next command overwrites them |
 
@@ -182,10 +186,15 @@ Answered Oct 14; the user then redefined when a hold ends. 3.0 retires the word
 **Hold**
 - *Cause:* a manual brightness change on any light while Mira is in charge. That
   includes the Hue app slider, a dimmer switch, voice, or a scene.
+- *Not a hold:* a report within `IN_LINE_TOL_BRI` (5%) of the in-line level. A hold
+  would protect nothing and freeze every other light. Late bridge reports caused most
+  of these (`MIRA_3_FIRST_NIGHT.md` → Nov 2). Mira re-sends that one light, so a real
+  small nudge can't leave a bulb stopped mid-fade.
 - *Effect:* Mira **freezes every light where it is.** Any in-progress fade is stopped
   at its current level. The bulbs run fades themselves, so without a freeze the other
   lights would keep dimming. Then Mira sends nothing.
-- *Ends at the start of the next fade period* (10:00, 17:00, 20:00, or 23:00). Mira
+- *Ends at the start of the next fade period* (10:00, 17:00, 19:00, or 20:45), or at
+  22:30 when no fade is left. Mira
   then fades every light from wherever it is to that period's target, in one command,
   arriving on schedule (user, Oct 14: "hold that brightness until the next fade
   period, which it then begins to fade to the next target"). A hold that starts
@@ -193,9 +202,10 @@ Answered Oct 14; the user then redefined when a hold ends. 3.0 retires the word
 - *Ends early* if you resume from the dashboard (until the dashboard rework, the
   existing **NORMAL** button is resume), or if you turn every light off (→ nap before
   21:00, asleep after).
-- *Ends at 01:00 lights-out* if it starts after 23:00, because no fade period
-  follows that night. **(Claude's call.)** Without this, a 23:45 brightness tweak
-  would leave the lights on all night, contradicting "floor off at 1 AM".
+- *Ends at 22:30* if it starts after 20:45, when the dresser goes off (user, Nov 2).
+- *Ends at 01:00 lights-out* if it starts after 22:30, because nothing else follows
+  that night. **(Claude's call.)** Without this, a 23:45 brightness tweak would leave
+  the lights on all night, contradicting "floor off at 1 AM".
 
 **Nap**
 - *Cause:* every light turned off before 21:00, while awake.
@@ -237,10 +247,9 @@ Answered Oct 14; the user then redefined when a hold ends. 3.0 retires the word
 - **The purple boot flourish** fires only on power-on outside the sleep window. A
   3 AM crash shouldn't flash the chest.
 
-> **Known gap (found Oct 15):** after a long power loss, the power-on row "any light
-> on → take control" keeps every light that's on, including lights the schedule
-> turned off while the board was dead. On Oct 15 the board lost power 14:51–23:36 and
-> came back with the dresser and chest still on (dimmed to 25%). Proposed fix: §10.
+> **Closed by §10 (flashed Nov 2, unverified on the board):** a power-on with facts saved earlier in
+> the same Mira-day restores them and replays what it missed. The table above is now
+> the fallback for no usable save, or everything off.
 
 ---
 
@@ -302,7 +311,8 @@ sensor, the clock).
 |---|---|
 | on/off flip on a live trajectory | Mira's echo → `LightEdge(byUser=false)` |
 | any other on/off flip | yours → `LightEdge(byUser=true)` |
-| brightness within 3 s of a turn-on | part of the turn-on (ignored) |
+| `zigbee_connectivity` lost or back | your off or on at the wall → `LightPower` |
+| brightness within 3 s of a turn-on, or 30 s of a bulb regaining power | part of the turn-on (ignored) |
 | brightness on a live trajectory (`echo.h`) | Mira's echo (ignored) |
 | brightness within 5% of the cache | no-op (ignored) |
 | brightness back at a recent command's start, < 90 s | stale revert → re-send (once; a repeat is ignored) |
@@ -310,6 +320,12 @@ sensor, the clock).
 | CT / color only | not tracked |
 
 Plus the reconnect resync, which turns each missed on/off flip into an edge.
+
+**Wall switches.** A bulb with no power can't report, so the bridge's light resource
+keeps saying `on: true`. `zigbee_connectivity` is the signal, and it belongs to the
+device, so bootstrap maps `light.owner.rid` to the roster. While a bulb has no power,
+`lostPower` overrides the bridge's on/off everywhere, including the resync that runs
+after every 10-minute reconnect, which would otherwise read it as turned back on.
 
 **Echo recognition** (`echo.h`) is time-aware, because 3.0's fades run up to an hour:
 - In the first `ECHO_EARLY_MS` (10 s) after a command, the whole start→target range
@@ -377,7 +393,7 @@ Plus the reconnect resync, which turns each missed on/off flip into an edge.
   - a full day (24 commands, values and durations checked), manual and 6 AM wakes,
     the sleep window, a late wake after a cold boot
   - snap-then-glide, holds (steady and mid-fade, with freeze and deferred events),
-    resume in a fade and in a steady period, the post-23:00 hold
+    resume in a fade and in a steady period, the hold after the last fade
   - naps (timeout, early end, 21:00 → sleep), out-for-today and its scheduled-join
     block, all-off after 21:00
   - dashboard wake at night, nap-remaining 0
@@ -413,10 +429,17 @@ Plus the reconnect resync, which turns each missed on/off flip into an edge.
 
 ---
 
-## 10. Proposed: surviving a power loss (design sketch, not built)
+## 10. Surviving a power loss
 
-*(Oct 15. The laptop powering the board died; see `MIRA_3_FIRST_NIGHT.md` → Day 1.
-Nothing here is built. It needs the user's OK because it changes §7.)*
+*(Designed Oct 15 after the laptop powering the board died; see
+`MIRA_3_FIRST_NIGHT.md` → Day 1. Built and flashed Nov 2, unverified on the board.)*
+
+**As built, where it differs from the design below:**
+- The everything-off rule (step 4) has no code of its own: with every bulb off, boot
+  skips the save and takes the §7 inference, which already idles until a light turns on.
+- The log line is `Boot — power loss; caught up from 10:00AM`, without an event count.
+- Open question 1 stayed at its recommendation: the no-save fallback isn't tightened.
+- NVS's own CRC serves as the check, so `DayFacts` has a magic but no FNV.
 
 ### The problem
 
@@ -605,7 +628,8 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
   it. This bends the comment-vs-delete convention.
 
 **Claude's calls during the build (user away; veto freely)**
-- A hold that starts after 23:00 ends at 01:00 lights-out (§6).
+- A hold that starts after the last fade period (20:45 since Nov 2) ends at 01:00
+  lights-out (§6).
 - **Pure core + shell split, with native tests.** `config.h` stops including
   `secrets.h`; the shell files include it directly.
 - **Roster reordered** (floor = 0 … ceiling = 3; masks, cache, and persistence all
@@ -621,6 +645,22 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
   marked like the wifi-watchdog restart.
 - **The freeze uses computed-level commands.** `dimming_delta: stop` stays a
   hardware experiment.
+
+**Evening schedule revised (user, Nov 2)**
+- 75 → 40% moved an hour earlier, to 19:00–20:00. The chest still goes off when that
+  fade ends, at 40%, which is now 20:00.
+- 40 → 25% moved to 20:45–21:00.
+- The dresser goes off at 22:30, at 25%, and a hold started after 20:45 ends then. After
+  22:30 it's just the floor.
+- `SLEEP_CUTOFF` stays 21:00.
+- A day is still 24 commands.
+
+**Wall switches and false holds (user, Nov 2)**
+- A light cut at the wall is **out for today**. When it's restored it **fades** into line
+  (15 s, brightness and CT), rather than the 0.3 s snap of a light you turn on. Every
+  light cut at once is left to the normal nap/asleep rule: the floor lamp has no switch,
+  so the user considers it very unlikely.
+- A report within 5% of the in-line level isn't a hold (Claude's proposal, accepted).
 
 **Found in build/review (fixed before any flash)**
 1. **The freeze would have dropped lights to ~1% after a cold boot.** The Director
@@ -650,6 +690,10 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
 
 ## Hardware unknowns: verify on the first flashes
 
+*Status from the Railway logs, Oct 14 – Nov 2 (`MIRA_3_FIRST_NIGHT.md` → "Nov 2"):*
+*#1 the bridge accepts 60-min fades, landing time unmeasured; #2 mid-fade reports do*
+*appear; #3, #4, #5 no data; #6 likely linear; #7 new, unmeasured.*
+
 1. **60-min single-command fades.** Hue's transition field appears to cap near
    109 min (16 bits of tenths of a second, inherited from v1). The longest stage is
    60 min. Verify one lands on time. If the bridge rejects it (the log shows the HTTP
@@ -671,6 +715,10 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
 6. **Linearity.** The freeze and the echo progress check both assume a bulb's fade is
    linear in the reported brightness percent. Watch the freeze for a visible jump.
 
+7. **Wall switches.** Does the bridge send `zigbee_connectivity` when a bulb loses
+   power, and how soon? Is `owner.rid` on the stream event as assumed? An off-and-on
+   faster than the bridge notices sends no event, so an off-path report still holds.
+
 ## First-flash checklist (step 5)
 
 1. **Before flashing:** stop the soak logger if it's holding COM5. Then
@@ -681,7 +729,7 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
    - The `[time]` on the status line (every :00/:30) is correct **Central** time.
 3. **Taking over:** if lights are on at boot, there should be one 15 s command per
    light, then silence.
-4. **A fade start** (17:00 or 20:00 is easiest):
+4. **A fade start** (17:00 or 19:00 is easiest):
    - one `PUT … over 3600.0s : 200` per light
    - **no `SSE: you set …` line for the next hour** (unknowns #1, #2)
 5. **Light on mid-fade (Hue app):** a 0.3 s snap, then one glide command.
@@ -695,9 +743,24 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
 8. **Everything off before 21:00:** a nap; the lights return after 60 min. The legacy
    pause slider (`SET_SOFT_PAUSE_REMAINING`) changes the time left.
 9. **Evening and night:**
-   - the 19:00 / 21:00 / 23:30 offs
+   - the 19:00 / 20:00 / 22:30 offs
    - all off after 21:00 → `Asleep`
    - 01:00 lights-out
    - next morning: the 06:00 or 09:00 wake
 10. **Soft reset:** the next panic or wifi-watchdog restart should log
     `Boot — picked up where it left off`, and no lights should switch.
+
+## Nov 2 reflash checklist
+
+Flashed Nov 2 while the board was away from home WiFi, so run these once it's back. First
+confirm the dashboard log shows `Online (…) — Mira 3.0` and a `Boot — …` line.
+
+1. **Wall switch (unknown #7):** with serial running, cut the chest at its switch. Time
+   `SSE: Chest connectivity connectivity_issue`, then expect `Chest lost power` and
+   `Chest off — out for today`. Wait past a 10-min `SSE: stale` reconnect: it must stay
+   out. Restore it: `Chest has power again`, then a 15 s PUT and no `you set` hold.
+2. **Quick flip:** off and on within a few seconds, and note what the log shows.
+3. **Power loss:** with lights on, unplug the board across a scheduled event, then plug
+   it back in. Expect `Boot — power loss; caught up from …` and the missed offs.
+4. **False holds:** watch a morning wake for `reported N% — in line, no hold` where a
+   `Hold` used to appear.

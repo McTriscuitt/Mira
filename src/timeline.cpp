@@ -82,11 +82,12 @@ float profileBri(int32_t mds) {
     return p.b0 + (p.b1 - p.b0) * t;
 }
 
-int32_t nextFadeStartAfter(int32_t mds) {
+int32_t holdEndAfter(int32_t mds) {
     for (int i = 0; i < SEG_COUNT; i++) {
         if (isFade(SEGS[i]) && SEGS[i].start > mds) return SEGS[i].start;
     }
-    return MDS(LIGHTS_OUT_AT);  // after the last fade, a hold lasts until lights-out
+    if (mds < MDS(DRESSER_OFF_AT)) return MDS(DRESSER_OFF_AT);  // no fades left: the evening's last change
+    return MDS(LIGHTS_OUT_AT);
 }
 
 bool roleScheduledOn(Role role, int32_t mds) {

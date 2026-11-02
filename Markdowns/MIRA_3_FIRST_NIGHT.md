@@ -149,3 +149,40 @@ _(Serial capture was off all day. Sources: `/api/log/recent`, `/api/telemetry/hi
   one → out for today).
 - **Takeaway:** the board's uptime depends on the laptop. A USB wall adapter removes
   this class of outage regardless of §10.
+
+## Nov 2: 18 days of Railway logs
+
+_(Sources: `/api/log/recent`, `/api/telemetry/history`. No serial since Oct 15, so bulb
+levels and the classifier's event ring aren't available. Times CT.)_
+
+- **Stability ✓**: no boots after Oct 16 22:23; the 5 boots were the flash and the
+  power-ons around the Oct 15–16 outages, none a panic or watchdog. Telemetry has no gap
+  over 120 s from Oct 19 until the user took the board out at 08:55 on Nov 2. Heap
+  8.468–8.604 MB; SSE stack 6,780 and net stack 6,928 free across the whole window.
+- **DST ✓**: Nov 1 wake at 09:00:03 CST, labelled 9:00AM.
+- **Power-loss gap seen again**: Oct 16 22:23 power-on, chest still on past its off time.
+- **Unknown #1**: 66 fade starts and 2 `didn't take a command` lines (Oct 19 chest,
+  Oct 20 dresser, both isolated), so the bridge accepts long fades. `bridge said:` is
+  Serial-only, so its absence from the log proves nothing. Landing time is unmeasured.
+- **False holds (open)**: 8 of 14 holds report a level within 1% of the in-line level:
+
+  | When | Light | Reported | In line | Note |
+  |---|---|---|---|---|
+  | Oct 17 09:10:31 | Chest | 60 | 59.9 | 28 s after `Chest on` |
+  | Oct 18 07:47:13 | Chest | 60 | 59.9 | 27 s after `Chest on` |
+  | Oct 19 08:49:04 | Floor | 25 | 25.7 | 11 s after the wake started |
+  | Oct 24 19:35:21 | Floor | 75 | 75.0 | 28 s after `Nap over` |
+  | Oct 25 09:03:34 | Floor | 37 | 36.8 | 212 s into the wake |
+  | Oct 27 18:50:03 | Dresser | 75 | 75.0 | user adjusting lights at the time; may be real |
+  | Oct 30 20:23:17 | Ceiling | 62 | 61.4 | ceiling past its off time |
+  | Nov 1 09:05:31 | Dresser | 43 | 43.2 | 28 s after `Dresser on` |
+
+  A hold freezes every light, and `Wake complete` still logs on those mornings.
+  Cause not confirmed. Candidates: `noteRecentPut` takes the start level from a stale
+  cache, or a report arrives after a 15 s fade's echo window (20 s with grace) closes.
+- **Wall switch (user's theory, Nov 2)**: someone cuts a light at the switch, the user
+  turns it back on later, and that causes a hold. The code path fits: if the bridge
+  still has `on: true`, there's no on edge, so the returning brightness report reads as
+  yours. Oct 22 21:07 Floor 54% matches where the fade was at ~20:36, and Oct 27 18:49
+  Chest 100% matches the level before 17:00, so both look like a bulb returning at its
+  level when the power was cut. Not confirmed, and it doesn't explain the 27–28 s rows.

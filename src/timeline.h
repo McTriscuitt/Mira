@@ -30,11 +30,11 @@ struct Period {
 
 Period  periodAt(int32_t mds);              // the fixed profile (the wake overlay lives in the director)
 float   profileBri(int32_t mds);            // profile level at mds, interpolated inside fades
-int32_t nextFadeStartAfter(int32_t mds);    // when a hold that starts at mds ends (lights-out if none left)
+int32_t holdEndAfter(int32_t mds);          // when a hold that starts at mds ends: the next fade, the dresser's off, or lights-out
 bool    roleScheduledOn(Role role, int32_t mds);  // does the schedule have this role on (after the wake)?
 
 // Fixed timed events, in chronological Mira-day order. Same-time events fire in
-// table order (21:00: the chest goes off before the sleep cutoff is checked).
+// table order.
 enum class EventKind : uint8_t { WakeWindow, AutoWake, LightOn, LightOff, SleepCutoff, LightsOut };
 struct TimelineEvent {
     int32_t   localSec;

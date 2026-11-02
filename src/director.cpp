@@ -11,6 +11,7 @@
 #include <string.h>
 
 const uint32_t Director::STATE_MAGIC;
+const uint32_t Director::FACTS_MAGIC;
 
 namespace {
 
@@ -104,7 +105,8 @@ float Director::currentBri(const Now& now, int i) const {
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 
-void Director::boot(const Now& now, LightMask physOn, const float* bri, const DirectorState* r) {
+void Director::boot(const Now& now, LightMask physOn, const float* bri, const DirectorState* r,
+                    const DayFacts* saved) {
     physOn_     = physOn;
     pendingOff_ = 0;
     for (int i = 0; i < LIGHT_COUNT; i++) {
@@ -127,6 +129,29 @@ void Director::boot(const Now& now, LightMask physOn, const float* bri, const Di
             s_.out &= (LightMask)~physOn_;
         }
         note("Boot — picked up where it left off (%s)", modeName(mode(now)));
+    } else if (saved && physOn_ != 0 && factsUsable(*saved, now)) {
+        // Power-on with today's facts: the soft-reset path, from the NVS copy. With
+        // everything off there's nothing to catch up, so that case infers below.
+        memset(&s_, 0, sizeof(s_));
+        s_.magic        = STATE_MAGIC;
+        s_.asleep       = saved->asleep;
+        s_.wakeFlags    = saved->wakeFlags;
+        s_.want         = saved->want;
+        s_.out          = saved->out;
+        s_.wakeEndBri   = saved->wakeEndBri;
+        s_.wakeStartMs  = saved->wakeStartMs;
+        s_.napUntilMs   = saved->napUntilMs;
+        s_.holdUntilMs  = saved->holdUntilMs;
+        s_.lastTickMs   = now.ms;
+        s_.lastLocalSec = now.localSec;
+        if (!s_.asleep) {
+            s_.want = physOn_;
+            s_.out &= (LightMask)~physOn_;
+        }
+        char from[12];
+        fmtClock(saved->savedLocalSec, from, sizeof(from));
+        note("Boot — power loss; caught up from %s", from);
+        replay(now, toMds(saved->savedLocalSec));
     } else {
         // Power-on (or stale RTC): infer from the clock and the bulbs (MIRA_3.md §7).
         memset(&s_, 0, sizeof(s_));
@@ -159,43 +184,92 @@ void Director::tick(const Now& now) {
 void Director::processEvents(const Now& now) {
     for (int e = 0; e < TIMELINE_EVENT_COUNT; e++) {
         const TimelineEvent& ev = TIMELINE_EVENTS[e];
-        if (!crossedLocal(s_.lastLocalSec, now.localSec, ev.localSec)) continue;
-        char at[12];
-        fmtClock(ev.localSec, at, sizeof(at));
-        switch (ev.kind) {
-            case EventKind::WakeWindow:
-                if (s_.asleep && physOn_) startWake(now, -1, "a light was already on");
-                break;
-            case EventKind::AutoWake:
-                if (s_.asleep) startWake(now, -1, at);
-                break;
-            case EventKind::LightOn:
-                if (!s_.asleep) scheduleRole(ev.role, true);
-                break;
-            case EventKind::LightOff:
-                if (!s_.asleep) scheduleRole(ev.role, false);
-                break;
-            case EventKind::SleepCutoff:
-                if (s_.asleep) break;
-                if (napActive()) {
-                    char why[40];
-                    snprintf(why, sizeof(why), "the nap ran into %s", at);
-                    goToSleep(why);
-                } else if (physOn_ == 0 && pendingOff_ == 0) {
-                    goToSleep("everything off");
-                }
-                break;
-            case EventKind::LightsOut:
-                if (!s_.asleep) lightsOut(now, at);
-                break;
-        }
+        if (crossedLocal(s_.lastLocalSec, now.localSec, ev.localSec)) fireEvent(now, ev);
     }
+}
+
+void Director::fireEvent(const Now& now, const TimelineEvent& ev) {
+    char at[12];
+    fmtClock(ev.localSec, at, sizeof(at));
+    switch (ev.kind) {
+        case EventKind::WakeWindow:
+            if (s_.asleep && physOn_) startWake(now, -1, "a light was already on");
+            break;
+        case EventKind::AutoWake:
+            if (s_.asleep) startWake(now, -1, at);
+            break;
+        case EventKind::LightOn:
+            if (!s_.asleep) scheduleRole(ev.role, true);
+            break;
+        case EventKind::LightOff:
+            if (!s_.asleep) scheduleRole(ev.role, false);
+            break;
+        case EventKind::SleepCutoff:
+            if (s_.asleep) break;
+            if (napActive()) {
+                char why[40];
+                snprintf(why, sizeof(why), "the nap ran into %s", at);
+                goToSleep(why);
+            } else if (physOn_ == 0 && pendingOff_ == 0) {
+                goToSleep("everything off");
+            }
+            break;
+        case EventKind::LightsOut:
+            if (!s_.asleep) lightsOut(now, at);
+            break;
+    }
+}
+
+// Fire what came due since fromMds. In Mira-day seconds, not crossedLocal(): that
+// assumes ticks are close together, and an outage can span most of a day. Replaying
+// from the last save is exact: an event that had changed a fact would have written
+// a newer save, so whatever is in this range either never ran or changes nothing.
+void Director::replay(const Now& now, int32_t fromMds) {
+    const int32_t nowMds = mdsNow(now);
+    for (int e = 0; e < TIMELINE_EVENT_COUNT; e++) {
+        const TimelineEvent& ev = TIMELINE_EVENTS[e];
+        const int32_t at = toMds(ev.localSec);
+        if (at > fromMds && at <= nowMds) fireEvent(now, ev);
+    }
+}
+
+// Saved earlier in the Mira-day that's running now. Each instant's day start is
+// compared with room to spare, because a DST change moves one by an hour.
+bool Director::factsUsable(const DayFacts& f, const Now& now) const {
+    if (f.magic != FACTS_MAGIC || f.savedMs > now.ms) return false;
+    const int64_t savedStart = f.savedMs - (int64_t)toMds(f.savedLocalSec) * 1000LL;
+    const int64_t nowStart   = now.ms - (int64_t)mdsNow(now) * 1000LL;
+    return abs64(nowStart - savedStart) < DAY_MS / 2;
+}
+
+DayFacts Director::facts(const Now& now) const {
+    DayFacts f;
+    memset(&f, 0, sizeof(f));
+    f.magic         = FACTS_MAGIC;
+    f.asleep        = s_.asleep;
+    f.wakeFlags     = s_.wakeFlags;
+    f.want          = s_.want;
+    f.out           = s_.out;
+    f.wakeEndBri    = s_.wakeEndBri;
+    f.wakeStartMs   = s_.wakeStartMs;
+    f.napUntilMs    = s_.napUntilMs;
+    f.holdUntilMs   = s_.holdUntilMs;
+    f.savedMs       = now.ms;
+    f.savedLocalSec = now.localSec;
+    return f;
+}
+
+bool Director::sameFacts(const DayFacts& a, const DayFacts& b) {
+    return a.magic == b.magic && a.asleep == b.asleep && a.wakeFlags == b.wakeFlags &&
+           a.want == b.want && a.out == b.out && a.wakeEndBri == b.wakeEndBri &&
+           a.wakeStartMs == b.wakeStartMs && a.napUntilMs == b.napUntilMs &&
+           a.holdUntilMs == b.holdUntilMs;
 }
 
 void Director::processTimers(const Now& now) {
     if (pendingOff_ && now.ms - pendingOffAtMs_ >= (int64_t)OFF_GROUP_MS) resolveOffGroup(now);
     if (napActive() && now.ms >= s_.napUntilMs) endNap("time's up — lights coming back");
-    if (holdActive() && now.ms >= s_.holdUntilMs) endHold("the next fade period");
+    if (holdActive() && now.ms >= s_.holdUntilMs) endHold("on schedule");
 
     if (!s_.asleep && s_.wakeStartMs) {
         if (!(s_.wakeFlags & 1) && now.ms >= s_.wakeStartMs + (int64_t)WAKE_JOIN_DRESSER_S * 1000LL) {
@@ -402,7 +476,7 @@ void Director::startHold(const Now& now, int changedIdx, float userBri, uint16_t
     int32_t endMds = 0;
     if (fresh) {
         int64_t m = mdsMsAt(now, now.ms);
-        endMds = nextFadeStartAfter((int32_t)(m / 1000LL));
+        endMds = holdEndAfter((int32_t)(m / 1000LL));
         s_.holdUntilMs = now.ms + ((int64_t)endMds * 1000LL - m);
         if (s_.holdUntilMs <= now.ms) s_.holdUntilMs = now.ms + 1;
     }
@@ -508,7 +582,7 @@ void Director::resolveOffGroup(const Now& now) {
 
 // ── Inputs ──────────────────────────────────────────────────────────────────
 
-void Director::onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float bri) {
+void Director::onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float bri, uint32_t joinMs) {
     if (idx >= LIGHT_COUNT) return;
     const LightMask b = lightBit(idx);
     if (on) physOn_ |= b; else physOn_ &= (LightMask)~b;
@@ -538,6 +612,7 @@ void Director::onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float b
             if (mdsNow(now) < toMds(SLEEP_CUTOFF)) {
                 snprintf(why, sizeof(why), "%s turned on", lightName(idx));
                 startWake(now, idx, why);
+                joinDurMs_[idx] = joinMs;
                 reconcile(now);
             }
             return;
@@ -548,7 +623,7 @@ void Director::onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float b
             snprintf(why, sizeof(why), "%s turned on", lightName(idx));
             endNap(why);
         }
-        if (!holdActive()) joinDurMs_[idx] = JOIN_SNAP_MS;
+        if (!holdActive()) joinDurMs_[idx] = joinMs;
     } else {
         if (s_.asleep) return;
         joinDurMs_[idx] = 0;
@@ -559,10 +634,28 @@ void Director::onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float b
     reconcile(now);
 }
 
+void Director::onPower(const Now& now, uint8_t idx, bool hasPower, float bri) {
+    if (idx >= LIGHT_COUNT) return;
+    note(hasPower ? "%s has power again" : "%s lost power", lightName(idx));
+    onEdge(now, idx, hasPower, true, bri, FADE_MS);
+}
+
 void Director::onUserBrightness(const Now& now, int idx, float bri, uint16_t ct) {
     const bool known = idx >= 0 && idx < LIGHT_COUNT;
     if (known) knownBri_[idx] = bri;
     if (s_.asleep || napActive()) return;
+    if (known && !holdActive()) {
+        const Active a = activeAt(now, now.ms);
+        if (a.driven && fabsf(bri - levelOf(a, now.ms)) <= IN_LINE_TOL_BRI) {
+            // Already where the plan has it, so a hold would protect nothing and
+            // freeze every other light. A late report is the usual cause. If it was
+            // a real nudge the bulb's fade stopped, so re-send to keep it moving.
+            note("%s reported %.0f%% — in line, no hold", lightName(idx), bri);
+            s_.cmd[idx].valid = 0;
+            reconcile(now);
+            return;
+        }
+    }
     char why[40];
     if (known) snprintf(why, sizeof(why), "%s set to %.0f%%", lightName(idx), bri);
     else       snprintf(why, sizeof(why), "manual change");

@@ -16,6 +16,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <Adafruit_VEML7700.h>
+#include <Preferences.h>
 #include "config.h"
 #include "secrets.h"
 #include "lights.h"
@@ -244,6 +245,30 @@ static const DirectorState* rtcRestore(bool softReset) {
     return &rtcBlob.state;  // the Director also checks its age
 }
 
+// The NVS copy of the day's facts, for a power-on (MIRA_3.md §10). Written only when
+// they change: a handful of times a day, and fade starts don't count.
+static Preferences factsPrefs;
+static DayFacts    savedFacts;
+static bool        haveSavedFacts = false;
+
+static const DayFacts* loadSavedFacts() {
+    factsPrefs.begin("mira", true);
+    haveSavedFacts = factsPrefs.isKey("dayFacts") &&
+                     factsPrefs.getBytes("dayFacts", &savedFacts, sizeof(savedFacts)) == sizeof(savedFacts);
+    factsPrefs.end();
+    return haveSavedFacts ? &savedFacts : nullptr;
+}
+
+static void saveFactsIfChanged() {
+    const DayFacts f = director.facts(nowLocal());
+    if (haveSavedFacts && Director::sameFacts(f, savedFacts)) return;
+    factsPrefs.begin("mira", false);
+    factsPrefs.putBytes("dayFacts", &f, sizeof(f));
+    factsPrefs.end();
+    savedFacts     = f;
+    haveSavedFacts = true;
+}
+
 // Commands still running when the board reset: re-record them so the bridge's
 // progress reports mid-fade (if it sends any) read as Mira's, not yours.
 static void seedEchoRing(const Now& n) {
@@ -340,6 +365,9 @@ static void dispatch(const Event& ev) {
         case EvType::StaleRevert:
             director.onStaleRevert(n, ev.a, (ev.flags & 1) != 0);
             break;
+        case EvType::LightPower:
+            director.onPower(n, ev.a, (ev.flags & 1) != 0, ev.f);
+            break;
         case EvType::DashCmd:
             director.onCommand(n, (Director::Cmd)ev.a, ev.i);
             break;
@@ -403,7 +431,7 @@ void setup() {
     director.begin(&env);
     const DirectorState* restored = rtcRestore(soft);
     n = nowLocal();
-    director.boot(n, bridgeOnMask(), bri, restored);
+    director.boot(n, bridgeOnMask(), bri, restored, loadSavedFacts());
     if (restored) seedEchoRing(n);
 
     bridgeStart();  // the event stream + SSE task; from here your changes arrive as events
@@ -420,5 +448,6 @@ void loop() {
     serviceTelemetry();
     if (director.consumeDirty()) pushStatus();
     persist();  // RTC copy — a few hundred bytes, every pass
+    saveFactsIfChanged();
     wifiWatchdog();
 }
