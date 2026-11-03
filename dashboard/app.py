@@ -259,6 +259,13 @@ def ack_command(cmd_id):
     return jsonify({'ok': True})
 
 
+# --- Portfolio landing page ---
+
+@app.route('/')
+def landing():
+    return render_template('landing.html')
+
+
 # --- Dashboard auth ---
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -271,12 +278,12 @@ def login():
             session['role'] = 'owner'
             db.session.add(AccessLog(role='owner', ip=ip))
             db.session.commit()
-            return redirect(url_for('index'))
+            return redirect(url_for('mira'))
         elif DEMO_PASSWORD and pw == DEMO_PASSWORD:
             session['role'] = 'demo'
             db.session.add(AccessLog(role='demo', ip=ip))
             db.session.commit()
-            return redirect(url_for('index'))
+            return redirect(url_for('mira'))
         return render_template('login.html', error=True)
     return render_template('login.html', error=False)
 
@@ -297,8 +304,8 @@ def logout():
 
 # --- Dashboard API ---
 
-@app.route('/')
-def index():
+@app.route('/mira')
+def mira():
     if not _dashboard_authed():
         return redirect(url_for('login'))
     return render_template('index.html', role=session.get('role', ''))

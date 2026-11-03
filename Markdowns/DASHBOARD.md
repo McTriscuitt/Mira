@@ -12,6 +12,11 @@
 > day's times are in `MIRA_3.md` §2; take them from there, not from the 2.x UI. 3.0 is on
 > branch `mira-3`, and `main` is still 2.x until 3.0 is verified and merged.
 
+> **Portfolio rework (Nov 2026):** `/` is now the portfolio landing page, a terminal; the dashboard moved to `/mira`.
+> `/logs`, `/lux`, `/login` and every `/api/*` route keep their paths, so the firmware is unaffected. New pages keep HTML in
+> `templates/`, CSS in `static/css/` and JS in `static/js/`. Site content, including new projects, lives in
+> `static/js/portfolio-content.js`. The dashboard templates still have inline CSS/JS until their part of the rework.
+
 Flask + HTML/CSS/JS frontend, live on Railway (Hobby plan, PostgreSQL). URL in `secrets.h` as `DASHBOARD_BASE_URL`. The ESP32's Core-0 `netTask` polls `/api/command` every 5 s and POSTs a status snapshot every 30 s tick plus ~100 ms after applying any command (N1 Stage 5). Browsers get server-pushed updates over `/api/status/stream` SSE with a 30 s poll as fallback (N2 step 2). Served by gunicorn `-w 1 --threads 16` — single process (the SSE fan-out is in-process state), threaded so held stream connections don't block other requests.
 
 ---

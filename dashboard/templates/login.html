@@ -72,6 +72,15 @@
       color: #e0e0e0;
     }
 
+    .back-link {
+      color: #888;
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      text-decoration: none;
+    }
+
+    .back-link:hover { color: #e0e0e0; }
+
     .error {
       font-size: 12px;
       color: #c0392b;
@@ -88,6 +97,7 @@
       {% if error %}<span class="error">incorrect password</span>{% endif %}
       <button type="submit">enter</button>
     </form>
+    <a href="/" class="back-link">← back</a>
   </div>
 </body>
 </html>
