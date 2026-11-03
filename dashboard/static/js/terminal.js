@@ -154,7 +154,7 @@ const Terminal = (function () {
   // history, no visitor log. Resolves to the text, or null if cancelled.
   function ask(options) {
     return new Promise(function (resolve) {
-      reader = { label: options.label, resolve: resolve };
+      reader = { label: options.label, resolve: resolve, submitAt: options.submitAt };
       promptLabel.textContent = options.label;
       input.value = '';
       input.placeholder = '';
@@ -663,6 +663,14 @@ const Terminal = (function () {
       input.value = '';
       scrollToPrompt();
     }
+  });
+
+  // A phone's number pad may have no Enter key, so a fixed-length answer sends itself.
+  // Spaces are dropped because authenticator apps copy codes as "123 456".
+  input.addEventListener('input', function () {
+    if (!reader || !reader.submitAt) return;
+    const digits = input.value.replace(/[^0-9]/g, '');
+    if (digits.length === reader.submitAt) finishAsk(digits);
   });
 
   form.addEventListener('submit', function (event) {

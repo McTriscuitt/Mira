@@ -289,9 +289,10 @@ def login_checks(term, page):
     box.press('Enter')
     expect(page.locator('#prompt-label')).to_have_text('code:')
     check('input is plain again for the code', box.get_attribute('type') == 'text')
-    box.fill('000000')
-    box.press('Enter')
-    term.expect_text('incorrect')
+    box.press_sequentially('00000')
+    check('five digits wait for the sixth', page.locator('#prompt-label').text_content() == 'code:')
+    box.press_sequentially('0')
+    term.expect_text('incorrect')  # sent without Enter: a phone's number pad may not have one
     check('password never shown', 'wrong password here' not in term.text())
 
     box.fill('')
@@ -311,8 +312,8 @@ def login_checks(term, page):
     box.fill(PASSWORD)
     box.press('Enter')
     expect(page.locator('#prompt-label')).to_have_text('code:')
-    box.fill(pyotp.TOTP(SECRET).now())
-    box.press('Enter')
+    now = pyotp.TOTP(SECRET).now()
+    box.fill(now[:3] + ' ' + now[3:])  # the way an authenticator app copies it
     term.expect_text('logged in.')
     expect(page.locator('#prompt-label')).to_have_text('admin ~ $')
     cookies = page.context.cookies()
@@ -481,7 +482,6 @@ def stream_ends_on_logout(browser):
     box.press('Enter')
     expect(page.locator('#prompt-label')).to_have_text('code:')
     box.fill(pyotp.TOTP(SECRET).now())
-    box.press('Enter')
     expect(page.locator('#prompt-label')).to_have_text('admin ~/mira $')
     expect(page.locator('#status-line')).to_contain_text('schedule')
     check('status line appears on login inside mira', True)

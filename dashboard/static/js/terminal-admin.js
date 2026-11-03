@@ -54,6 +54,7 @@
     const code = await Terminal.ask({
       label: 'code:',
       numeric: true,
+      submitAt: 6,
       autocomplete: 'one-time-code',
     });
     if (code === null) {
