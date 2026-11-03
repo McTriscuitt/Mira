@@ -17,6 +17,9 @@ real lights.
    git merge terminal-mira
    git push
    ```
+   Your local `mira-3` was already 3 commits ahead of GitHub when this started (`4c4c508`,
+   `d331040`, `042c012`: notes, the `NAP`/`EXTEND` firmware and the secrets script). This push sends
+   them too. That's expected, and it doesn't reflash anything.
 2. **Check the public side.** Open the site and type `mira`, then `status`, then `log`.
 3. **Log in.** Type `login`, then your password, then the six-digit code.
    - Your old dashboard login stops working at this deploy, so this is the only way in.
@@ -142,7 +145,7 @@ Each of these was my call, and any can be changed.
 | What | Result |
 |---|---|
 | Unit tests, SQLite | 54 passed |
-| Unit tests, Postgres 18 | 52 passed, before the last 2 tests and review fixes were added; not rerun on Postgres after that |
+| Unit tests, Postgres 18 | 54 passed |
 | Browser test, Chromium, on Postgres 18 | 62 of 62 checks passed |
 | Upgrade: live code's schema, then new code, then live code again | Passed |
 
