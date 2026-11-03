@@ -1,0 +1,313 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar { display: none; }
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #0d0d0d;
+  background: #0d0d0d;
+  color: #e0e0e0;
+  min-height: 100vh;
+  padding: 56px 32px 40px;
+  overflow-x: hidden;
+}
+
+/* --- Background letter layer --- */
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bg-cone {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 55% 100% at 50% 0%, rgba(255, 235, 175, 1.0) 0%, rgba(255, 235, 175, 0.65) 35%, rgba(255, 235, 175, 0.3) 65%, rgba(255, 235, 175, 0.08) 100%);
+  clip-path: polygon(40% 0%, 60% 0%, 70% 56%, 30% 56%);
+  opacity: 0;
+  transition: opacity 2s ease;
+}
+
+.bg-letter {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  transform: translateX(-50%);
+  font-size: clamp(28px, 4.5vw, 64px);
+  font-weight: 100;
+  color: #ffffff;
+  letter-spacing: 0.6em;
+  padding-left: 0.7em;
+  white-space: nowrap;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 2s ease;
+  user-select: none;
+}
+
+/* --- Content layer --- */
+main {
+  position: relative;
+  z-index: 1;
+  min-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+}
+
+.logout-footer {
+  text-align: center;
+  padding: 48px 0 32px;
+  margin-top: auto;
+}
+
+.logout {
+  font-size: 12px;
+  color: #555;
+  text-decoration: none;
+  letter-spacing: 0.05em;
+}
+@media (hover: hover) { .logout:hover { color: #888; } }
+
+/* --- Stat grid --- */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+.stat {
+  background: #141414;
+  padding: 20px 18px;
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #555;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.stat-value-small { font-size: 14px !important; padding-top: 4px; }
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 300;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Progress block --- */
+.progress-block {
+  background: #141414;
+  padding: 28px 24px;
+  margin-bottom: 48px;
+  text-align: center;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.progress-state-name {
+  font-size: 18px;
+  font-weight: 300;
+  color: #e0e0e0;
+  letter-spacing: 0.1em;
+  margin-bottom: 14px;
+}
+
+.progress-slider-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.progress-slider-wrap.hidden,
+.finish-btn.hidden { display: none; }
+
+input[type="range"]:disabled { opacity: 1; cursor: default; pointer-events: none; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 260px;
+  height: 2px;
+  background: #2a2a2a;
+  outline: none;
+  cursor: pointer;
+  border-radius: 1px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #666;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+@media (hover: hover) {
+  input[type="range"]::-webkit-slider-thumb:hover { background: #e0e0e0; }
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #666; border: none; cursor: pointer;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #555;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.finish-btn {
+  background: none;
+  border: 1px solid #2a2a2a;
+  color: #555;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+@media (hover: hover) {
+  .finish-btn:hover { border-color: #666; color: #e0e0e0; }
+}
+/* Touch devices get no :hover — :active fires on touchstart so the press
+   still gives visual feedback. Keep outside the hover media query. */
+.finish-btn:active { border-color: #777; color: #e0e0e0; background: #1a1a1a; }
+
+/* --- Controls --- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 48px;
+  justify-content: center;
+}
+
+.btn {
+  background: none;
+  border: 1px solid var(--btn-border, #2a2a2a);
+  color: var(--btn-text, #888);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  min-height: 40px;
+}
+@media (hover: hover) {
+  .btn:hover { border-color: #555; color: #e0e0e0; }
+}
+.btn:active { background: #1a1a1a; }
+.btn.btn-active { border-color: #777; color: #e0e0e0; background: #1e1e1e; }
+
+/* --- Lights-in-cycle chips --- */
+.lights-section { text-align: center; margin-top: 96px; margin-bottom: 48px; }
+.lights-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #555;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.lights-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.light-chip {
+  background: none;
+  border: 1px solid #2a2a2a;
+  color: #555;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 8px 16px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  transition: border-color 0.15s, color 0.15s, opacity 0.15s;
+}
+/* lit = on; dimmed = out for today */
+.light-chip.in-cycle { border-color: #777; color: #e0e0e0; background: #1e1e1e; }
+.light-chip.excluded { border-color: #1c1c1c; color: #3c3c3c; opacity: 0.6; }
+
+/* --- Log --- */
+.log-section {
+  margin-top: 0;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.log-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #555;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+@media (hover: hover) { .log-label:hover { color: #888; } }
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.log-entry {
+  background: #141414;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #888;
+  display: flex;
+  gap: 16px;
+}
+
+.log-time { color: #444; white-space: nowrap; flex-shrink: 0; }
+
+/* --- Lux curve widget --- */
+.lux-curve-section { margin-top: max(24px, calc(52vh - 340px)); margin-bottom: 48px; width: 50%; align-self: center; }
+
+.lux-curve-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.lux-curve-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #555;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+@media (hover: hover) { .lux-curve-label:hover { color: #888; } }
+
+/* --- Mobile --- */
+@media (max-width: 600px) {
+  body { padding: 40px 16px; }
+  .btn { padding: 12px 16px; }
+  input[type="range"] { width: 180px; }
+  .lux-curve-section { width: 100%; }
+}

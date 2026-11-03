@@ -4,157 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Mira — Event Log</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html { scrollbar-width: none; -ms-overflow-style: none; }
-    html::-webkit-scrollbar { display: none; }
-
-    body {
-      font-family: system-ui, sans-serif;
-      background: #0d0d0d;
-      color: #e0e0e0;
-      min-height: 100vh;
-      padding: 56px 32px 40px;
-      overflow-x: hidden;
-    }
-
-    main {
-      min-height: calc(100vh - 96px);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .page-header {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      margin-bottom: 32px;
-    }
-
-    .page-title {
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      color: #555;
-      text-transform: uppercase;
-    }
-
-    .back-link {
-      font-size: 11px;
-      color: #444;
-      text-decoration: none;
-      letter-spacing: 0.05em;
-    }
-    @media (hover: hover) { .back-link:hover { color: #888; } }
-
-    .log-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-    }
-
-    .log-entry {
-      background: #141414;
-      padding: 10px 14px;
-      font-size: 13px;
-      color: #888;
-      display: flex;
-      gap: 16px;
-    }
-
-    .log-time {
-      color: #444;
-      white-space: nowrap;
-      flex-shrink: 0;
-      min-width: 160px;
-    }
-
-    .log-date-sep {
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      color: #333;
-      text-transform: uppercase;
-      padding: 20px 0 8px;
-    }
-
-    .filter-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0;
-      margin-bottom: 24px;
-    }
-
-    .filter-btn {
-      background: none;
-      border: none;
-      color: #444;
-      font-family: inherit;
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      padding: 4px 0;
-      margin-right: 20px;
-      cursor: pointer;
-      transition: color 0.15s;
-      border-bottom: 1px solid transparent;
-    }
-    @media (hover: hover) { .filter-btn:hover { color: #888; } }
-    .filter-btn.filter-active { color: #888; border-bottom-color: #333; }
-
-    .load-more {
-      background: none;
-      border: none;
-      color: #444;
-      font-family: inherit;
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      padding: 10px 0;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: color 0.15s;
-    }
-    @media (hover: hover) { .load-more:hover { color: #888; } }
-    .load-more:disabled { opacity: 0.3; cursor: default; }
-
-    .controls-row {
-      display: flex;
-      justify-content: center;
-      padding: 24px 0 0;
-    }
-
-    .logout-footer {
-      text-align: center;
-      padding: 48px 0 32px;
-      margin-top: auto;
-    }
-
-    .logout {
-      font-size: 12px;
-      color: #555;
-      text-decoration: none;
-      letter-spacing: 0.05em;
-    }
-    @media (hover: hover) { .logout:hover { color: #888; } }
-
-    @media (max-width: 600px) {
-      body { padding: 40px 16px; }
-      .log-time { min-width: 90px; font-size: 11px; }
-    }
-  </style>
+  <meta name="csrf-token" content="{{ csrf }}">
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/legacy-logs.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/legacy-common.css') }}">
+  <script src="{{ url_for('static', filename='js/legacy-common.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/legacy-logs.js') }}" defer></script>
 </head>
 <body>
   <main>
     <div class="page-header">
       <div class="page-title">Event log</div>
-      <a href="/mira" class="back-link">← back</a>
+      <a href="/legacy" class="back-link">← back</a>
     </div>
 
     <div class="filter-row">
       <button class="filter-btn filter-active" data-search="">all</button>
-      <button class="filter-btn" data-search="" data-exclude="wake,wind,pause,hard,locked">normal</button>
       <button class="filter-btn" data-search="wake">wake</button>
-      <button class="filter-btn" data-search="wind">wind down</button>
-      <button class="filter-btn" data-search="pause">soft pause</button>
-      <button class="filter-btn" data-search="hard off">hard off</button>
+      <button class="filter-btn" data-search="hold">hold</button>
+      <button class="filter-btn" data-search="nap">nap</button>
+      <button class="filter-btn" data-search="asleep">asleep</button>
+      <button class="filter-btn" data-search="boot">boot</button>
     </div>
 
     <div class="log-list" id="log-list"></div>
@@ -164,86 +34,8 @@
     </div>
 
     <div class="logout-footer">
-      <a href="/logout" class="logout">logout</a>
+      <button type="button" class="logout" data-logout>logout</button>
     </div>
   </main>
-
-  <script>
-    let _offset = 0;
-    let _filter = '';
-    let _exclude = '';
-    const PAGE = 50;
-
-    const _TZ = { timeZone: 'America/Chicago' };
-
-    function formatTimestamp(iso) {
-      const d = new Date(iso);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ..._TZ })
-        + ' · '
-        + d.toLocaleTimeString('en-US', _TZ);
-    }
-
-    function dateKey(iso) {
-      const d = new Date(iso);
-      return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', ..._TZ });
-    }
-
-    async function loadEntries() {
-      const btn = document.getElementById('load-more-btn');
-      btn.disabled = true;
-
-      const params = new URLSearchParams({ limit: PAGE + _offset });
-      if (_filter) params.set('search', _filter);
-      if (_exclude) params.set('exclude', _exclude);
-      const res = await fetch(`/api/log/recent?${params}`);
-      const data = await res.json();
-      if (!data) return;
-
-      const list = document.getElementById('log-list');
-      list.innerHTML = '';
-      let lastDate = null;
-
-      data.forEach(entry => {
-        if (entry.timestamp) {
-          const key = dateKey(entry.timestamp);
-          if (key !== lastDate) {
-            const sep = document.createElement('div');
-            sep.className = 'log-date-sep';
-            sep.textContent = key;
-            list.appendChild(sep);
-            lastDate = key;
-          }
-        }
-        const el = document.createElement('div');
-        el.className = 'log-entry';
-        const timeHtml = entry.timestamp ? `<span class="log-time">${formatTimestamp(entry.timestamp)}</span>` : '';
-        el.innerHTML = `${timeHtml}<span>${entry.message}</span>`;
-        list.appendChild(el);
-      });
-
-      _offset += PAGE;
-      const exhausted = data.length < _offset;
-      if (exhausted) btn.style.display = 'none';
-      else btn.disabled = false;
-    }
-
-    document.getElementById('load-more-btn').addEventListener('click', loadEntries);
-
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _filter = btn.dataset.search || '';
-        _exclude = btn.dataset.exclude || '';
-        _offset = 0;
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('filter-active'));
-        btn.classList.add('filter-active');
-        const loadBtn = document.getElementById('load-more-btn');
-        loadBtn.style.display = '';
-        loadBtn.disabled = true;
-        loadEntries();
-      });
-    });
-
-    loadEntries();
-  </script>
 </body>
 </html>

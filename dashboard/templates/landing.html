@@ -10,18 +10,21 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
   <script src="{{ url_for('static', filename='js/portfolio-content.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/terminal.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/terminal-admin.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/mira.js') }}" defer></script>
 </head>
 <body>
-  <main class="terminal" id="terminal">
+  <main class="terminal" id="terminal" data-admin="{{ '1' if admin else '0' }}" data-csrf="{{ csrf }}" data-start-dir="{{ start_dir }}">
     <div class="output" id="output" role="log" aria-live="polite" aria-label="Terminal output"></div>
 
+    <div class="status-line" id="status-line" hidden></div>
+
     <form class="prompt-line" id="prompt-form" autocomplete="off" hidden>
-      <label class="prompt" for="command-input"><span aria-hidden="true">~ $</span><span class="visually-hidden">Enter a command</span></label>
+      <label class="prompt" for="command-input"><span aria-hidden="true" id="prompt-label">~ $</span><span class="visually-hidden">Enter a command</span></label>
       <input
         id="command-input"
         class="command-input"
         type="text"
-        placeholder="type mira or help"
         autocapitalize="off"
         autocomplete="off"
         autocorrect="off"
@@ -32,8 +35,8 @@
 
     <noscript>
       <h1>Tristan DeOrnellis</h1>
-      <p>This page is a small terminal and needs JavaScript. The project is still one click away:</p>
-      <p><a href="{{ url_for('mira') }}">Open Mira</a></p>
+      <p>This page is a small terminal and needs JavaScript.</p>
+      <p><a href="https://github.com/McTriscuitt">My projects are on GitHub.</a></p>
     </noscript>
   </main>
 </body>

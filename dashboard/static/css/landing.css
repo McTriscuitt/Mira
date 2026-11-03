@@ -69,6 +69,19 @@ body {
 }
 
 .rows .description { color: var(--muted); }
+.rows .tag { color: #6f6f6f; white-space: nowrap; }
+
+/* Admin only: live status, one line above the prompt, updated in place. */
+.status-line {
+  margin-top: 1.2em;
+  min-height: 1.6em;
+  overflow-wrap: anywhere;
+}
+
+.status-line[hidden] { display: none; }
+.status-line.muted { color: var(--muted); }
+.status-line.error { color: var(--error); }
+.status-line + .prompt-line { margin-top: 0.2em; }
 
 /* Intro lines arrive quickly, once. Later output appears immediately, as it
    would in a real terminal. */

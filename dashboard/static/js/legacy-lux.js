@@ -1,0 +1,453 @@
+// ── Lux curve math ────────────────────────────────────────────────────
+// CLIENT-SIDE DUPLICATE of src/lightcurve.h — not derived at runtime.
+// If curve constants change in lightcurve.h, update this block and the
+// matching block in index.html to match. Two discontinuities: chest joins
+// at 250 lux (78.7→70.0), overheads join at 500 lux (85.0→69.0).
+const LC = {
+  _log(t, b) { return Math.log(1 + t*(b-1)) / Math.log(b); },
+  _crawl(t, p) { const k = 8**p, v = 1-1/(1+t*k), n = 1-1/(1+k); return v/n; },
+  calc(lux) {
+    lux = Math.max(0, Math.min(lux, 3000));
+    let bri;
+    if      (lux <= 10)  { bri = 19.7 + 39.4 * this._log(lux/10, 20); }                       // →59.1
+    else if (lux <= 250) { const t=(lux-10)/240;   bri = 59.1 + 19.6 * this._crawl(t, 0.5); } // →78.7 (floor+dresser)
+    else if (lux <= 500) { const t=(lux-250)/250;  bri = 70.0 + 15.0 * t**5; }                // 70→85 (+chest, disc. at 250)
+    else                 { const t=(lux-500)/2500; bri = 69.0 + 31.0 * this._log(t, 4.5); }   // 69→100 (+overheads, disc. at 500)
+    const n = (bri - 19.7) / 80.3;
+    return { bri, ct: Math.round(400 - 120*n) };
+  }
+};
+
+function luxXpct(lux) { return Math.log1p(lux) / Math.log1p(3000); }
+
+// ── Timeline helpers ────────────────────────────────────────────────
+function niceMax(v) {
+  for (const s of [50,100,150,200,300,500,750,1000,1500,2000,3000,5000,7500,10000,15000,20000,25000,30000,35000,40000,50000]) if (s >= v) return s;
+  return Math.ceil(v / 5000) * 5000;
+}
+
+function yTicks(yMax) {
+  if (yMax <= 50)    return [0,10,20,30,40,50];
+  if (yMax <= 100)   return [0,25,50,75,100];
+  if (yMax <= 200)   return [0,50,100,150,200];
+  if (yMax <= 300)   return [0,100,200,300];
+  if (yMax <= 500)   return [0,100,200,300,400,500];
+  if (yMax <= 750)   return [0,150,300,450,600,750];
+  if (yMax <= 1000)  return [0,200,400,600,800,1000];
+  if (yMax <= 1500)  return [0,300,600,900,1200,1500];
+  if (yMax <= 2000)  return [0,500,1000,1500,2000];
+  if (yMax <= 3000)  return [0,500,1000,1500,2000,2500,3000];
+  if (yMax <= 5000)  return [0,1000,2000,3000,4000,5000];
+  if (yMax <= 7500)  return [0,1500,3000,4500,6000,7500];
+  if (yMax <= 10000) return [0,2000,4000,6000,8000,10000];
+  if (yMax <= 15000) return [0,3000,6000,9000,12000,15000];
+  if (yMax <= 20000) return [0,5000,10000,15000,20000];
+  if (yMax <= 25000) return [0,5000,10000,15000,20000,25000];
+  if (yMax <= 30000) return [0,5000,10000,15000,20000,25000,30000];
+  if (yMax <= 40000) return [0,10000,20000,30000,40000];
+  if (yMax <= 50000) return [0,10000,20000,30000,40000,50000];
+  const step = Math.ceil(yMax / 5 / 5000) * 5000;
+  const ticks = [];
+  for (let v = 0; v <= yMax; v += step) ticks.push(v);
+  return ticks;
+}
+
+function fmtLux(v) {
+  if (v >= 1000) return (v / 1000 % 1 === 0 ? v / 1000 : (v / 1000).toFixed(1)) + 'k';
+  return String(v);
+}
+
+function fmtHour(h) {
+  h = ((h % 24) + 24) % 24;
+  if (h === 0)  return '12a';
+  if (h < 12)   return `${h}a`;
+  if (h === 12) return '12p';
+  return `${h-12}p`;
+}
+
+// ── Drawing state ───────────────────────────────────────────────────
+let _dotLux = null;
+let _dotOff = false;
+let _mode = 'curve';
+
+const OFF_STATES = new Set(['LOCKED_OUT', 'HARD_OFF']);
+
+// ── Curve view ──────────────────────────────────────────────────────
+function drawCurveView(ctx, W, H) {
+  const PL = 36, PR = 16, PT = 14, PB = 28;
+  const cw = W - PL - PR, ch = H - PT - PB;
+
+  function lx(l) { return PL + luxXpct(l) * cw; }
+  function by(b) { return PT + ch - (b - 19.7) / 80.3 * ch; }
+
+  // Grid
+  ctx.lineWidth = 0.5;
+  [20, 40, 60, 80, 100].forEach(b => {
+    ctx.beginPath(); ctx.strokeStyle = '#191919';
+    ctx.moveTo(PL, by(b)); ctx.lineTo(PL + cw, by(b)); ctx.stroke();
+  });
+  [10, 250, 500, 3000].forEach(l => {
+    ctx.beginPath(); ctx.strokeStyle = '#191919';
+    ctx.moveTo(lx(l), PT); ctx.lineTo(lx(l), PT + ch); ctx.stroke();
+  });
+
+  // Axis labels
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.fillStyle = '#2e2e2e';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  [20, 40, 60, 80, 100].forEach(b => ctx.fillText(b + '%', PL - 6, by(b)));
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  [[10,'10'],[250,'250'],[500,'500'],[3000,'3k']].forEach(([l, label]) => {
+    ctx.fillText(label, lx(l), PT + ch + 7);
+  });
+
+  // Curve drawn as three bands (brighter stroke = more bulbs on) with a dashed
+  // riser at each discontinuity. chest joins at 250, overheads at 500.
+  const band = (loLux, hiLux, stepLux, color) => {
+    ctx.beginPath();
+    let first = true;
+    for (let l = loLux; l <= hiLux; l += stepLux) {
+      const { bri } = LC.calc(l);
+      if (first) { ctx.moveTo(lx(l), by(bri)); first = false; }
+      else ctx.lineTo(lx(l), by(bri));
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke();
+  };
+  const disc = (luxAt, briTop, briBot, label) => {
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(lx(luxAt), by(briTop)); ctx.lineTo(lx(luxAt), by(briBot));
+    ctx.strokeStyle = '#282828'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.fillStyle = '#252525'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, lx(luxAt) + 7, by((briTop + briBot) / 2));
+  };
+
+  band(0,   250,  2,  '#3e3e3e');   // floor + dresser
+  disc(250, 78.7, 70.0, 'chest');
+  band(250, 500,  4,  '#4f4f4f');   // + chest
+  disc(500, 85.0, 69.0, 'overheads');
+  band(500, 3000, 15, '#606060');   // + overheads
+
+  // Dot at selected lux
+  if (_dotLux != null) {
+    const { bri } = LC.calc(_dotLux);
+    const cx = lx(_dotLux), cy = by(bri);
+
+    // Crosshair
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, PT); ctx.lineTo(cx, PT + ch);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PL, cy); ctx.lineTo(PL + cw, cy);
+    ctx.stroke();
+
+    if (_dotOff) {
+      // Hollow dim dot — shows curve position but lights are off
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.strokeStyle = '#2e2e2e'; ctx.lineWidth = 1.5; ctx.stroke();
+    } else {
+      // Axis value labels
+      ctx.font = '10px system-ui, sans-serif';
+      ctx.fillStyle = '#666';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText(bri.toFixed(1) + '%', PL - 6, cy);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(Math.round(_dotLux), cx, PT + ch + 7);
+
+      // Filled dot
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#c0c0c0'; ctx.fill();
+    }
+  }
+}
+
+// ── Timeline view ───────────────────────────────────────────────────
+let _dayStart = 0;
+
+function updateDayStart() {
+  const [y, m, d] = _selectedDate.split('-').map(Number);
+  _dayStart = new Date(y, m-1, d, 0, 0, 0, 0).getTime();
+}
+
+function drawTimelineView(ctx, W, H) {
+  const PL = 36, PR = 16, PT = 14, PB = 28;
+  const cw = W - PL - PR, ch = H - PT - PB;
+
+  if (!_history.length) {
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.fillStyle = '#2e2e2e';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('No data for this date.', W / 2, H / 2);
+    return;
+  }
+
+  const maxLux = Math.max(..._history.map(p => p.lux));
+  const yMax = niceMax(maxLux * 1.1);
+  const ticks = yTicks(yMax);
+
+  function tx(tsStr) {
+    const pct = (new Date(tsStr).getTime() - _dayStart) / 86400000;
+    return PL + Math.max(0, Math.min(1, pct)) * cw;
+  }
+  function ly(lux) { return PT + ch - (lux / yMax) * ch; }
+
+  // Grid
+  ctx.lineWidth = 0.5; ctx.strokeStyle = '#191919';
+  ticks.forEach(v => {
+    ctx.beginPath(); ctx.moveTo(PL, ly(v)); ctx.lineTo(PL + cw, ly(v)); ctx.stroke();
+  });
+  [0, 4, 8, 12, 16, 20, 24].forEach(h => {
+    const x = PL + (h / 24) * cw;
+    ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT + ch); ctx.stroke();
+  });
+
+  // Axis labels
+  ctx.font = '10px system-ui, sans-serif'; ctx.fillStyle = '#2e2e2e';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ticks.forEach(v => ctx.fillText(fmtLux(v), PL - 6, ly(v)));
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  [0, 4, 8, 12, 16, 20].forEach(h => ctx.fillText(fmtHour(h), PL + (h/24)*cw, PT + ch + 7));
+
+  // Lux line — draw active segments first, then overdraw inactive ones darker
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+  let first = true;
+  for (const pt of _history) {
+    const x = tx(pt.t), y = ly(pt.lux);
+    if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#4a4a4a'; ctx.stroke();
+
+  // Overdraw inactive (LOCKED_OUT / HARD_OFF) segments in darker color
+  let segStart = null;
+  for (let i = 0; i < _history.length; i++) {
+    const inactive = OFF_STATES.has(_history[i].state);
+    if (inactive && segStart === null) segStart = Math.max(0, i - 1);
+    if (!inactive && segStart !== null) {
+      ctx.beginPath();
+      for (let j = segStart; j <= i; j++) {
+        const p = _history[j];
+        j === segStart ? ctx.moveTo(tx(p.t), ly(p.lux)) : ctx.lineTo(tx(p.t), ly(p.lux));
+      }
+      ctx.strokeStyle = '#222'; ctx.stroke();
+      segStart = null;
+    }
+  }
+  if (segStart !== null) {
+    ctx.beginPath();
+    for (let j = segStart; j < _history.length; j++) {
+      const p = _history[j];
+      j === segStart ? ctx.moveTo(tx(p.t), ly(p.lux)) : ctx.lineTo(tx(p.t), ly(p.lux));
+    }
+    ctx.strokeStyle = '#222'; ctx.stroke();
+  }
+
+  // Selected point marker
+  const slider = document.getElementById('tl-slider');
+  const idx = parseInt(slider.value);
+  if (idx >= 0 && idx < _history.length) {
+    const pt = _history[idx];
+    const x = tx(pt.t), y = ly(pt.lux);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT + ch);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = _dotOff ? '#2e2e2e' : '#c0c0c0'; ctx.fill();
+
+    // Lux value label on y-axis
+    ctx.font = '10px system-ui, sans-serif'; ctx.fillStyle = '#666';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(fmtLux(Math.round(pt.lux)), PL - 6, y);
+  }
+}
+
+// ── Main redraw dispatcher ──────────────────────────────────────────
+function redraw() {
+  const cvs = document.getElementById('lux-canvas');
+  if (!cvs || !cvs.clientWidth) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = cvs.clientWidth, H = cvs.clientHeight;
+  cvs.width = W * dpr; cvs.height = H * dpr;
+  const ctx = cvs.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#141414';
+  ctx.fillRect(0, 0, W, H);
+  if (_mode === 'timeline') drawTimelineView(ctx, W, H);
+  else drawCurveView(ctx, W, H);
+}
+
+// ── Mode toggle ─────────────────────────────────────────────────────
+function setMode(mode) {
+  _mode = mode;
+  document.getElementById('btn-curve').classList.toggle('active', mode === 'curve');
+  document.getElementById('btn-timeline').classList.toggle('active', mode === 'timeline');
+  document.getElementById('lux-canvas').style.cursor = 'pointer';
+  redraw();
+}
+
+document.getElementById('btn-curve').addEventListener('click', () => setMode('curve'));
+document.getElementById('btn-timeline').addEventListener('click', () => setMode('timeline'));
+
+// ── History state ───────────────────────────────────────────────────
+let _history = [];
+let _sliderPinned = false;
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+let _selectedDate = todayStr();
+
+function fmtDate(dateStr) {
+  if (dateStr === todayStr()) return 'Today';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function applySlider(idx) {
+  if (!_history.length) return;
+  const pt = _history[idx];
+  const time = new Date(pt.t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const isLive = !_sliderPinned && _selectedDate === todayStr() && idx === _history.length - 1;
+  const isOff = OFF_STATES.has(pt.state);
+
+  document.getElementById('tl-info').innerHTML =
+    `<span>${time}</span><span class="tl-sep">·</span><span>${Math.round(pt.lux)} lux</span>`
+    + (isLive ? `<span class="tl-live">· live</span>` : '');
+  document.getElementById('cs-live').textContent = isLive ? 'live' : '';
+
+  document.getElementById('cs-lux').textContent = Math.round(pt.lux);
+  if (isOff) {
+    document.getElementById('cs-bri').textContent = 'Off';
+    document.getElementById('cs-ct').textContent = 'Off';
+  } else {
+    const { bri, ct } = LC.calc(pt.lux);
+    document.getElementById('cs-bri').textContent = bri.toFixed(1) + '%';
+    document.getElementById('cs-ct').textContent = ct;
+  }
+
+  _dotLux = pt.lux;
+  _dotOff = isOff;
+  redraw();
+}
+
+async function loadHistory(dateStr, keepSlider) {
+  if (!keepSlider) {
+    document.getElementById('tl-info').innerHTML = '<span class="tl-empty">Loading…</span>';
+  }
+  const [fy, fm, fd] = dateStr.split('-').map(Number);
+  const localStart = new Date(fy, fm-1, fd, 0, 0, 0, 0);
+  const localEnd   = new Date(localStart.getTime() + 86400000);
+  const res = await fetch(`/api/lux/history?start=${localStart.toISOString()}&end=${localEnd.toISOString()}`);
+  _history = await res.json();
+
+  const slider = document.getElementById('tl-slider');
+
+  if (!_history.length) {
+    slider.disabled = true;
+    slider.max = 0; slider.value = 0;
+    document.getElementById('tl-info').innerHTML = '<span class="tl-empty">No data for this date.</span>';
+    document.getElementById('cs-live').textContent = '';
+    ['cs-lux','cs-bri','cs-ct'].forEach(id => document.getElementById(id).textContent = '—');
+    _dotLux = null; _dotOff = false;
+    redraw();
+    return;
+  }
+
+  slider.disabled = false;
+  slider.min = 0;
+  slider.max = _history.length - 1;
+  if (!keepSlider || !_sliderPinned) slider.value = _history.length - 1;
+  applySlider(parseInt(slider.value));
+}
+
+// ── Date navigation ─────────────────────────────────────────────────
+function shiftDate(delta) {
+  const [y, m, d] = _selectedDate.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  dt.setDate(dt.getDate() + delta);
+  const next = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  if (next > todayStr()) return;
+  _selectedDate = next;
+  _sliderPinned = false;
+  updateDayStart();
+  document.getElementById('date-display').textContent = fmtDate(_selectedDate);
+  document.getElementById('next-day').disabled = (_selectedDate === todayStr());
+  loadHistory(_selectedDate, false);
+}
+
+document.getElementById('prev-day').addEventListener('click', () => shiftDate(-1));
+document.getElementById('next-day').addEventListener('click', () => shiftDate(+1));
+
+document.getElementById('tl-slider').addEventListener('input', function() {
+  _sliderPinned = true;
+  applySlider(parseInt(this.value));
+});
+
+// ── Canvas drag-scrub (timeline mode) ───────────────────────────────
+let _canvasDragging = false;
+
+function findClosestIdx(canvasX) {
+  if (!_history.length) return -1;
+  const cvs = document.getElementById('lux-canvas');
+  const PL = 36, PR = 16;
+  const cw = cvs.clientWidth - PL - PR;
+  const fx = Math.max(0, Math.min(1, (canvasX - PL) / cw));
+  const targetMs = _dayStart + fx * 86400000;
+  let best = 0, bestDist = Infinity;
+  for (let i = 0; i < _history.length; i++) {
+    const dist = Math.abs(new Date(_history[i].t).getTime() - targetMs);
+    if (dist < bestDist) { bestDist = dist; best = i; }
+  }
+  return best;
+}
+
+function handleCanvasScrub(clientX) {
+  if (_mode !== 'timeline' || !_history.length) return;
+  const rect = document.getElementById('lux-canvas').getBoundingClientRect();
+  const idx = findClosestIdx(clientX - rect.left);
+  if (idx < 0) return;
+  const slider = document.getElementById('tl-slider');
+  slider.value = idx;
+  _sliderPinned = true;
+  applySlider(idx);
+}
+
+const _cvs = document.getElementById('lux-canvas');
+_cvs.addEventListener('mousedown', function(e) {
+  if (_mode !== 'timeline') return;
+  _canvasDragging = true;
+  handleCanvasScrub(e.clientX);
+});
+document.addEventListener('mousemove', function(e) {
+  if (!_canvasDragging) return;
+  handleCanvasScrub(e.clientX);
+});
+document.addEventListener('mouseup', function() { _canvasDragging = false; });
+
+_cvs.addEventListener('touchstart', function(e) {
+  if (_mode !== 'timeline') return;
+  _canvasDragging = true;
+  handleCanvasScrub(e.touches[0].clientX);
+}, { passive: true });
+document.addEventListener('touchmove', function(e) {
+  if (!_canvasDragging) return;
+  handleCanvasScrub(e.touches[0].clientX);
+}, { passive: true });
+document.addEventListener('touchend', function() { _canvasDragging = false; });
+
+// ── Live polling ────────────────────────────────────────────────────
+async function pollLive() {
+  if (_selectedDate !== todayStr()) return;
+  await loadHistory(_selectedDate, true);
+}
+
+// ── Init ────────────────────────────────────────────────────────────
+updateDayStart();
+loadHistory(_selectedDate, false);
+redraw();
+setInterval(pollLive, 30000);
+new ResizeObserver(redraw).observe(document.getElementById('lux-canvas'));
