@@ -53,6 +53,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
+- **Nov 3-4, 2026, terminal and dashboard rework built overnight, NOT deployed:** on branch `terminal-mira`, tested locally only. **Next: the morning checklist at the top of `Markdowns/TERMINAL_MIRA_BUILD_LOG.md`**, which starts with merging into `mira-3`. Every liberty taken is listed there too.
 - **Nov 3, 2026, `NAP` and `EXTEND` flashed:** the board booted and shows on the dashboard, but neither command has been run on the real lights yet. New admin secrets are set in Railway. **Next: all dashboard and terminal work. Start with "Start here" in `Markdowns/TERMINAL_MIRA_PLAN.md`. The user wants no liberties: ask before building anything undecided.**
 - **Nov 2, 2026, portfolio rework phase 1 finished:** the terminal landing page is live at `/`, the dashboard moved to `/mira`. 
 - **Nov 2, 2026, flashed, booted, checklist still open:** new evening (19:00–20:00 →40%, chest off; 20:45–21:00 →25%; dresser off 22:30), in-line filter for false holds, wall-switch handling via `zigbee_connectivity`, NVS power-loss replay. Next step: the "Nov 2 reflash checklist" in `Markdowns/MIRA_3.md`.
@@ -131,12 +132,12 @@ Shell:
 
 ## Web Dashboard
 
-Flask + HTML/CSS/JS on Railway (Hobby plan, PostgreSQL). The firmware's net task posts logs and status and polls `/api/command` every 5 s (`NET_CMD_POLL_MS`). Demo login (read-only) via `DEMO_PASSWORD`. See `Markdowns/DASHBOARD.md`.
+Flask + HTML/CSS/JS on Railway (Hobby plan, PostgreSQL). `/` is a portfolio terminal with Mira as a directory inside it; the old dashboard is admin-only at `/legacy`. The firmware's net task posts logs and status and polls `/api/command` every 5 s (`NET_CMD_POLL_MS`). **`Markdowns/DASHBOARD.md` has the code map, commands, security and API.** Tests: `python -m pytest tests` and `python tests/e2e_terminal.py`, from `dashboard/`.
 
-**Interim, until the dashboard session (MIRA_3.md §8):**
-- The status `state` carries 2.x names so the current UI keeps rendering: active → `NORMAL`, hold/nap → `SOFT_PAUSE`, asleep → `LOCKED_OUT`, wake → `WAKE`. It also carries `mode` (the 3.0 name) and `lights_on`; `excluded` shows out-for-today.
-- Commands: `NORMAL`/`RESUME`, `SOFT_PAUSE`/`HOLD`, `WAKE`, `LOCKED_OUT`/`SLEEP`, `SET_SOFT_PAUSE_REMAINING`/`NAP_REMAINING`, `NAP` (minutes), `EXTEND` (minutes). Retired 2.x commands are acked and logged.
-- The `/lux` page and the curve JS are 2.x leftovers; with HARD_OFF gone, an "away" toggle is a candidate.
+**Firmware contract, unchanged by the site work:**
+- The status `state` still carries 2.x names for the old pages: active → `NORMAL`, hold/nap → `SOFT_PAUSE`, asleep → `LOCKED_OUT`, wake → `WAKE`. `mode` is the 3.0 name; `lights_on` and `excluded` (out for today) ride along.
+- The firmware accepts `NORMAL`/`RESUME`, `SOFT_PAUSE`/`HOLD`, `WAKE`, `LOCKED_OUT`/`SLEEP`, `SET_SOFT_PAUSE_REMAINING`/`NAP_REMAINING`, `NAP` (minutes), `EXTEND` (minutes). The site only sends `RESUME`, `HOLD`, `WAKE`, `SLEEP`, `NAP` and `EXTEND`. Retired 2.x commands are acked and logged.
+- With HARD_OFF gone, an "away" toggle is a candidate.
 
 **Planned: GitHub Actions selective deploy** — disconnect Railway's built-in git auto-deploy; replace with a GitHub Actions workflow (~20 lines of YAML) that triggers Railway deploys only when dashboard-relevant files change (`app.py`, `requirements.txt`, dashboard HTML/CSS/JS). Firmware changes (`src/`, `platformio.ini`, etc.) must never trigger a Railway deploy. Requires storing a Railway API token as a GitHub Actions secret.
 

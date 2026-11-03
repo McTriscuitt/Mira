@@ -10,15 +10,15 @@ design are in `MIRA_3.md`. This file is the readable recap.
 
 **The code is done. It hasn't run on the board yet.**
 
-| Step | What | Status |
-|---|---|---|
-| 0 | Spec + design doc (`MIRA_3.md`) | Done, confirmed by you |
-| 1 | Core logic (schedule, decision-making, echo check) | Done |
-| 2 | Tests that run the core through simulated days on the PC | Done: 31 tests, all pass |
+| Step | What                                                                | Status |
+|---|---------------------------------------------------------------------|---|
+| 0 | Spec + design doc (`MIRA_3.md`)                                     | Done, confirmed by you |
+| 1 | Core logic (schedule, decision-making, echo check)                  | Done |
+| 2 | Tests that run the core through simulated days on the PC            | Done: 31 tests, all pass |
 | 3 | Hardware side (bridge, dashboard, WiFi, clock, lux, crash recovery) | Done |
-| 4 | Compiles for the board + code review | Done: 0 warnings, RAM 19.4%, flash 31.0% |
-| 5 | **First flash + checking the hardware unknowns** | **Not started.** Waiting for your go-ahead |
-| 6 | Docs cleanup + merge `mira-3` into `main` | Docs done. The merge waits for step 5 |
+| 4 | Compiles for the board + code review                                | Done: 0 warnings, RAM 19.4%, flash 31.0% |
+| 5 | **First flash + checking the hardware unknowns**                    | **Not started.** Waiting for your go-ahead |
+| 6 | Docs cleanup + merge `mira-3` into `main`                           | Docs done. The merge waits for step 5 |
 
 You asked me to build the whole system before it ran on the board, so I didn't
 flash. Everything that can be checked without the board has been checked.
