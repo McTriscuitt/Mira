@@ -21,3 +21,6 @@ Bug Records/
 # Serial monitor captures (pio device monitor -f log2file) — large, regenerable;
 # interesting excerpts get distilled into Bug Records/
 logs/
+
+# Account recovery codes
+Recovery Codes.txt

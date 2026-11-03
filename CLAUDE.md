@@ -53,8 +53,9 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
-- **Nov 2, 2026, portfolio rework phase 1 finished:** the terminal landing page is live at `/`, the dashboard moved to `/mira`. **Next: Mira built into the terminal, with a `login` command. Start with `Markdowns/TERMINAL_MIRA_PLAN.md`, and ask the user questions before designing or coding.**
-- **Nov 2, 2026, flashed, not yet verified:** new evening (19:00–20:00 →40%, chest off; 20:45–21:00 →25%; dresser off 22:30), in-line filter for false holds, wall-switch handling via `zigbee_connectivity`, NVS power-loss replay. Next step: the "Nov 2 reflash checklist" in `Markdowns/MIRA_3.md`.
+- **Nov 3, 2026, `NAP` and `EXTEND` flashed:** the board booted and shows on the dashboard, but neither command has been run on the real lights yet. New admin secrets are set in Railway. **Next: all dashboard and terminal work. Start with "Start here" in `Markdowns/TERMINAL_MIRA_PLAN.md`. The user wants no liberties: ask before building anything undecided.**
+- **Nov 2, 2026, portfolio rework phase 1 finished:** the terminal landing page is live at `/`, the dashboard moved to `/mira`. 
+- **Nov 2, 2026, flashed, booted, checklist still open:** new evening (19:00–20:00 →40%, chest off; 20:45–21:00 →25%; dresser off 22:30), in-line filter for false holds, wall-switch handling via `zigbee_connectivity`, NVS power-loss replay. Next step: the "Nov 2 reflash checklist" in `Markdowns/MIRA_3.md`.
 - **Mira 3.0 built, not yet flashed (Oct 14, 2026)** — ground-up rewrite on branch `mira-3`: pure core (`timeline` + `director` + `echo`) with 31 native tests, new hardware shell, SNTP + Central TZ with automatic DST. Status table and first-flash checklist: `Markdowns/MIRA_3.md`.
 - 2.x history lives in `git log` and the Markdowns docs: N1 all 5 stages (flashed July 16), N2 steps 1+2 (July 24), WiFi watchdog + boot reasons (Sept 12). `Markdowns/FEATURES_AND_REWORKS.md` and `N1_MIGRATION.md` describe 2.x.
 
@@ -134,7 +135,7 @@ Flask + HTML/CSS/JS on Railway (Hobby plan, PostgreSQL). The firmware's net task
 
 **Interim, until the dashboard session (MIRA_3.md §8):**
 - The status `state` carries 2.x names so the current UI keeps rendering: active → `NORMAL`, hold/nap → `SOFT_PAUSE`, asleep → `LOCKED_OUT`, wake → `WAKE`. It also carries `mode` (the 3.0 name) and `lights_on`; `excluded` shows out-for-today.
-- Commands: `NORMAL`/`RESUME`, `SOFT_PAUSE`/`HOLD`, `WAKE`, `LOCKED_OUT`/`SLEEP`, `SET_SOFT_PAUSE_REMAINING`/`NAP_REMAINING`. Retired 2.x commands are acked and logged.
+- Commands: `NORMAL`/`RESUME`, `SOFT_PAUSE`/`HOLD`, `WAKE`, `LOCKED_OUT`/`SLEEP`, `SET_SOFT_PAUSE_REMAINING`/`NAP_REMAINING`, `NAP` (minutes), `EXTEND` (minutes). Retired 2.x commands are acked and logged.
 - The `/lux` page and the curve JS are 2.x leftovers; with HARD_OFF gone, an "away" toggle is a candidate.
 
 **Planned: GitHub Actions selective deploy** — disconnect Railway's built-in git auto-deploy; replace with a GitHub Actions workflow (~20 lines of YAML) that triggers Railway deploys only when dashboard-relevant files change (`app.py`, `requirements.txt`, dashboard HTML/CSS/JS). Firmware changes (`src/`, `platformio.ini`, etc.) must never trigger a Railway deploy. Requires storing a Railway API token as a GitHub Actions secret.

@@ -1,12 +1,61 @@
 # TERMINAL_MIRA_PLAN.md: next phase of the portfolio rework
 
-Written Nov 2, 2026, as the handoff for the next session.
+Written Nov 2, 2026. Updated Nov 3 as the handoff for the dashboard session.
 
-> **Before any design or code: ask the user questions.** The user asked for the next
-> session to start by thinking deeply about the implications of this plan, including things
-> they haven't thought about or thought through, and asking about them. Nothing below the
-> "What the user wants" section is decided. Discuss the big questions in prose first, then
-> move to narrower choices.
+> **The user has asked for no liberties.** The "Decisions so far" and "What the user wants"
+> sections are settled. Anything they don't cover gets asked before it's built, even when a
+> default seems obvious. "Starting points for the conversation" further down is the original
+> question list; where it conflicts with the decisions, the decisions win.
+
+---
+
+## Start here: the dashboard session
+
+This session does all the site work: Flask, the terminal and the old dashboard.
+
+**Already done (Nov 3):**
+- `NAP` and `EXTEND` are flashed, and the board booted and appears on the dashboard. No reflash
+  should be needed for the site work.
+- Railway has `SECRET_KEY`, `ADMIN_PASSWORD_HASH` and `ADMIN_TOTP_SECRET`, made with
+  `tools/make_admin_secrets.py`. The password hash is Werkzeug scrypt, and the code secret is
+  standard TOTP. Railway and GitHub both have two-factor login on.
+- `DASHBOARD_PASSWORD` and `DEMO_PASSWORD` are still set. The current `app.py` crashes on boot
+  without `DASHBOARD_PASSWORD`. Tell the user when they can be deleted, after the new login is
+  deployed.
+
+**Check first:**
+- **Railway Watch Paths are set to `/dashboard`.** Setting `/dashboard/**` was followed by a crash
+  and a failed deploy, and the cause wasn't investigated. Don't assume `/dashboard` filters
+  correctly: confirm that a firmware-only push doesn't redeploy and a dashboard change does.
+- **`NAP` and `EXTEND` haven't been run on the real lights.** Test them through the new terminal
+  once admin commands work. `NAP` is refused from 9 PM on, so test it earlier in the day.
+- The Nov 2 reflash checklist in `MIRA_3.md` still has its wall switch, power loss and false hold
+  checks open.
+
+**Code findings to build around:**
+- `ingest_status` drops the `mode` and `lights_on` the firmware sends, so the server can't tell a
+  hold from a nap. It needs new columns and ingest code.
+- A command's ack means queued, not applied, and rejected commands are acked too. Report success
+  by watching `mode` change, or the "ignored" log line.
+- Pending commands never expire today; the decision is 5 minutes.
+- `/api/command` accepts any action. Allow only the known list.
+- Each SSE stream holds one of 16 threads, the same ones the board's posts and polls use. Only
+  admins inside `mira` get a stream; visitors fetch once per typed `status`.
+- `knownWords()` in `terminal.js` includes hidden commands, so `login`, `access`, `legacy` and
+  `logout` must be excluded from completion and "did you mean".
+- The first `X-Forwarded-For` value can be faked. Work out Railway's trustworthy client IP before
+  relying on it for the lockout or access log.
+- Keep the lockout counters in Postgres so a redeploy doesn't reset them.
+- New requirement: `pyotp` goes in `dashboard/requirements.txt`.
+- `app.py` won't boot on SQLite as written; see the test harness notes below.
+
+**Not decided yet, so ask:**
+- The build order. One option: login and security, then the command tree, Mira's commands, the
+  admin status line, visitor logging, and the old dashboard move and rework.
+- The name of the simulation command, its WIP text and the `privacy` note's wording.
+- Whether `app.py` splits into blueprints, and whether Mira's commands go in their own JS file.
+- The `about` lines and tagline, which are still drafts.
+- Merging `mira-3` into `main`, which was agreed only for after the firmware is verified.
 
 ---
 
@@ -35,6 +84,71 @@ part of the redesign finished.
   `before_cursor_execute` listener, then driving the real app with Playwright. The harness
   was in that session's scratchpad, so it needs recreating. `/admin/access-log` returns 500 on
   Windows because `%-d` in its template is Linux-only; that's a test-environment issue.
+
+---
+
+## Decisions so far (user's answers, Nov 2)
+
+The user asked for no liberties: anything not listed here gets clarified before it's built.
+
+- **Purpose:** the terminal is mainly a showcase. Day to day, the user controls lights from the
+  Hue app.
+- **Roles:** `demo` and `recruiter` are removed. Default is public view-only; admin login holds
+  everything restricted.
+- **Command trees:** each project has its own tree. Mira's commands work only after entering
+  `mira`. At root, `hold` errors with a hint to enter `mira` first, and `mira hold` also errors.
+  `help`, `clear`, `login` and `logout` work everywhere; other root commands error inside `mira`.
+- **Mira commands:** `status`, `log`, `normal`, `hold`, `wake`, `sleep`, `nap`, `extend x`, plus
+  `cd ..`, `back` and `exit`. Control commands appear in Mira's `help` marked admin-only. A
+  visitor's attempt points to a simulation command, which shows a WIP notice for now.
+- **Firmware:** `nap` now, with `extend`. The user authorized flashing; the board is plugged in.
+- **Public data:** live data is public, including log times. Board memory stats stay admin-only.
+  Visitors may lag by a minute or more.
+- **Login:** never mentioned in `help`, completion or suggestions. Session stays 90 days. Limit of
+  3 attempts.
+- **Pages:** `/login` is removed. The old dashboard moves to `/legacy`, reached by an admin-only
+  `legacy` command. The access log moves to a login-locked terminal command.
+- **Logging:** record every visitor, every failed and successful login, and failed passwords if
+  possible.
+- **Security:** take all available measures, reworking setup or deployment if needed.
+- **Simulation:** its own later phase, a 2D/3D space driven by commands, running the real C++ core
+  compiled to WebAssembly.
+
+Added Nov 3:
+
+- **`nap`:** 60 min by default, `nap 90` sets minutes, 15 s fade off, replaces an active hold,
+  refused at or after 9 PM with a pointer to `sleep`.
+- **`extend`:** `extend 30`, `30m` or `1h`; error when no hold or nap is active. A nap still becomes
+  asleep at 9 PM, 1 AM lights-out still ends a hold, and a hold extended past a fade stays frozen
+  and then catches up.
+- **`/logs`:** stays as an admin-only page at `/legacy/logs`. Lux readings keep being recorded.
+- **Old dashboard:** reworked once, for this migration, to match the current commands. It may fall
+  out of step later because it's legacy. Logged-out visitors go to `/`.
+- **Admin:** `access` shows the access log; `access` and `legacy` stay out of `help`. Prompt becomes
+  `admin ~ $` when logged in.
+- **Status:** visitors get one result per typed `status`; admins get a live stream.
+- **Logging:** record login successes and failures, but never failed passwords. Visitor data is the
+  normal request data plus typed commands, with no location or fingerprinting, kept 90 days, with
+  a short privacy note.
+- **Lockout:** an IP locks for 15 min after 3 failures; 30 failures across all IPs block login for
+  an hour.
+- **Two-factor login:** yes, six-digit codes in Microsoft Authenticator. Ask for the password, then
+  the code, then show one `incorrect` message. That whole try counts as one attempt.
+- **Discoverability:** the user accepts that `login` can be found in the public JS and repo.
+- **Deployment:** new secrets from `tools/make_admin_secrets.py` (`SECRET_KEY`,
+  `ADMIN_PASSWORD_HASH`, `ADMIN_TOTP_SECRET`), Watch Paths (user), merge to `main` after firmware is
+  verified, pending commands expire after 5 min. Keep `DASHBOARD_PASSWORD` set until the new login
+  is deployed; the current `app.py` crashes on boot without it. Remove it and `DEMO_PASSWORD` after.
+- **`help`:** visitors see control commands marked as not usable by them. `access`, `legacy` and
+  `logout` are never listed. Logged in, control commands are listed normally.
+- **Admin live stream:** one status line above the prompt while inside `mira`, updating instantly.
+- **Old dashboard rework:** Normal, Hold, Wake, Sleep and Nap buttons. Wind down and Hard off go.
+  The slider becomes time remaining with `+10 min` (via `extend`) and `finish`. Light chips become
+  display-only. The lux widget becomes a link to `/legacy/lux`.
+- **Typed command logging:** known commands word for word, anything else as `[unknown]`.
+- **Until secrets are set:** `login` reports unavailable and admin features stay off.
+- **Lux page:** moves to `/legacy/lux`.
+- **Order:** secrets first, then firmware, then the site.
 
 ---
 
