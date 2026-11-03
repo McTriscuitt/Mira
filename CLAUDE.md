@@ -53,6 +53,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
+- **Nov 2, 2026, portfolio rework phase 1 finished:** the terminal landing page is live at `/`, the dashboard moved to `/mira`. **Next: Mira built into the terminal, with a `login` command. Start with `Markdowns/TERMINAL_MIRA_PLAN.md`, and ask the user questions before designing or coding.**
 - **Nov 2, 2026, flashed, not yet verified:** new evening (19:00–20:00 →40%, chest off; 20:45–21:00 →25%; dresser off 22:30), in-line filter for false holds, wall-switch handling via `zigbee_connectivity`, NVS power-loss replay. Next step: the "Nov 2 reflash checklist" in `Markdowns/MIRA_3.md`.
 - **Mira 3.0 built, not yet flashed (Oct 14, 2026)** — ground-up rewrite on branch `mira-3`: pure core (`timeline` + `director` + `echo`) with 31 native tests, new hardware shell, SNTP + Central TZ with automatic DST. Status table and first-flash checklist: `Markdowns/MIRA_3.md`.
 - 2.x history lives in `git log` and the Markdowns docs: N1 all 5 stages (flashed July 16), N2 steps 1+2 (July 24), WiFi watchdog + boot reasons (Sept 12). `Markdowns/FEATURES_AND_REWORKS.md` and `N1_MIGRATION.md` describe 2.x.
