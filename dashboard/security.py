@@ -11,7 +11,7 @@ from collections import defaultdict, deque
 from datetime import timedelta
 from functools import wraps
 
-from flask import g, jsonify, request, session
+from flask import current_app, g, jsonify, request, session
 
 from models import AdminSession, db, utcnow
 
@@ -150,7 +150,11 @@ def same_origin():
     if not origin:
         return True
     host = origin.split('://', 1)[-1]
-    return host in {request.headers.get('Host'), request.headers.get('X-Forwarded-Host')}
+    allowed = {request.headers.get('Host'), request.headers.get('X-Forwarded-Host')}
+    if host not in allowed:
+        current_app.logger.warning('refused origin %s; host headers were %s', origin, allowed)
+        return False
+    return True
 
 
 def admin_required(view):

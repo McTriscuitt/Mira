@@ -329,7 +329,7 @@
     if (!command.control) return [{ run: name }, command.description];
     // Logged in, these change real lights, so a stray tap shouldn't be able to.
     if (Terminal.isAdmin()) return [name, command.description];
-    return [{ run: name }, [command.description + ' ', { text: '(not open to visitors)', className: 'tag' }]];
+    return [{ run: name }, [command.description + ' ', { text: '(admin only)', className: 'tag' }]];
   }
 
   function help() {

@@ -13,6 +13,10 @@ def utcnow():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def iso(moment):
+    return moment.isoformat() + 'Z' if moment else None
+
+
 class StatusSnapshot(db.Model):
     __tablename__ = 'status_snapshots'
     id = db.Column(db.Integer, primary_key=True)

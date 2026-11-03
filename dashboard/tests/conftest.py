@@ -18,10 +18,15 @@ PASSWORD = 'correct horse battery staple'
 TOTP_SECRET = pyotp.random_base32()
 BOARD_KEY = 'test-board-key'
 
+# These tests drop every table, so never let them near a database with real data.
+_override = os.environ.get('MIRA_TEST_DATABASE_URL', '')
+if _override and '@127.0.0.1' not in _override and '@localhost' not in _override:
+    raise SystemExit('MIRA_TEST_DATABASE_URL must point at this computer')
+
 _db_dir = tempfile.mkdtemp(prefix='mira-tests-')
 os.environ.update(
     SECRET_KEY='test-secret',
-    DATABASE_URL=os.environ.get('MIRA_TEST_DATABASE_URL')
+    DATABASE_URL=_override
     or 'sqlite:///' + os.path.join(_db_dir, 'test.db').replace('\\', '/'),
     ESP32_API_KEY=BOARD_KEY,
     ADMIN_PASSWORD_HASH=generate_password_hash(PASSWORD, method='scrypt'),

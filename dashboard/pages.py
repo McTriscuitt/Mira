@@ -1,16 +1,24 @@
 """The HTML pages: the terminal, and the old dashboard behind the admin login."""
 
 from flask import Blueprint, redirect, render_template, request, url_for
+from sqlalchemy.exc import SQLAlchemyError
 
 from auth_api import record_visit
+from models import db
 from security import csrf_token, is_admin
 
 bp = Blueprint('pages', __name__)
 
 
 def _terminal(start_dir):
+    # The portfolio has to stay up even if the database is down. Mira's commands will
+    # report the problem, but the page itself needs nothing stored.
     record_visit('page', request.path)
-    admin = is_admin()
+    try:
+        admin = is_admin()
+    except SQLAlchemyError:
+        db.session.rollback()
+        admin = False
     return render_template('landing.html', start_dir=start_dir, admin=admin,
                            csrf=csrf_token() if admin else '')
 

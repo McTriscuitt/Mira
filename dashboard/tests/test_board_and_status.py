@@ -1,5 +1,10 @@
+import os
 from datetime import timedelta
+from unittest import mock
 
+from sqlalchemy.exc import SQLAlchemyError
+
+import app as app_module
 import mira_api
 from conftest import BOARD, admin_headers, login, post_status
 from models import Command, EventLog, StatusSnapshot, db, utcnow
@@ -234,6 +239,7 @@ def test_legacy_sends_visitors_home(client):
 def test_headers_on_every_page(client):
     for path in ('/', '/mira', '/api/status/latest'):
         response = client.get(path)
+        assert response.status_code == 200, path
         policy = response.headers['Content-Security-Policy']
         assert "script-src 'self'" in policy and 'unsafe-inline' not in policy
         assert response.headers['X-Frame-Options'] == 'DENY'
@@ -242,3 +248,25 @@ def test_headers_on_every_page(client):
 
 def test_visitors_get_no_cookie(client):
     assert 'Set-Cookie' not in client.get('/').headers
+
+
+def test_database_outage_leaves_the_landing_page_up(client, app):
+    def broken(*_args, **_kwargs):
+        raise SQLAlchemyError('database is down')
+    with mock.patch('auth_api.is_admin', broken), mock.patch('pages.is_admin', broken):
+        assert client.get('/').status_code == 200
+        assert client.get('/mira').status_code == 200
+
+
+def test_production_cookie_and_headers():
+    """Everything else runs in the local-test mode. This is what Railway gets."""
+    with mock.patch.dict(os.environ):
+        del os.environ['MIRA_INSECURE_DEV']
+        production = app_module.create_app()
+    secure = production.test_client()
+    begin = secure.get('/api/login', base_url='https://mira.example')
+    cookie = begin.headers['Set-Cookie']
+    assert cookie.startswith('__Host-mira=')
+    assert 'Secure' in cookie and 'HttpOnly' in cookie and 'SameSite=Lax' in cookie
+    assert 'Domain' not in cookie and 'Path=/' in cookie
+    assert 'max-age' in begin.headers['Strict-Transport-Security']

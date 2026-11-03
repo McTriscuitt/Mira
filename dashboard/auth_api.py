@@ -11,7 +11,7 @@ from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import update
 from werkzeug.security import check_password_hash
 
-from models import AccessLog, AuthState, LoginLock, Visit, db, utcnow
+from models import AccessLog, AdminSession, AuthState, LoginLock, Visit, db, iso, utcnow
 from security import (admin_required, client_ip, csrf_ok, csrf_token, end_admin_session,
                       is_admin, lock_key, rate_limited, same_origin, start_admin_session,
                       user_agent)
@@ -225,11 +225,13 @@ def _purge_old_records():
     Visit.query.filter(Visit.timestamp < cutoff).delete(synchronize_session=False)
     AccessLog.query.filter(AccessLog.timestamp < cutoff).delete(synchronize_session=False)
     LoginLock.query.filter(LoginLock.last_failure < cutoff).delete(synchronize_session=False)
+    AdminSession.query.filter(AdminSession.expires_at < utcnow()).delete(synchronize_session=False)
 
 
 def record_visit(kind, path, command=None):
     """Logging must never be the reason a page fails."""
     try:
+        admin = is_admin()
         db.session.add(Visit(
             kind=kind,
             ip=client_ip(),
@@ -237,7 +239,7 @@ def record_visit(kind, path, command=None):
             command=command,
             user_agent=user_agent(),
             referrer=(request.referrer or '')[:256] or None,
-            admin=is_admin(),
+            admin=admin,
         ))
         _purge_old_records()
         db.session.commit()
@@ -269,10 +271,6 @@ def visit_command():
 
 # --- The `access` command ---
 
-def _iso(moment):
-    return moment.isoformat() + 'Z' if moment else None
-
-
 @bp.route('/api/admin/access')
 @admin_required
 def access():
@@ -281,13 +279,13 @@ def access():
 
     if view == 'logins':
         rows = AccessLog.query.order_by(AccessLog.timestamp.desc()).limit(limit).all()
-        entries = [{'t': _iso(r.timestamp), 'event': r.event or 'login_ok', 'detail': r.detail,
+        entries = [{'t': iso(r.timestamp), 'event': r.event or 'login_ok', 'detail': r.detail,
                     'role': r.role, 'ip': r.ip, 'agent': r.user_agent} for r in rows]
     elif view in ('visits', 'commands'):
         kind = 'page' if view == 'visits' else 'command'
         rows = (Visit.query.filter_by(kind=kind).order_by(Visit.timestamp.desc())
                 .limit(limit).all())
-        entries = [{'t': _iso(r.timestamp), 'path': r.path, 'command': r.command, 'ip': r.ip,
+        entries = [{'t': iso(r.timestamp), 'path': r.path, 'command': r.command, 'ip': r.ip,
                     'agent': r.user_agent, 'referrer': r.referrer, 'admin': bool(r.admin)}
                    for r in rows]
     else:

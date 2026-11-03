@@ -10,7 +10,7 @@ from flask import (Blueprint, Response, jsonify, request, stream_with_context)
 
 from board_api import COMMAND_LIFETIME
 from broadcast import broadcast
-from models import Command, EventLog, StatusSnapshot, db, utcnow
+from models import Command, EventLog, StatusSnapshot, db, iso, utcnow
 from security import admin_required, current_token_hash, is_admin, rate_limited, session_row
 
 bp = Blueprint('mira_api', __name__)
@@ -70,10 +70,6 @@ def reset_caches():
 
 # --- Status ---
 
-def _iso(moment):
-    return moment.isoformat() + 'Z' if moment else None
-
-
 def _latest_snapshot():
     return StatusSnapshot.query.order_by(StatusSnapshot.timestamp.desc()).first()
 
@@ -107,7 +103,7 @@ def _public_payload(snap):
             'chest': bool(snap.excl_chest),
             'ceiling': bool(snap.excl_ceiling),
         },
-        'timestamp': _iso(snap.timestamp),
+        'timestamp': iso(snap.timestamp),
     }
 
 
@@ -214,7 +210,7 @@ def recent_log():
         for term in (t.strip() for t in exclude.split(',') if t.strip()):
             query = query.filter(~EventLog.message.ilike(f'%{term}%'))
     entries = query.order_by(EventLog.timestamp.desc()).limit(limit).all()
-    return jsonify([{'timestamp': _iso(e.timestamp), 'message': e.message} for e in entries])
+    return jsonify([{'timestamp': iso(e.timestamp), 'message': e.message} for e in entries])
 
 
 # --- Commands ---
@@ -344,7 +340,7 @@ def lux_history():
                      StatusSnapshot.lux.isnot(None))
              .order_by(StatusSnapshot.timestamp.asc())
              .all())
-    return jsonify([{'t': _iso(s.timestamp), 'lux': s.lux, 'state': s.state} for s in snaps])
+    return jsonify([{'t': iso(s.timestamp), 'lux': s.lux, 'state': s.state} for s in snaps])
 
 
 @bp.route('/api/telemetry/history')
@@ -358,7 +354,7 @@ def telemetry_history():
              .order_by(StatusSnapshot.timestamp.asc())
              .all())
     return jsonify([{
-        't': _iso(s.timestamp),
+        't': iso(s.timestamp),
         'heap_free': s.heap_free,
         'sse_stack_free': s.sse_stack_free,
         'net_stack_free': s.net_stack_free,

@@ -351,7 +351,7 @@ after every 10-minute reconnect, which would otherwise read it as turned back on
 - drop-oldest log queue and depth-1 status queue
 - heap/stack telemetry
 
-**Interim dashboard mapping** (until the dashboard session)
+**Dashboard mapping** (the terminal rework keeps this contract; see `DASHBOARD.md`)
 - *Status:* `state` carries the old names so the current dashboard keeps rendering:
 
   | 3.0 | Reported as |
@@ -423,7 +423,8 @@ after every 10-minute reconnect, which would otherwise read it as turned back on
 **Docs (deleted):** `LIGHTCURVE.md`, `SYSTEM.md`, `FIRMWARE.md`,
 `System Explanation OLD.md`.
 
-**Deferred to the dashboard session:**
+**Deferred to the dashboard session** (done on branch `terminal-mira`, except the "away" toggle
+and the lux page's 2.x curve math, which stays as a legacy page):
 - `lux_curve.html`, the `/lux` page, and the curve-JS duplicates in `index.html`
 - the dashboard exclusion chips and the HARD_OFF/WIND_DOWN buttons
 - with HARD_OFF gone, nothing stops the 09:00 wake while you're away. An "away"

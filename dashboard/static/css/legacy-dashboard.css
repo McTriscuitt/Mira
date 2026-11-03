@@ -290,7 +290,7 @@ input[type="range"]::-moz-range-thumb {
 
 .lux-curve-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: baseline;
   margin-bottom: 12px;
 }
