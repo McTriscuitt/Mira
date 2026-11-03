@@ -379,6 +379,8 @@ after every 10-minute reconnect, which would otherwise read it as turned back on
   | `WAKE` | `WAKE` | start the wake (06:00–01:00) |
   | `LOCKED_OUT` | `SLEEP` | sleep now (lights untouched) |
   | `SET_SOFT_PAUSE_REMAINING` | `NAP_REMAINING` | nap minutes left |
+  | | `NAP` | turn everything off and nap; `value` is minutes, default 60. Refused from 9 PM, while asleep, or already napping. Replaces a hold |
+  | | `EXTEND` | add `value` minutes to the hold or nap. A nap still becomes asleep at 9 PM, and lights-out still ends a hold |
 
   `HARD_OFF`, `WIND_DOWN`, the step seeks, stable-lux, and exclude/include are
   acked and logged as retired.

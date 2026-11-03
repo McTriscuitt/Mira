@@ -26,7 +26,7 @@ const char* const MODE_NAMES[] = { "ASLEEP", "WAKE", "ACTIVE", "HOLD", "NAP" };
 }  // namespace
 
 Director::Director()
-    : env_(0), physOn_(0), pendingOff_(0), pendingOffAtMs_(0),
+    : env_(0), physOn_(0), pendingOff_(0), pendingOffAtMs_(0), napOff_(0),
       lastFadeLoggedMs_(0), dirty_(false) {
     memset(&s_, 0, sizeof(s_));
     s_.magic  = STATE_MAGIC;
@@ -303,6 +303,15 @@ void Director::noteFadeStart(const Now& now) {
 // ── Reconcile: make the lights match the plan ───────────────────────────────
 
 void Director::reconcile(const Now& now) {
+    if (napActive()) {
+        // A commanded nap keeps at any light that hasn't gone off yet. A light you
+        // turn on ends the nap, so anything still on here is an off that didn't land.
+        for (int i = 0; i < LIGHT_COUNT; i++) {
+            if (!(napOff_ & lightBit(i))) continue;
+            if (physOn_ & lightBit(i)) driveOff(now, i);
+            else napOff_ &= (LightMask)~lightBit(i);
+        }
+    }
     if (paused()) return;
     Active p = activeAt(now, now.ms);
     if (!p.driven) return;
@@ -324,12 +333,7 @@ void Director::reconcileLight(const Now& now, int i, const Active& p) {
 #endif
             return;
         }
-        if (c.valid && !c.on) {
-            if (now.ms < c.t0Ms + (int64_t)c.durMs + (int64_t)OFF_CONFIRM_MS) return;  // echo pending
-            backoff(now, i);  // our off never took
-            return;
-        }
-        send(now, i, false, 0.0f, FADE_MS, false);
+        driveOff(now, i);
         return;
     }
 
@@ -370,6 +374,17 @@ void Director::reconcileLight(const Now& now, int i, const Active& p) {
         if (c.valid && c.on && fabsf(c.b1 - p.b1) < ALIGN_BRI_TOL) return;
         send(now, i, true, p.b1, FADE_MS, false);
     }
+}
+
+void Director::driveOff(const Now& now, int i) {
+    if (now.ms < retryAtMs_[i]) return;
+    const Command& c = s_.cmd[i];
+    if (c.valid && !c.on) {
+        if (now.ms < c.t0Ms + (int64_t)c.durMs + (int64_t)OFF_CONFIRM_MS) return;  // echo pending
+        backoff(now, i);  // our off never took
+        return;
+    }
+    send(now, i, false, 0.0f, FADE_MS, false);
 }
 
 void Director::presetLight(const Now& now, int i, const Active& p) {
@@ -525,19 +540,62 @@ void Director::endHold(const char* why) {
     dirty_ = true;
 }
 
-void Director::startNap(const Now& now, LightMask group) {
+void Director::startNap(const Now& now, LightMask group, uint32_t durMs) {
     s_.holdUntilMs = 0;
-    s_.napUntilMs  = now.ms + (int64_t)NAP_MS;
+    s_.napUntilMs  = now.ms + (int64_t)durMs;
     s_.want       |= group;  // the lights you switched off come back when it ends
-    char back[12];
-    fmtClock((int32_t)((now.localSec + (int32_t)(NAP_MS / 1000UL)) % 86400L), back, sizeof(back));
-    note("Nap — everything off; back at %s", back);
+    char at[12];
+    if (mdsNow(now) + (int32_t)(durMs / 1000UL) >= toMds(SLEEP_CUTOFF)) {
+        fmtClock(SLEEP_CUTOFF, at, sizeof(at));
+        note("Nap — everything off; asleep at %s", at);
+    } else {
+        fmtClock((int32_t)((now.localSec + (int32_t)(durMs / 1000UL)) % 86400L), at, sizeof(at));
+        note("Nap — everything off; back at %s", at);
+    }
+    dirty_ = true;
+}
+
+void Director::commandNap(const Now& now, int32_t minutes) {
+    if (s_.asleep) {
+        note("Nap ignored — asleep");
+    } else if (mdsNow(now) >= toMds(SLEEP_CUTOFF)) {
+        char at[12];
+        fmtClock(SLEEP_CUTOFF, at, sizeof(at));
+        note("Nap ignored — it's past %s (Sleep turns in for the night)", at);
+    } else if (napActive()) {
+        note("Nap ignored — already napping (Extend adds time)");
+    } else {
+        // An off you made just before this joins the nap instead of resolving on
+        // its own, which would start a second nap at the default length.
+        const LightMask group = physOn_ | pendingOff_;
+        pendingOff_ = 0;
+        for (int i = 0; i < LIGHT_COUNT; i++) joinDurMs_[i] = 0;
+        startNap(now, group, minutes > 0 ? (uint32_t)minutes * 60000UL : NAP_MS);
+        napOff_ = physOn_;  // reconcile sends the offs, and retries any that fail
+    }
+}
+
+void Director::commandExtend(const Now& now, int32_t minutes) {
+    if (minutes <= 0) {
+        note("Extend ignored — needs a number of minutes");
+        return;
+    }
+    if (!napActive() && !holdActive()) {
+        note("Extend ignored — no hold or nap to extend");
+        return;
+    }
+    int64_t& until = napActive() ? s_.napUntilMs : s_.holdUntilMs;
+    until += (int64_t)minutes * 60000LL;
+    char at[12];
+    fmtClock((int32_t)(((int64_t)now.localSec + (until - now.ms) / 1000LL) % 86400LL), at, sizeof(at));
+    note("%s extended %d min — until %s", napActive() ? "Nap" : "Hold", (int)minutes, at);
     dirty_ = true;
 }
 
 void Director::endNap(const char* why) {
     if (!napActive()) return;
     s_.napUntilMs = 0;
+    napOff_ = 0;
     note("Nap over — %s", why);
     dirty_ = true;
 }
@@ -545,6 +603,7 @@ void Director::endNap(const char* why) {
 void Director::goToSleep(const char* why) {
     s_.asleep      = 1;
     s_.napUntilMs  = 0;
+    napOff_        = 0;
     s_.holdUntilMs = 0;
     s_.want        = 0;
     s_.wakeStartMs = 0;
@@ -568,6 +627,10 @@ void Director::resolveOffGroup(const Now& now) {
     const LightMask group = pendingOff_;
     pendingOff_ = 0;
     if (s_.asleep || !group) return;
+    if (napActive()) {
+        s_.want |= group;  // part of the nap already: it must not restart the timer
+        return;
+    }
     if (physOn_ == 0) {
         if (mdsNow(now) >= toMds(SLEEP_CUTOFF)) goToSleep("everything off");
         else startNap(now, group);
@@ -702,6 +765,12 @@ void Director::onCommand(const Now& now, Cmd cmd, int32_t value) {
                 note("Nap — %d min left", (int)value);
                 dirty_ = true;
             }
+            break;
+        case Cmd::Nap:
+            commandNap(now, value);
+            break;
+        case Cmd::Extend:
+            commandExtend(now, value);
             break;
     }
     processTimers(now);  // a nap set to 0 min ends right away

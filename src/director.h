@@ -87,7 +87,7 @@ public:
     };
 
     enum class Mode : uint8_t { Asleep, Wake, Active, Hold, Nap };
-    enum class Cmd  : uint8_t { Resume, Hold, Wake, Sleep, NapRemaining };
+    enum class Cmd  : uint8_t { Resume, Hold, Wake, Sleep, NapRemaining, Nap, Extend };
 
     // 'M' 'I' · major 3 · DirectorState layout v1. Bump the last byte whenever
     // DirectorState changes, so a soft reset across a firmware update infers
@@ -164,7 +164,10 @@ private:
     void startWake(const Now& now, int triggerIdx, const char* why);
     void startHold(const Now& now, int changedIdx, float userBri, uint16_t userCt, const char* why);
     void endHold(const char* why);
-    void startNap(const Now& now, LightMask group);
+    void startNap(const Now& now, LightMask group, uint32_t durMs = NAP_MS);
+    void commandNap(const Now& now, int32_t minutes);
+    void commandExtend(const Now& now, int32_t minutes);
+    void driveOff(const Now& now, int i);  // send an off, or wait on / retry the one already sent
     void endNap(const char* why);
     void goToSleep(const char* why);
     void lightsOut(const Now& now, const char* at);
@@ -178,6 +181,7 @@ private:
     LightMask     physOn_;
     LightMask     pendingOff_;           // your offs still inside the grouping window
     int64_t       pendingOffAtMs_;
+    LightMask     napOff_;               // lights a commanded nap is still turning off (not persisted)
     uint32_t      joinDurMs_[LIGHT_COUNT];  // 0: none; else the next reconcile joins with this duration
     float         knownBri_[LIGHT_COUNT];   // last brightness the bridge reported
     int64_t       retryAtMs_[LIGHT_COUNT];

@@ -741,6 +741,163 @@ void test_nap_remaining_zero_ends_it() {
     TEST_ASSERT_NOT_NULL(s.find(m, LIGHT_FLOOR));
 }
 
+void test_nap_command_fades_off_and_returns_on_time() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR | DRESSER);
+    s.runTo(T(0, 14, 0));
+    size_t m = s.mark();
+    s.command(Director::Cmd::Nap, -1);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Nap, (int)s.mode());
+    TEST_ASSERT_EQUAL(2, s.count(m));
+    assertPut(s.find(m, LIGHT_FLOOR), false, 0.0f, FADE_MS, 0);
+    assertPut(s.find(m, LIGHT_DRESSER), false, 0.0f, FADE_MS, 0);
+    m = s.mark();
+    s.runTo(T(0, 14, 59, 59));
+    TEST_ASSERT_EQUAL(0, s.count(m));  // nothing until the default 60 min is up
+    s.runTo(T(0, 15, 0, 4));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    assertPut(s.find(m, LIGHT_FLOOR), true, 100.0f, FADE_MS, 0);
+    assertPut(s.find(m, LIGHT_DRESSER), true, 100.0f, FADE_MS, 0);
+}
+
+void test_nap_command_custom_length() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR);
+    s.runTo(T(0, 14, 0));
+    s.command(Director::Cmd::Nap, 90);
+    s.runTo(T(0, 15, 29, 58));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Nap, (int)s.mode());
+    s.runTo(T(0, 15, 30, 2));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+}
+
+void test_nap_command_replaces_a_hold() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR);
+    s.runTo(T(0, 14, 0));
+    s.userBri(LIGHT_FLOOR, 40.0f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+    s.command(Director::Cmd::Nap, 30);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Nap, (int)s.mode());
+    TEST_ASSERT_FALSE(s.env.on[LIGHT_FLOOR]);
+}
+
+void test_nap_command_refused_from_9pm_and_while_asleep_or_napping() {
+    Sim s;
+    s.boot(T(0, 21, 0, 1), FLOOR);
+    s.runTo(T(0, 21, 0, 3));
+    size_t m = s.mark();
+    s.command(Director::Cmd::Nap, -1);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    TEST_ASSERT_EQUAL(0, s.count(m));
+    TEST_ASSERT_TRUE(s.logged("Nap ignored"));
+
+    Sim a;
+    a.boot(T(0, 13, 59), FLOOR);
+    a.command(Director::Cmd::Sleep);
+    size_t am = a.mark();
+    a.command(Director::Cmd::Nap, -1);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)a.mode());
+    TEST_ASSERT_EQUAL(0, a.count(am));
+
+    Sim n;
+    n.boot(T(0, 13, 59), FLOOR);
+    n.command(Director::Cmd::Nap, 30);
+    n.command(Director::Cmd::Nap, 90);  // keeps the first nap's length
+    n.runTo(T(0, 14, 29, 50));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)n.mode());
+}
+
+void test_nap_command_absorbs_an_off_you_just_made() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR | DRESSER);
+    s.runTo(T(0, 14, 0));
+    s.userOff(LIGHT_DRESSER);  // still being grouped when the command lands
+    s.command(Director::Cmd::Nap, 90);
+    s.runTo(T(0, 14, 0, 10));
+    s.runTo(T(0, 15, 29, 50));  // the grouped off didn't restart it at 60 min
+    TEST_ASSERT_EQUAL((int)Director::Mode::Nap, (int)s.mode());
+    size_t m = s.mark();
+    s.runTo(T(0, 15, 30, 4));
+    TEST_ASSERT_NOT_NULL(s.find(m, LIGHT_DRESSER));  // and it comes back with the rest
+    TEST_ASSERT_NOT_NULL(s.find(m, LIGHT_FLOOR));
+}
+
+void test_nap_command_retries_an_off_that_failed() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR);
+    s.runTo(T(0, 14, 0));
+    s.env.result = Director::Env::Failed;
+    s.command(Director::Cmd::Nap, 30);
+    TEST_ASSERT_TRUE(s.env.on[LIGHT_FLOOR]);
+    s.env.result = Director::Env::Sent;
+    s.runTo(T(0, 14, 5));
+    TEST_ASSERT_FALSE(s.env.on[LIGHT_FLOOR]);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Nap, (int)s.mode());
+}
+
+void test_extend_adds_to_a_nap() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR);
+    s.runTo(T(0, 14, 0));
+    s.command(Director::Cmd::Nap, 30);
+    s.command(Director::Cmd::Extend, 30);
+    s.runTo(T(0, 14, 59, 58));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Nap, (int)s.mode());
+    s.runTo(T(0, 15, 0, 2));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+}
+
+void test_extended_nap_still_becomes_asleep_at_9pm() {
+    Sim s;
+    s.boot(T(0, 20, 30), FLOOR);
+    s.command(Director::Cmd::Nap, 20);
+    s.command(Director::Cmd::Extend, 60);
+    s.runTo(T(0, 21, 0, 2));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)s.mode());
+    TEST_ASSERT_FALSE(s.env.on[LIGHT_FLOOR]);
+}
+
+void test_extended_hold_stays_frozen_past_a_fade_then_catches_up() {
+    Sim s;
+    s.boot(T(0, 15, 59), FLOOR);
+    s.runTo(T(0, 16, 0));
+    s.userBri(LIGHT_FLOOR, 40.0f);  // would end at 17:00
+    s.command(Director::Cmd::Extend, 120);  // now 19:00
+    size_t m = s.mark();
+    s.runTo(T(0, 18, 59, 58));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+    TEST_ASSERT_EQUAL(0, s.count(m));
+    s.runTo(T(0, 19, 0, 2));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    TEST_ASSERT_NOT_NULL(s.find(m, LIGHT_FLOOR));
+}
+
+void test_lights_out_still_ends_an_extended_hold() {
+    Sim s;
+    s.boot(T(0, 23, 0), FLOOR);
+    s.userBri(LIGHT_FLOOR, 10.0f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+    s.command(Director::Cmd::Extend, 300);
+    s.runTo(T(1, 1, 0, 2));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)s.mode());
+    TEST_ASSERT_FALSE(s.env.on[LIGHT_FLOOR]);
+}
+
+void test_extend_with_nothing_to_extend_is_ignored() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR);
+    s.runTo(T(0, 14, 0));
+    size_t m = s.mark();
+    s.command(Director::Cmd::Extend, 30);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    TEST_ASSERT_EQUAL(0, s.count(m));
+    TEST_ASSERT_TRUE(s.logged("Extend ignored"));
+    s.userBri(LIGHT_FLOOR, 40.0f);
+    s.command(Director::Cmd::Extend, 0);  // no minutes: the hold's end doesn't move
+    TEST_ASSERT_TRUE(s.logged("needs a number"));
+}
+
 // ── robustness ──────────────────────────────────────────────────────────────
 
 void test_failed_command_retries_with_backoff() {
@@ -966,6 +1123,17 @@ int main(int argc, char** argv) {
     RUN_TEST(test_out_for_today_blocks_a_scheduled_join);
     RUN_TEST(test_everything_off_after_9pm_is_sleep_and_lights_are_left_alone);
     RUN_TEST(test_nap_remaining_zero_ends_it);
+    RUN_TEST(test_nap_command_fades_off_and_returns_on_time);
+    RUN_TEST(test_nap_command_custom_length);
+    RUN_TEST(test_nap_command_replaces_a_hold);
+    RUN_TEST(test_nap_command_refused_from_9pm_and_while_asleep_or_napping);
+    RUN_TEST(test_nap_command_absorbs_an_off_you_just_made);
+    RUN_TEST(test_nap_command_retries_an_off_that_failed);
+    RUN_TEST(test_extend_adds_to_a_nap);
+    RUN_TEST(test_extended_nap_still_becomes_asleep_at_9pm);
+    RUN_TEST(test_extended_hold_stays_frozen_past_a_fade_then_catches_up);
+    RUN_TEST(test_lights_out_still_ends_an_extended_hold);
+    RUN_TEST(test_extend_with_nothing_to_extend_is_ignored);
     RUN_TEST(test_failed_command_retries_with_backoff);
     RUN_TEST(test_unreachable_bulb_backs_off_and_logs_once);
     RUN_TEST(test_stale_revert_resends);

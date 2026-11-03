@@ -102,6 +102,8 @@ static const CmdName CMD_NAMES[] = {
     {"SLEEP",                    (int)Director::Cmd::Sleep},
     {"SET_SOFT_PAUSE_REMAINING", (int)Director::Cmd::NapRemaining},
     {"NAP_REMAINING",            (int)Director::Cmd::NapRemaining},
+    {"NAP",                      (int)Director::Cmd::Nap},     // value: minutes, or none for the default
+    {"EXTEND",                   (int)Director::Cmd::Extend},  // value: minutes added to the hold or nap
     {"HARD_OFF",                 -1},
     {"WIND_DOWN",                -1},
     {"SET_WIND_DOWN_STEP",       -1},
