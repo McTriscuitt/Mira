@@ -1,0 +1,214 @@
+--- soak logger started 2026-07-15 21:07:25 ---
+--- port opened 21:07:30 ---
+[07-15 21:07:30] Bootstrap Dresser — on=1 bri=48.6 ct=356
+[07-15 21:07:30] Bootstrap Ceiling_1 — on=0 bri=71.2 ct=323
+[07-15 21:07:30] Bootstrap Chest — on=0 bri=78.7 ct=0
+[07-15 21:07:30] Bootstrap Floor — on=1 bri=48.6 ct=356
+[07-15 21:07:31] setLightColor(Chest) → HTTP 200
+[07-15 21:07:35] setLight(Chest) → HTTP 200
+[07-15 21:07:36] SSE: connected.
+[07-15 21:07:36] SSE task started on core 0.
+[07-15 21:07:37] [9:07:33PM] Wednesday [NORMAL]
+[07-15 21:07:37] sse stack free=10428 heap free=8587411
+[07-15 21:07:38] Lux: 4.5 → bri=49.4%, ct=355
+[07-15 21:07:39] Dashboard command: WIND_DOWN value=114
+[07-15 21:07:39] forceState → WIND_DOWN
+[07-15 21:07:41] Wind-down 57.5/60.0 min — bri=20.9%
+[07-15 21:07:42] setLight(Floor) → HTTP 200
+[07-15 21:07:42] SSE evt idx=4 on= 0 bri=+20.95 ct= 0  cacheBefore[on=1 bri=48.62 ct=356]  -> skip-state
+[07-15 21:07:42] SSE evt idx=4 on= 0 bri= 0.00 ct=+400  cacheBefore[on=1 bri=20.95 ct=356]  -> skip-state
+[07-15 21:07:43] setLight(Dresser) → HTTP 200
+[07-15 21:07:44] SSE evt idx=1 on= 0 bri=+20.95 ct= 0  cacheBefore[on=1 bri=48.62 ct=356]  -> skip-state
+[07-15 21:07:44] SSE evt idx=1 on= 0 bri= 0.00 ct=+400  cacheBefore[on=1 bri=20.95 ct=356]  -> skip-state
+[07-15 21:07:51] SSE evt idx=4 on= 0 bri=+41.11 ct= 0  cacheBefore[on=1 bri=20.95 ct=400]  -> skip-state
+[07-15 21:07:51] SSE evt idx=4 on= 0 bri= 0.00 ct=+368  cacheBefore[on=1 bri=41.11 ct=400]  -> skip-state
+[07-15 21:07:52] SSE evt idx=1 on= 0 bri=+41.11 ct= 0  cacheBefore[on=1 bri=20.95 ct=400]  -> skip-state
+[07-15 21:07:52] SSE evt idx=1 on= 0 bri= 0.00 ct=+368  cacheBefore[on=1 bri=41.11 ct=400]  -> skip-state
+[07-15 21:07:58] SSE evt idx=4 on= 0 bri=+34.39 ct= 0  cacheBefore[on=1 bri=41.11 ct=368]  -> skip-state
+[07-15 21:07:58] SSE evt idx=4 on= 0 bri= 0.00 ct=+378  cacheBefore[on=1 bri=34.39 ct=368]  -> skip-state
+[07-15 21:08:00] SSE evt idx=1 on= 0 bri=+34.39 ct= 0  cacheBefore[on=1 bri=41.11 ct=368]  -> skip-state
+[07-15 21:08:00] SSE evt idx=1 on= 0 bri= 0.00 ct=+378  cacheBefore[on=1 bri=34.39 ct=368]  -> skip-state
+[07-15 21:08:04] [9:08:00PM] Wednesday [WIND_DOWN]
+[07-15 21:08:04] sse stack free=9788 heap free=8584427
+[07-15 21:08:05] SSE evt idx=4 on= 0 bri=+27.27 ct= 0  cacheBefore[on=1 bri=34.39 ct=378]  -> skip-state
+[07-15 21:08:05] SSE evt idx=4 on= 0 bri= 0.00 ct=+389  cacheBefore[on=1 bri=27.27 ct=378]  -> skip-state
+[07-15 21:08:05] Lux: 1.5 → bri=37.6%, ct=373
+[07-15 21:08:06] Wind-down 58.0/60.0 min — bri=20.7%
+[07-15 21:08:07] SSE evt idx=1 on= 0 bri=+27.27 ct= 0  cacheBefore[on=1 bri=34.39 ct=378]  -> skip-state
+[07-15 21:08:07] SSE evt idx=1 on= 0 bri= 0.00 ct=+389  cacheBefore[on=1 bri=27.27 ct=378]  -> skip-state
+[07-15 21:08:07] setLight(Floor) → HTTP 200
+[07-15 21:08:08] SSE evt idx=4 on= 0 bri=+20.55 ct= 0  cacheBefore[on=1 bri=27.27 ct=389]  -> skip-state
+[07-15 21:08:08] SSE evt idx=4 on= 0 bri= 0.00 ct=+400  cacheBefore[on=1 bri=20.55 ct=389]  -> skip-state
+[07-15 21:08:08] setLight(Dresser) → HTTP 200
+[07-15 21:08:09] SSE evt idx=1 on= 0 bri=+20.55 ct= 0  cacheBefore[on=1 bri=27.27 ct=389]  -> skip-state
+[07-15 21:08:09] SSE evt idx=1 on= 0 bri= 0.00 ct=+400  cacheBefore[on=1 bri=20.55 ct=389]  -> skip-state
+[07-15 21:08:13] SSE evt idx=4 on= 0 bri=+20.95 ct= 0  cacheBefore[on=1 bri=20.55 ct=400]  -> skip-state
+[07-15 21:08:15] SSE evt idx=1 on= 0 bri=+24.11 ct= 0  cacheBefore[on=1 bri=20.55 ct=400]  -> skip-state
+[07-15 21:08:15] SSE evt idx=1 on= 0 bri= 0.00 ct=+394  cacheBefore[on=1 bri=24.11 ct=400]  -> skip-state
+[07-15 21:08:26] SSE evt idx=1 on= 0 bri=+22.53 ct= 0  cacheBefore[on=1 bri=24.11 ct=394]  -> skip-state
+[07-15 21:08:26] SSE evt idx=1 on= 0 bri= 0.00 ct=+397  cacheBefore[on=1 bri=22.53 ct=394]  -> skip-state
+[07-15 21:08:34] [9:08:30PM] Wednesday [WIND_DOWN]
+[07-15 21:08:34] sse stack free=9788 heap free=8583499
+[07-15 21:08:36] SSE evt idx=1 on= 0 bri=+20.95 ct= 0  cacheBefore[on=1 bri=22.53 ct=397]  -> skip-state
+[07-15 21:08:36] SSE evt idx=1 on= 0 bri= 0.00 ct=+399  cacheBefore[on=1 bri=20.95 ct=397]  -> skip-state
+[07-15 21:08:37] Lux: 1.0 → bri=33.6%, ct=379
+[07-15 21:08:38] Wind-down 58.5/60.0 min — bri=20.4%
+[07-15 21:08:39] setLight(Floor) → HTTP 200
+[07-15 21:08:39] SSE evt idx=4 on= 0 bri=+20.55 ct= 0  cacheBefore[on=1 bri=20.95 ct=400]  -> skip-state
+[07-15 21:08:40] setLight(Dresser) → HTTP 200
+[07-15 21:08:41] SSE evt idx=1 on= 0 bri=+20.55 ct= 0  cacheBefore[on=1 bri=20.95 ct=399]  -> skip-state
+[07-15 21:08:41] SSE evt idx=1 on= 0 bri= 0.00 ct=+400  cacheBefore[on=1 bri=20.55 ct=399]  -> skip-state
+[07-15 21:08:44] SSE evt idx=4 on= 0 bri=+20.95 ct= 0  cacheBefore[on=1 bri=20.55 ct=400]  -> skip-state
+[07-15 21:09:00] SSE evt idx=4 on= 0 bri=+20.55 ct= 0  cacheBefore[on=1 bri=20.95 ct=400]  -> skip-state
+[07-15 21:09:04] [9:09:00PM] Wednesday [WIND_DOWN]
+[07-15 21:09:04] sse stack free=9788 heap free=8583499
+[07-15 21:09:07] Lux: 1.0 → bri=33.3%, ct=379
+[07-15 21:09:08] Wind-down 59.0/60.0 min — bri=20.2%
+[07-15 21:09:09] setLight(Floor) → HTTP 200
+[07-15 21:09:09] SSE evt idx=4 on= 0 bri=+20.16 ct= 0  cacheBefore[on=1 bri=20.55 ct=400]  -> skip-state
+[07-15 21:09:10] setLight(Dresser) → HTTP 200
+[07-15 21:09:10] SSE evt idx=1 on= 0 bri=+20.16 ct= 0  cacheBefore[on=1 bri=20.55 ct=400]  -> skip-state
+[07-15 21:09:15] SSE evt idx=4 on= 0 bri=+20.55 ct= 0  cacheBefore[on=1 bri=20.16 ct=400]  -> skip-state
+[07-15 21:09:18] SSE evt idx=1 on= 0 bri=+20.55 ct= 0  cacheBefore[on=1 bri=20.16 ct=400]  -> skip-state
+[07-15 21:09:27] SSE evt idx=4 on= 0 bri=+20.16 ct= 0  cacheBefore[on=1 bri=20.55 ct=400]  -> skip-state
+[07-15 21:09:29] SSE evt idx=1 on= 0 bri=+20.16 ct= 0  cacheBefore[on=1 bri=20.55 ct=400]  -> skip-state
+[07-15 21:09:35] [9:09:30PM] Wednesday [WIND_DOWN]
+[07-15 21:09:35] sse stack free=9788 heap free=8583503
+[07-15 21:09:37] Lux: 0.9 → bri=33.2%, ct=379
+[07-15 21:09:39] Wind-down 59.5/60.0 min — bri=19.9%
+[07-15 21:09:40] setLight(Floor) → HTTP 200
+[07-15 21:09:40] SSE evt idx=4 on= 0 bri=+19.76 ct= 0  cacheBefore[on=1 bri=20.16 ct=400]  -> skip-state
+[07-15 21:09:41] setLight(Dresser) → HTTP 200
+[07-15 21:09:42] SSE evt idx=1 on= 0 bri=+19.76 ct= 0  cacheBefore[on=1 bri=20.16 ct=400]  -> skip-state
+[07-15 21:09:42] SSE evt idx=4 on= 0 bri=+20.16 ct= 0  cacheBefore[on=1 bri=19.76 ct=400]  -> skip-state
+[07-15 21:09:43] SSE evt idx=1 on= 0 bri=+20.16 ct= 0  cacheBefore[on=1 bri=19.76 ct=400]  -> skip-state
+[07-15 21:09:57] SSE evt idx=4 on= 0 bri=+19.76 ct= 0  cacheBefore[on=1 bri=20.16 ct=400]  -> skip-state
+[07-15 21:09:59] SSE evt idx=1 on= 0 bri=+19.76 ct= 0  cacheBefore[on=1 bri=20.16 ct=400]  -> skip-state
+[07-15 21:10:04] [9:10:00PM] Wednesday [WIND_DOWN]
+[07-15 21:10:04] sse stack free=9788 heap free=8583487
+[07-15 21:10:07] Lux: 0.9 → bri=33.1%, ct=380
+[07-15 21:10:08] Wind-down 60.0/60.0 min — bri=19.7%
+[07-15 21:10:09] setLight(Floor) → HTTP 200
+[07-15 21:10:10] setLight(Dresser) → HTTP 200
+[07-15 21:10:10] Wind-down complete. Chest + dresser off, floor lamp at floor.
+[07-15 21:10:10] SSE evt idx=1 on=+0 bri= 0.00 ct= 0  cacheBefore[on=1 bri=19.76 ct=400]  -> skip-state
+[07-15 21:10:15] SSE evt idx=1 on= 0 bri=+9.88 ct= 0  cacheBefore[on=0 bri=19.76 ct=400]  -> skip-state
+[07-15 21:10:32] SSE evt idx=1 on= 0 bri=+19.76 ct= 0  cacheBefore[on=0 bri=9.88 ct=400]  -> skip-state
+[07-15 21:10:34] [9:10:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:10:34] sse stack free=9788 heap free=8583487
+[07-15 21:10:39] Lux: 0.7 → bri=30.3%, ct=384
+[07-15 21:11:04] [9:11:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:11:04] sse stack free=9788 heap free=8583487
+[07-15 21:11:09] Lux: 0.6 → bri=30.3%, ct=384
+[07-15 21:11:34] [9:11:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:11:34] sse stack free=9788 heap free=8583931
+[07-15 21:11:39] Lux: 0.6 → bri=30.3%, ct=384
+[07-15 21:12:04] [9:12:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:12:04] sse stack free=9788 heap free=8584379
+[07-15 21:12:09] Lux: 0.6 → bri=30.3%, ct=384
+[07-15 21:12:35] [9:12:31PM] Wednesday [LOCKED_OUT]
+[07-15 21:12:35] sse stack free=9788 heap free=8585043
+[07-15 21:12:40] Lux: 0.6 → bri=30.3%, ct=384
+[07-15 21:13:05] [9:13:01PM] Wednesday [LOCKED_OUT]
+[07-15 21:13:05] sse stack free=9788 heap free=8585043
+[07-15 21:13:10] Lux: 0.7 → bri=30.3%, ct=384
+[07-15 21:13:34] [9:13:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:13:34] sse stack free=9788 heap free=8585047
+[07-15 21:13:40] Lux: 0.7 → bri=30.4%, ct=384
+[07-15 21:14:04] [9:14:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:14:04] sse stack free=9788 heap free=8585047
+[07-15 21:14:10] Lux: 0.7 → bri=30.5%, ct=383
+[07-15 21:14:34] [9:14:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:14:34] sse stack free=9788 heap free=8585047
+[07-15 21:14:40] Lux: 0.6 → bri=29.7%, ct=385
+[07-15 21:15:04] [9:15:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:15:04] sse stack free=9788 heap free=8585047
+[07-15 21:15:10] Lux: 0.7 → bri=30.3%, ct=384
+[07-15 21:15:35] [9:15:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:15:35] sse stack free=9788 heap free=8585055
+[07-15 21:15:40] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 21:16:05] [9:16:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:16:05] sse stack free=9788 heap free=8585043
+[07-15 21:16:10] Lux: 0.7 → bri=30.6%, ct=383
+[07-15 21:16:35] [9:16:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:16:35] sse stack free=9788 heap free=8585051
+[07-15 21:16:40] Lux: 0.7 → bri=30.7%, ct=383
+[07-15 21:17:05] [9:17:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:17:05] sse stack free=9788 heap free=8585051
+[07-15 21:17:10] Lux: 0.7 → bri=30.7%, ct=383
+[07-15 21:17:35] [9:17:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:17:35] sse stack free=9788 heap free=8585051
+[07-15 21:17:40] Lux: 0.7 → bri=30.8%, ct=383
+[07-15 21:18:05] [9:18:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:18:05] sse stack free=9788 heap free=8585051
+[07-15 21:18:10] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 21:18:35] [9:18:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:18:35] sse stack free=9788 heap free=8585055
+[07-15 21:18:40] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 21:19:05] [9:19:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:19:05] sse stack free=9788 heap free=8585051
+[07-15 21:19:10] Lux: 0.7 → bri=30.8%, ct=383
+[07-15 21:19:35] [9:19:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:19:35] sse stack free=9788 heap free=8585051
+[07-15 21:19:40] Lux: 0.7 → bri=30.8%, ct=383
+[07-15 21:20:05] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 21:20:05] [9:19:59PM] Wednesday [LOCKED_OUT]
+[07-15 21:20:05] sse stack free=9788 heap free=8585051
+[07-15 21:20:10] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 21:20:32] SSE: stale — reconnecting
+[07-15 21:20:33] SSE: connected.
+[07-15 21:20:36] [9:20:31PM] Wednesday [LOCKED_OUT]
+[07-15 21:20:36] sse stack free=7020 heap free=8584775
+[07-15 21:20:41] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 21:21:05] [9:21:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:21:05] sse stack free=7020 heap free=8584759
+[07-15 21:21:10] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 21:21:35] [9:21:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:21:35] sse stack free=7020 heap free=8584763
+[07-15 21:21:40] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 21:22:05] [9:22:01PM] Wednesday [LOCKED_OUT]
+[07-15 21:22:05] sse stack free=7020 heap free=8584763
+[07-15 21:22:10] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 21:22:35] [9:22:31PM] Wednesday [LOCKED_OUT]
+[07-15 21:22:35] sse stack free=7020 heap free=8584987
+[07-15 21:22:40] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 21:23:04] [9:23:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:23:04] sse stack free=7020 heap free=8584999
+[07-15 21:23:09] Lux: 0.7 → bri=30.8%, ct=383
+[07-15 21:23:34] [9:23:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:23:34] sse stack free=7020 heap free=8584991
+[07-15 21:23:39] Lux: 0.7 → bri=31.0%, ct=383
+[07-15 21:24:04] [9:24:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:24:04] sse stack free=7020 heap free=8584991
+[07-15 21:24:09] Lux: 0.7 → bri=31.0%, ct=383
+[07-15 21:24:34] [9:24:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:24:34] sse stack free=7020 heap free=8584991
+[07-15 21:24:39] Lux: 0.7 → bri=30.7%, ct=383
+[07-15 21:25:04] [9:25:00PM] Wednesday [LOCKED_OUT]
+[07-15 21:25:04] sse stack free=7020 heap free=8584991
+[07-15 21:25:09] Lux: 0.7 → bri=30.4%, ct=383
+[07-15 21:25:34] [9:25:30PM] Wednesday [LOCKED_OUT]
+[07-15 21:25:34] sse stack free=7020 heap free=8584999
+[07-15 21:25:39] Lux: 0.7 → bri=30.5%, ct=383
+[07-15 21:26:04] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 21:26:04] [9:25:59PM] Wednesday [LOCKED_OUT]
+[07-15 21:26:04] sse stack free=7020 heap free=8584999
+[07-15 21:26:08] SSE evt idx=4 on=+0 bri= 0.00 ct= 0  cacheBefore[on=1 bri=19.76 ct=400]  -> skip-state
+[07-15 21:26:09] Lux: 0.3 → bri=25.6%, ct=391
+--- port lost 01:58:44, retrying ---
+--- port opened 01:58:49 ---
+[07-16 01:59:06] [1:59:00AM] Thursday [LOCKED_OUT]
+[07-16 01:59:06] sse stack free=6880 heap free=8584763
+[07-16 01:59:11] Lux: 0.1 → bri=22.5%, ct=395
+[07-16 01:59:35] [1:59:30AM] Thursday [LOCKED_OUT]
+[07-16 01:59:35] sse stack free=6880 heap free=8584991
+[07-16 01:59:40] Lux: 0.1 → bri=22.5%, ct=395
+[07-16 02:00:06] [2:00:00AM] Thursday [LOCKED_OUT]
+[07-16 02:00:06] sse stack free=6880 heap free=8584991
+[07-16 02:00:11] Lux: 0.1 → bri=22.7%, ct=395
+[07-16 02:00:35] [2:00:30AM] Thursday [LOCKED_OUT]
+[07-16 02:00:35] sse stack free=6880 heap free=8584991
+[07-16 02:00:41] Lux: 0.1 → bri=22.5%, ct=395
+--- port lost 03:22:43, retrying ---
+--- giving up: port gone > 6 h ---
+--- soak logger stopped 2026-07-16 13:17:48 ---

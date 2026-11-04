@@ -1,0 +1,570 @@
+--- soak logger started 2026-07-15 19:55:03 ---
+--- port opened 19:55:03 ---
+[07-15 19:55:04] [7:55:00PM] Wednesday [NORMAL]
+[07-15 19:55:04] sse stack free=9788 heap free=8583667
+[07-15 19:55:05] Lux: 3.9 → bri=47.7%, ct=358
+[07-15 19:55:07] No change — skipping PUT.
+[07-15 19:55:35] [7:55:31PM] Wednesday [NORMAL]
+[07-15 19:55:35] sse stack free=9788 heap free=8583635
+[07-15 19:55:36] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 19:55:37] No change — skipping PUT.
+[07-15 19:56:05] [7:56:01PM] Wednesday [NORMAL]
+[07-15 19:56:05] sse stack free=9788 heap free=8584531
+[07-15 19:56:05] Lux: 3.9 → bri=47.6%, ct=358
+[07-15 19:56:07] No change — skipping PUT.
+[07-15 19:56:34] [7:56:30PM] Wednesday [NORMAL]
+[07-15 19:56:34] sse stack free=9788 heap free=8585207
+[07-15 19:56:34] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 19:56:36] No change — skipping PUT.
+[07-15 19:57:04] [7:57:00PM] Wednesday [NORMAL]
+[07-15 19:57:04] sse stack free=9788 heap free=8585207
+[07-15 19:57:05] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 19:57:07] No change — skipping PUT.
+[07-15 19:57:34] [7:57:30PM] Wednesday [NORMAL]
+[07-15 19:57:34] sse stack free=9788 heap free=8585207
+[07-15 19:57:34] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 19:57:36] No change — skipping PUT.
+[07-15 19:58:04] [7:58:00PM] Wednesday [NORMAL]
+[07-15 19:58:04] sse stack free=9788 heap free=8585203
+[07-15 19:58:05] Lux: 3.8 → bri=47.5%, ct=358
+[07-15 19:58:06] No change — skipping PUT.
+[07-15 19:58:34] [7:58:30PM] Wednesday [NORMAL]
+[07-15 19:58:34] sse stack free=9788 heap free=8585207
+[07-15 19:58:35] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 19:58:36] No change — skipping PUT.
+[07-15 19:59:04] [7:59:00PM] Wednesday [NORMAL]
+[07-15 19:59:04] sse stack free=9788 heap free=8585207
+[07-15 19:59:05] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 19:59:06] No change — skipping PUT.
+[07-15 19:59:34] [7:59:30PM] Wednesday [NORMAL]
+[07-15 19:59:34] sse stack free=9788 heap free=8585207
+[07-15 19:59:35] Lux: 3.8 → bri=47.3%, ct=358
+[07-15 19:59:37] No change — skipping PUT.
+[07-15 20:00:04] [8:00:00PM] Wednesday [NORMAL]
+[07-15 20:00:04] sse stack free=9788 heap free=8585207
+[07-15 20:00:05] Lux: 3.8 → bri=47.3%, ct=358
+[07-15 20:00:06] No change — skipping PUT.
+[07-15 20:00:34] [8:00:30PM] Wednesday [NORMAL]
+[07-15 20:00:34] sse stack free=9788 heap free=8585203
+[07-15 20:00:35] Lux: 3.7 → bri=47.1%, ct=359
+[07-15 20:00:36] No change — skipping PUT.
+[07-15 20:01:04] [8:01:00PM] Wednesday [NORMAL]
+[07-15 20:01:04] sse stack free=9788 heap free=8585207
+[07-15 20:01:05] Lux: 3.7 → bri=47.1%, ct=359
+[07-15 20:01:07] No change — skipping PUT.
+[07-15 20:01:34] [8:01:30PM] Wednesday [NORMAL]
+[07-15 20:01:34] sse stack free=9788 heap free=8585207
+[07-15 20:01:35] Lux: 3.7 → bri=47.1%, ct=359
+[07-15 20:01:36] No change — skipping PUT.
+[07-15 20:02:04] [8:02:00PM] Wednesday [NORMAL]
+[07-15 20:02:04] sse stack free=9788 heap free=8585207
+[07-15 20:02:05] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:02:07] No change — skipping PUT.
+[07-15 20:02:34] [8:02:30PM] Wednesday [NORMAL]
+[07-15 20:02:34] sse stack free=9788 heap free=8585207
+[07-15 20:02:35] Lux: 3.7 → bri=47.0%, ct=359
+[07-15 20:02:36] No change — skipping PUT.
+[07-15 20:03:04] [8:03:00PM] Wednesday [NORMAL]
+[07-15 20:03:04] sse stack free=9788 heap free=8585203
+[07-15 20:03:05] Lux: 3.6 → bri=46.9%, ct=359
+[07-15 20:03:06] No change — skipping PUT.
+[07-15 20:03:34] [8:03:30PM] Wednesday [NORMAL]
+[07-15 20:03:34] sse stack free=9788 heap free=8585207
+[07-15 20:03:35] Lux: 3.7 → bri=47.0%, ct=359
+[07-15 20:03:37] No change — skipping PUT.
+[07-15 20:04:04] [8:04:00PM] Wednesday [NORMAL]
+[07-15 20:04:04] sse stack free=9788 heap free=8585207
+[07-15 20:04:05] Lux: 3.6 → bri=46.9%, ct=359
+[07-15 20:04:07] No change — skipping PUT.
+[07-15 20:04:15] SSE: stale — reconnecting
+[07-15 20:04:16] SSE: connected.
+[07-15 20:04:34] [8:04:30PM] Wednesday [NORMAL]
+[07-15 20:04:34] sse stack free=7020 heap free=8584911
+[07-15 20:04:35] Lux: 3.6 → bri=46.9%, ct=359
+[07-15 20:04:36] No change — skipping PUT.
+[07-15 20:05:04] [8:05:00PM] Wednesday [NORMAL]
+[07-15 20:05:04] sse stack free=7020 heap free=8584911
+[07-15 20:05:05] Lux: 3.6 → bri=46.9%, ct=359
+[07-15 20:05:06] No change — skipping PUT.
+[07-15 20:05:34] [8:05:30PM] Wednesday [NORMAL]
+[07-15 20:05:34] sse stack free=7020 heap free=8584919
+[07-15 20:05:35] Lux: 3.6 → bri=46.9%, ct=359
+[07-15 20:05:37] No change — skipping PUT.
+[07-15 20:06:04] [8:06:00PM] Wednesday [NORMAL]
+[07-15 20:06:04] sse stack free=7020 heap free=8584911
+[07-15 20:06:05] Lux: 3.7 → bri=47.0%, ct=359
+[07-15 20:06:06] No change — skipping PUT.
+[07-15 20:06:34] [8:06:30PM] Wednesday [NORMAL]
+[07-15 20:06:34] sse stack free=7020 heap free=8585135
+[07-15 20:06:35] Lux: 3.6 → bri=46.9%, ct=359
+[07-15 20:06:37] No change — skipping PUT.
+[07-15 20:07:04] [8:07:00PM] Wednesday [NORMAL]
+[07-15 20:07:04] sse stack free=7020 heap free=8585135
+[07-15 20:07:05] Lux: 3.6 → bri=46.9%, ct=359
+[07-15 20:07:06] No change — skipping PUT.
+[07-15 20:07:34] [8:07:30PM] Wednesday [NORMAL]
+[07-15 20:07:34] sse stack free=7020 heap free=8585135
+[07-15 20:07:35] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:07:37] No change — skipping PUT.
+[07-15 20:08:04] [8:08:00PM] Wednesday [NORMAL]
+[07-15 20:08:04] sse stack free=7020 heap free=8585143
+[07-15 20:08:05] Lux: 3.7 → bri=47.1%, ct=359
+[07-15 20:08:07] No change — skipping PUT.
+[07-15 20:08:34] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 20:08:34] [8:08:29PM] Wednesday [NORMAL]
+[07-15 20:08:34] sse stack free=7020 heap free=8585143
+[07-15 20:08:35] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:08:36] No change — skipping PUT.
+[07-15 20:09:05] [8:09:01PM] Wednesday [NORMAL]
+[07-15 20:09:05] sse stack free=7020 heap free=8585135
+[07-15 20:09:06] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:09:08] No change — skipping PUT.
+[07-15 20:09:34] [8:09:30PM] Wednesday [NORMAL]
+[07-15 20:09:34] sse stack free=7020 heap free=8585135
+[07-15 20:09:35] Lux: 3.8 → bri=47.5%, ct=358
+[07-15 20:09:36] No change — skipping PUT.
+[07-15 20:10:04] [8:10:00PM] Wednesday [NORMAL]
+[07-15 20:10:04] sse stack free=7020 heap free=8585135
+[07-15 20:10:05] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:10:07] No change — skipping PUT.
+[07-15 20:10:34] [8:10:30PM] Wednesday [NORMAL]
+[07-15 20:10:34] sse stack free=7020 heap free=8585135
+[07-15 20:10:35] Lux: 3.8 → bri=47.5%, ct=358
+[07-15 20:10:37] No change — skipping PUT.
+[07-15 20:11:04] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 20:11:04] [8:10:59PM] Wednesday [NORMAL]
+[07-15 20:11:04] sse stack free=7020 heap free=8585143
+[07-15 20:11:05] Lux: 3.6 → bri=46.9%, ct=359
+[07-15 20:11:07] No change — skipping PUT.
+[07-15 20:11:35] [8:11:31PM] Wednesday [NORMAL]
+[07-15 20:11:35] sse stack free=7020 heap free=8585143
+[07-15 20:11:36] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:11:37] No change — skipping PUT.
+[07-15 20:12:04] [8:12:00PM] Wednesday [NORMAL]
+[07-15 20:12:04] sse stack free=7020 heap free=8585143
+[07-15 20:12:05] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:12:07] No change — skipping PUT.
+[07-15 20:12:34] [8:12:30PM] Wednesday [NORMAL]
+[07-15 20:12:34] sse stack free=7020 heap free=8585135
+[07-15 20:12:35] Lux: 3.8 → bri=47.3%, ct=358
+[07-15 20:12:36] No change — skipping PUT.
+[07-15 20:13:04] [8:13:00PM] Wednesday [NORMAL]
+[07-15 20:13:04] sse stack free=7020 heap free=8585135
+[07-15 20:13:05] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:13:07] No change — skipping PUT.
+[07-15 20:13:34] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 20:13:34] [8:13:29PM] Wednesday [NORMAL]
+[07-15 20:13:34] sse stack free=7020 heap free=8585135
+[07-15 20:13:35] Lux: 3.8 → bri=47.3%, ct=358
+[07-15 20:13:37] No change — skipping PUT.
+[07-15 20:14:06] [8:14:01PM] Wednesday [NORMAL]
+[07-15 20:14:06] sse stack free=7020 heap free=8585135
+[07-15 20:14:06] Lux: 3.7 → bri=47.1%, ct=359
+[07-15 20:14:08] No change — skipping PUT.
+[07-15 20:14:17] SSE: stale — reconnecting
+[07-15 20:14:18] SSE: connected.
+[07-15 20:14:34] [8:14:30PM] Wednesday [NORMAL]
+[07-15 20:14:34] sse stack free=7020 heap free=8584899
+[07-15 20:14:35] Lux: 3.7 → bri=47.1%, ct=359
+[07-15 20:14:37] No change — skipping PUT.
+[07-15 20:15:04] [8:15:00PM] Wednesday [NORMAL]
+[07-15 20:15:04] sse stack free=7020 heap free=8584899
+[07-15 20:15:05] Lux: 3.8 → bri=47.3%, ct=358
+[07-15 20:15:07] No change — skipping PUT.
+[07-15 20:15:35] [8:15:30PM] Wednesday [NORMAL]
+[07-15 20:15:35] sse stack free=7020 heap free=8584899
+[07-15 20:15:36] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:15:37] No change — skipping PUT.
+[07-15 20:16:04] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 20:16:04] [8:15:59PM] Wednesday [NORMAL]
+[07-15 20:16:04] sse stack free=7020 heap free=8584899
+[07-15 20:16:05] Lux: 3.6 → bri=46.7%, ct=359
+[07-15 20:16:08] No change — skipping PUT.
+[07-15 20:16:36] [8:16:32PM] Wednesday [NORMAL]
+[07-15 20:16:36] sse stack free=7020 heap free=8585123
+[07-15 20:16:37] Lux: 3.7 → bri=47.0%, ct=359
+[07-15 20:16:38] No change — skipping PUT.
+[07-15 20:17:05] [8:17:01PM] Wednesday [NORMAL]
+[07-15 20:17:05] sse stack free=7020 heap free=8585123
+[07-15 20:17:05] Lux: 3.6 → bri=46.7%, ct=359
+[07-15 20:17:07] No change — skipping PUT.
+[07-15 20:17:34] [8:17:30PM] Wednesday [NORMAL]
+[07-15 20:17:34] sse stack free=7020 heap free=8585123
+[07-15 20:17:34] Lux: 3.6 → bri=46.7%, ct=359
+[07-15 20:17:35] No change — skipping PUT.
+[07-15 20:18:04] [8:17:59PM] Wednesday [NORMAL]
+[07-15 20:18:04] sse stack free=7020 heap free=8585123
+[07-15 20:18:05] Lux: 3.5 → bri=46.5%, ct=359
+[07-15 20:18:06] No change — skipping PUT.
+[07-15 20:18:34] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 20:18:34] [8:18:29PM] Wednesday [NORMAL]
+[07-15 20:18:34] sse stack free=7020 heap free=8585123
+[07-15 20:18:34] Lux: 3.6 → bri=46.7%, ct=359
+[07-15 20:18:36] No change — skipping PUT.
+[07-15 20:19:05] [8:19:01PM] Wednesday [NORMAL]
+[07-15 20:19:05] sse stack free=7020 heap free=8585123
+[07-15 20:19:06] Lux: 3.5 → bri=46.5%, ct=359
+[07-15 20:19:07] No change — skipping PUT.
+[07-15 20:19:35] [8:19:31PM] Wednesday [NORMAL]
+[07-15 20:19:35] sse stack free=7020 heap free=8585123
+[07-15 20:19:36] Lux: 3.5 → bri=46.5%, ct=359
+[07-15 20:19:38] No change — skipping PUT.
+[07-15 20:20:04] [8:20:00PM] Wednesday [NORMAL]
+[07-15 20:20:04] sse stack free=7020 heap free=8585123
+[07-15 20:20:05] Lux: 3.6 → bri=46.7%, ct=359
+[07-15 20:20:06] No change — skipping PUT.
+[07-15 20:20:34] [8:20:30PM] Wednesday [NORMAL]
+[07-15 20:20:34] sse stack free=7020 heap free=8585123
+[07-15 20:20:35] Lux: 3.5 → bri=46.4%, ct=360
+[07-15 20:20:36] No change — skipping PUT.
+[07-15 20:21:04] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 20:21:04] [8:20:59PM] Wednesday [NORMAL]
+[07-15 20:21:04] sse stack free=7020 heap free=8585123
+[07-15 20:21:05] Lux: 3.4 → bri=46.1%, ct=360
+[07-15 20:21:06] No change — skipping PUT.
+[07-15 20:21:35] [8:21:31PM] Wednesday [NORMAL]
+[07-15 20:21:35] sse stack free=7020 heap free=8585123
+[07-15 20:21:36] Lux: 3.6 → bri=46.8%, ct=359
+[07-15 20:21:37] No change — skipping PUT.
+[07-15 20:22:04] [8:22:00PM] Wednesday [NORMAL]
+[07-15 20:22:04] sse stack free=7020 heap free=8585123
+[07-15 20:22:05] Lux: 3.6 → bri=46.8%, ct=359
+[07-15 20:22:06] No change — skipping PUT.
+[07-15 20:22:34] [8:22:30PM] Wednesday [NORMAL]
+[07-15 20:22:34] sse stack free=7020 heap free=8585111
+[07-15 20:22:35] Lux: 3.5 → bri=46.5%, ct=359
+[07-15 20:22:37] No change — skipping PUT.
+[07-15 20:23:04] [8:23:00PM] Wednesday [NORMAL]
+[07-15 20:23:04] sse stack free=7020 heap free=8585111
+[07-15 20:23:05] Lux: 3.5 → bri=46.6%, ct=359
+[07-15 20:23:07] No change — skipping PUT.
+[07-15 20:23:34] [8:23:30PM] Wednesday [NORMAL]
+[07-15 20:23:34] sse stack free=7020 heap free=8585111
+[07-15 20:23:35] Lux: 3.6 → bri=46.7%, ct=359
+[07-15 20:23:36] No change — skipping PUT.
+[07-15 20:24:04] [8:24:00PM] Wednesday [NORMAL]
+[07-15 20:24:04] sse stack free=7020 heap free=8585111
+[07-15 20:24:05] Lux: 3.3 → bri=45.7%, ct=361
+[07-15 20:24:08] setLight(Floor) → HTTP 200
+[07-15 20:24:08] SSE evt idx=4 on= 0 bri=+45.85 ct= 0  cacheBefore[on=1 bri=42.69 ct=365]  -> echo-match
+[07-15 20:24:08] SSE evt idx=4 on= 0 bri= 0.00 ct=+361  cacheBefore[on=1 bri=45.85 ct=365]  -> echo-match
+[07-15 20:24:09] setLight(Dresser) → HTTP 200
+[07-15 20:24:09] Bulbs updated.
+[07-15 20:24:10] SSE evt idx=1 on= 0 bri=+45.85 ct= 0  cacheBefore[on=1 bri=47.04 ct=359]  -> echo-match
+[07-15 20:24:10] SSE evt idx=1 on= 0 bri= 0.00 ct=+361  cacheBefore[on=1 bri=45.85 ct=359]  -> echo-match
+[07-15 20:24:34] [8:24:30PM] Wednesday [NORMAL]
+[07-15 20:24:34] sse stack free=7020 heap free=8584451
+[07-15 20:24:35] Lux: 3.3 → bri=45.9%, ct=360
+[07-15 20:24:36] No change — skipping PUT.
+[07-15 20:25:04] [8:25:00PM] Wednesday [NORMAL]
+[07-15 20:25:04] sse stack free=7020 heap free=8584439
+[07-15 20:25:05] Lux: 3.3 → bri=45.9%, ct=360
+[07-15 20:25:06] No change — skipping PUT.
+[07-15 20:25:34] [8:25:30PM] Wednesday [NORMAL]
+[07-15 20:25:34] sse stack free=7020 heap free=8584439
+[07-15 20:25:35] Lux: 3.4 → bri=46.1%, ct=360
+[07-15 20:25:36] No change — skipping PUT.
+[07-15 20:26:04] [8:26:00PM] Wednesday [NORMAL]
+[07-15 20:26:04] sse stack free=7020 heap free=8584439
+[07-15 20:26:05] Lux: 3.2 → bri=45.5%, ct=361
+[07-15 20:26:07] No change — skipping PUT.
+[07-15 20:26:34] [8:26:30PM] Wednesday [NORMAL]
+[07-15 20:26:34] sse stack free=7020 heap free=8585111
+[07-15 20:26:35] Lux: 3.6 → bri=46.7%, ct=359
+[07-15 20:26:36] No change — skipping PUT.
+[07-15 20:27:04] [8:27:00PM] Wednesday [NORMAL]
+[07-15 20:27:04] sse stack free=7020 heap free=8585123
+[07-15 20:27:05] Lux: 3.7 → bri=47.0%, ct=359
+[07-15 20:27:07] setLight(Floor) → HTTP 200
+[07-15 20:27:08] SSE evt idx=4 on= 0 bri=+47.04 ct= 0  cacheBefore[on=1 bri=45.85 ct=361]  -> echo-match
+[07-15 20:27:08] SSE evt idx=4 on= 0 bri= 0.00 ct=+359  cacheBefore[on=1 bri=47.04 ct=361]  -> echo-match
+[07-15 20:27:08] setLight(Dresser) → HTTP 200
+[07-15 20:27:08] Bulbs updated.
+[07-15 20:27:08] SSE evt idx=1 on= 0 bri=+47.04 ct= 0  cacheBefore[on=1 bri=45.85 ct=361]  -> echo-match
+[07-15 20:27:08] SSE evt idx=1 on= 0 bri= 0.00 ct=+359  cacheBefore[on=1 bri=47.04 ct=361]  -> echo-match
+[07-15 20:27:34] [8:27:30PM] Wednesday [NORMAL]
+[07-15 20:27:34] sse stack free=7020 heap free=8584451
+[07-15 20:27:35] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:27:36] No change — skipping PUT.
+[07-15 20:28:04] [8:28:00PM] Wednesday [NORMAL]
+[07-15 20:28:04] sse stack free=7020 heap free=8584451
+[07-15 20:28:05] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:28:07] No change — skipping PUT.
+[07-15 20:28:34] [8:28:30PM] Wednesday [NORMAL]
+[07-15 20:28:34] sse stack free=7020 heap free=8584451
+[07-15 20:28:35] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:28:36] No change — skipping PUT.
+[07-15 20:29:04] [8:29:00PM] Wednesday [NORMAL]
+[07-15 20:29:04] sse stack free=7020 heap free=8584451
+[07-15 20:29:05] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:29:07] No change — skipping PUT.
+[07-15 20:29:34] [8:29:30PM] Wednesday [NORMAL]
+[07-15 20:29:34] sse stack free=7020 heap free=8585115
+[07-15 20:29:35] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:29:36] No change — skipping PUT.
+[07-15 20:30:04] [8:30:00PM] Wednesday [NORMAL]
+[07-15 20:30:04] sse stack free=7020 heap free=8585115
+[07-15 20:30:05] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:30:06] No change — skipping PUT.
+[07-15 20:30:34] [8:30:30PM] Wednesday [NORMAL]
+[07-15 20:30:34] sse stack free=7020 heap free=8585115
+[07-15 20:30:35] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:30:36] No change — skipping PUT.
+[07-15 20:31:05] [8:31:00PM] Wednesday [NORMAL]
+[07-15 20:31:05] sse stack free=7020 heap free=8585115
+[07-15 20:31:06] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:31:07] No change — skipping PUT.
+[07-15 20:31:34] [8:31:30PM] Wednesday [NORMAL]
+[07-15 20:31:34] sse stack free=7020 heap free=8585123
+[07-15 20:31:35] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:31:37] No change — skipping PUT.
+[07-15 20:32:05] [8:32:00PM] Wednesday [NORMAL]
+[07-15 20:32:05] sse stack free=7020 heap free=8585123
+[07-15 20:32:06] Lux: 3.8 → bri=47.5%, ct=358
+[07-15 20:32:07] No change — skipping PUT.
+[07-15 20:32:34] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 20:32:34] [8:32:29PM] Wednesday [NORMAL]
+[07-15 20:32:34] sse stack free=7020 heap free=8585115
+[07-15 20:32:35] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:32:36] No change — skipping PUT.
+[07-15 20:33:05] [8:33:01PM] Wednesday [NORMAL]
+[07-15 20:33:05] sse stack free=7020 heap free=8585115
+[07-15 20:33:06] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:33:08] No change — skipping PUT.
+[07-15 20:33:35] [8:33:31PM] Wednesday [NORMAL]
+[07-15 20:33:35] sse stack free=7020 heap free=8585115
+[07-15 20:33:36] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:33:38] No change — skipping PUT.
+[07-15 20:34:04] [8:34:00PM] Wednesday [NORMAL]
+[07-15 20:34:04] sse stack free=7020 heap free=8585115
+[07-15 20:34:05] Lux: 3.7 → bri=47.2%, ct=358
+[07-15 20:34:06] No change — skipping PUT.
+[07-15 20:34:35] [8:34:30PM] Wednesday [NORMAL]
+[07-15 20:34:35] sse stack free=7020 heap free=8585123
+[07-15 20:34:36] Lux: 3.9 → bri=47.7%, ct=358
+[07-15 20:34:37] No change — skipping PUT.
+[07-15 20:35:04] [8:35:00PM] Wednesday [NORMAL]
+[07-15 20:35:04] sse stack free=7020 heap free=8585123
+[07-15 20:35:05] Lux: 3.9 → bri=47.7%, ct=358
+[07-15 20:35:07] No change — skipping PUT.
+[07-15 20:35:34] [8:35:30PM] Wednesday [NORMAL]
+[07-15 20:35:34] sse stack free=7020 heap free=8585123
+[07-15 20:35:35] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:35:38] No change — skipping PUT.
+[07-15 20:36:04] [8:36:00PM] Wednesday [NORMAL]
+[07-15 20:36:04] sse stack free=7020 heap free=8585123
+[07-15 20:36:05] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:36:07] No change — skipping PUT.
+[07-15 20:36:36] [8:36:31PM] Wednesday [NORMAL]
+[07-15 20:36:36] sse stack free=7020 heap free=8585123
+[07-15 20:36:36] Lux: 3.9 → bri=47.7%, ct=358
+[07-15 20:36:38] No change — skipping PUT.
+[07-15 20:37:05] [8:37:01PM] Wednesday [NORMAL]
+[07-15 20:37:05] sse stack free=7020 heap free=8585123
+[07-15 20:37:06] Lux: 3.8 → bri=47.5%, ct=358
+[07-15 20:37:07] No change — skipping PUT.
+[07-15 20:37:10] SSE: stale — reconnecting
+[07-15 20:37:11] SSE: connected.
+[07-15 20:37:35] [8:37:30PM] Wednesday [NORMAL]
+[07-15 20:37:35] sse stack free=6944 heap free=8584855
+[07-15 20:37:35] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:37:37] No change — skipping PUT.
+[07-15 20:38:05] [8:38:00PM] Wednesday [NORMAL]
+[07-15 20:38:05] sse stack free=6944 heap free=8584855
+[07-15 20:38:05] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:38:07] No change — skipping PUT.
+[07-15 20:38:35] [8:38:30PM] Wednesday [NORMAL]
+[07-15 20:38:35] sse stack free=6944 heap free=8584855
+[07-15 20:38:35] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:38:37] No change — skipping PUT.
+[07-15 20:39:05] [8:39:00PM] Wednesday [NORMAL]
+[07-15 20:39:05] sse stack free=6944 heap free=8584855
+[07-15 20:39:05] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:39:07] No change — skipping PUT.
+[07-15 20:39:35] [8:39:30PM] Wednesday [NORMAL]
+[07-15 20:39:35] sse stack free=6944 heap free=8585087
+[07-15 20:39:36] Lux: 3.8 → bri=47.4%, ct=358
+[07-15 20:39:38] No change — skipping PUT.
+[07-15 20:39:53] SSE evt idx=2 on=+1 bri= 0.00 ct= 0  cacheBefore[on=0 bri=71.15 ct=323]  -> skip-offlight
+[07-15 20:39:55] SSE evt idx=-1 on= 0 bri= 0.00 ct= 0  cacheBefore[on=0 bri=0.00 ct=0]  -> unknown-uuid
+[07-15 20:40:05] [8:40:00PM] Wednesday [NORMAL]
+[07-15 20:40:05] sse stack free=6944 heap free=8585087
+[07-15 20:40:05] Lux: 16.1 → bri=60.9%, ct=338
+[07-15 20:40:07] SSE evt idx=2 on=+0 bri= 0.00 ct= 0  cacheBefore[on=1 bri=71.15 ct=323]  -> skip-offlight
+[07-15 20:40:08] setLight(Floor) → HTTP 200
+[07-15 20:40:09] SSE evt idx=4 on= 0 bri=+60.87 ct= 0  cacheBefore[on=1 bri=47.04 ct=359]  -> echo-match
+[07-15 20:40:09] SSE evt idx=4 on= 0 bri= 0.00 ct=+338  cacheBefore[on=1 bri=60.87 ct=359]  -> echo-match
+[07-15 20:40:10] setLight(Dresser) → HTTP 200
+[07-15 20:40:10] Bulbs updated.
+[07-15 20:40:10] SSE evt idx=-1 on= 0 bri= 0.00 ct= 0  cacheBefore[on=0 bri=0.00 ct=0]  -> unknown-uuid
+[07-15 20:40:10] SSE evt idx=1 on= 0 bri=+60.87 ct= 0  cacheBefore[on=1 bri=47.04 ct=359]  -> echo-match
+[07-15 20:40:10] SSE evt idx=1 on= 0 bri= 0.00 ct=+338  cacheBefore[on=1 bri=60.87 ct=359]  -> echo-match
+[07-15 20:40:35] [8:40:30PM] Wednesday [NORMAL]
+[07-15 20:40:35] sse stack free=6944 heap free=8584127
+[07-15 20:40:36] Lux: 6.6 → bri=53.9%, ct=348
+[07-15 20:40:39] setLight(Floor) → HTTP 200
+[07-15 20:40:39] SSE evt idx=4 on= 0 bri=+53.75 ct= 0  cacheBefore[on=1 bri=60.87 ct=338]  -> echo-match
+[07-15 20:40:39] SSE evt idx=4 on= 0 bri= 0.00 ct=+348  cacheBefore[on=1 bri=53.75 ct=338]  -> echo-match
+[07-15 20:40:40] setLight(Dresser) → HTTP 200
+[07-15 20:40:40] Bulbs updated.
+[07-15 20:40:41] SSE evt idx=1 on= 0 bri=+53.75 ct= 0  cacheBefore[on=1 bri=60.87 ct=338]  -> echo-match
+[07-15 20:40:41] SSE evt idx=1 on= 0 bri= 0.00 ct=+348  cacheBefore[on=1 bri=53.75 ct=338]  -> echo-match
+[07-15 20:41:05] [8:41:00PM] Wednesday [NORMAL]
+[07-15 20:41:05] sse stack free=6944 heap free=8583455
+[07-15 20:41:06] Lux: 4.9 → bri=50.4%, ct=354
+[07-15 20:41:07] setLight(Floor) → HTTP 200
+[07-15 20:41:08] SSE evt idx=4 on= 0 bri=+50.59 ct= 0  cacheBefore[on=1 bri=53.75 ct=348]  -> echo-match
+[07-15 20:41:08] SSE evt idx=4 on= 0 bri= 0.00 ct=+354  cacheBefore[on=1 bri=50.59 ct=348]  -> echo-match
+[07-15 20:41:09] setLight(Dresser) → HTTP 200
+[07-15 20:41:09] Bulbs updated.
+[07-15 20:41:10] SSE evt idx=1 on= 0 bri=+50.59 ct= 0  cacheBefore[on=1 bri=53.75 ct=348]  -> echo-match
+[07-15 20:41:10] SSE evt idx=1 on= 0 bri= 0.00 ct=+354  cacheBefore[on=1 bri=50.59 ct=348]  -> echo-match
+[07-15 20:41:17] SSE evt idx=1 on= 0 bri=+53.75 ct= 0  cacheBefore[on=1 bri=50.59 ct=354]  -> noop-echo
+[07-15 20:41:17] SSE evt idx=1 on= 0 bri= 0.00 ct=+348  cacheBefore[on=1 bri=53.75 ct=354]  -> noop-echo
+[07-15 20:41:35] [8:41:31PM] Wednesday [NORMAL]
+[07-15 20:41:35] sse stack free=6944 heap free=8583087
+[07-15 20:41:36] Lux: 4.6 → bri=49.5%, ct=355
+[07-15 20:41:37] No change — skipping PUT.
+[07-15 20:42:05] [8:42:00PM] Wednesday [NORMAL]
+[07-15 20:42:05] sse stack free=6944 heap free=8583087
+[07-15 20:42:06] Lux: 4.6 → bri=49.6%, ct=355
+[07-15 20:42:07] No change — skipping PUT.
+[07-15 20:42:35] [8:42:31PM] Wednesday [NORMAL]
+[07-15 20:42:35] sse stack free=6944 heap free=8583311
+[07-15 20:42:36] Lux: 4.6 → bri=49.6%, ct=355
+[07-15 20:42:37] No change — skipping PUT.
+[07-15 20:43:04] [8:43:00PM] Wednesday [NORMAL]
+[07-15 20:43:04] sse stack free=6944 heap free=8583983
+[07-15 20:43:05] Lux: 4.7 → bri=49.8%, ct=355
+[07-15 20:43:06] Dashboard command: WIND_DOWN value=119
+[07-15 20:43:06] forceState → WIND_DOWN
+[07-15 20:43:08] Wind-down 60.0/60.0 min — bri=19.7%
+[07-15 20:43:09] setLight(Floor) → HTTP 200
+[07-15 20:43:09] SSE evt idx=4 on= 0 bri=+19.76 ct= 0  cacheBefore[on=1 bri=50.59 ct=354]  -> skip-state
+[07-15 20:43:09] SSE evt idx=4 on= 0 bri= 0.00 ct=+400  cacheBefore[on=1 bri=19.76 ct=354]  -> skip-state
+[07-15 20:43:10] setLight(Dresser) → HTTP 200
+[07-15 20:43:10] Wind-down complete. Chest + dresser off, floor lamp at floor.
+[07-15 20:43:10] SSE evt idx=1 on=+0 bri= 0.00 ct= 0  cacheBefore[on=1 bri=53.75 ct=348]  -> skip-state
+[07-15 20:43:11] SSE evt idx=4 on= 0 bri=+49.01 ct= 0  cacheBefore[on=1 bri=19.76 ct=400]  -> skip-state
+[07-15 20:43:11] SSE evt idx=4 on= 0 bri= 0.00 ct=+356  cacheBefore[on=1 bri=49.01 ct=400]  -> skip-state
+[07-15 20:43:12] SSE evt idx=1 on= 0 bri=+43.87 ct= 0  cacheBefore[on=0 bri=53.75 ct=348]  -> skip-state
+[07-15 20:43:22] SSE evt idx=4 on= 0 bri=+37.94 ct= 0  cacheBefore[on=1 bri=49.01 ct=356]  -> skip-state
+[07-15 20:43:22] SSE evt idx=4 on= 0 bri= 0.00 ct=+373  cacheBefore[on=1 bri=37.94 ct=356]  -> skip-state
+[07-15 20:43:24] SSE evt idx=1 on= 0 bri=+53.75 ct= 0  cacheBefore[on=0 bri=43.87 ct=348]  -> skip-state
+[07-15 20:43:30] SSE evt idx=4 on= 0 bri=+28.85 ct= 0  cacheBefore[on=1 bri=37.94 ct=373]  -> skip-state
+[07-15 20:43:30] SSE evt idx=4 on= 0 bri= 0.00 ct=+386  cacheBefore[on=1 bri=28.85 ct=373]  -> skip-state
+[07-15 20:43:34] [8:43:30PM] Wednesday [LOCKED_OUT]
+[07-15 20:43:34] sse stack free=6944 heap free=8583439
+[07-15 20:43:36] Lux: 0.8 → bri=32.1%, ct=381
+[07-15 20:43:38] SSE evt idx=4 on= 0 bri=+21.34 ct= 0  cacheBefore[on=1 bri=28.85 ct=386]  -> skip-state
+[07-15 20:43:38] SSE evt idx=4 on= 0 bri= 0.00 ct=+397  cacheBefore[on=1 bri=21.34 ct=386]  -> skip-state
+[07-15 20:43:44] SSE evt idx=4 on=+0 bri= 0.00 ct= 0  cacheBefore[on=1 bri=21.34 ct=397]  -> skip-state
+[07-15 20:43:54] SSE evt idx=4 on=+1 bri= 0.00 ct= 0  cacheBefore[on=0 bri=21.34 ct=397]  -> skip-state
+[07-15 20:43:54] Wake triggered — bri 21.34 → 32.06, ct 397 → 381
+[07-15 20:43:58] SSE evt idx=4 on= 0 bri=+19.76 ct= 0  cacheBefore[on=1 bri=21.34 ct=397]  -> skip-state
+[07-15 20:43:58] SSE evt idx=4 on= 0 bri= 0.00 ct=+400  cacheBefore[on=1 bri=19.76 ct=397]  -> skip-state
+[07-15 20:44:04] [8:44:00PM] Wednesday [WAKE]
+[07-15 20:44:04] sse stack free=6944 heap free=8583215
+[07-15 20:44:09] Lux: 0.7 → bri=30.9%, ct=383
+[07-15 20:44:11] setLight(Floor) → HTTP 200
+[07-15 20:44:11] Wake 1/40 — bri=21.6%/32.1%
+[07-15 20:44:11] SSE evt idx=4 on= 0 bri=+21.74 ct= 0  cacheBefore[on=1 bri=19.76 ct=400]  -> skip-state
+[07-15 20:44:11] SSE evt idx=4 on= 0 bri= 0.00 ct=+396  cacheBefore[on=1 bri=21.74 ct=400]  -> skip-state
+[07-15 20:44:18] SSE evt idx=4 on= 0 bri=+20.16 ct= 0  cacheBefore[on=1 bri=21.74 ct=396]  -> skip-state
+[07-15 20:44:18] SSE evt idx=4 on= 0 bri= 0.00 ct=+400  cacheBefore[on=1 bri=20.16 ct=396]  -> skip-state
+[07-15 20:44:29] SSE evt idx=4 on= 0 bri=+20.95 ct= 0  cacheBefore[on=1 bri=20.16 ct=400]  -> skip-state
+[07-15 20:44:29] SSE evt idx=4 on= 0 bri= 0.00 ct=+398  cacheBefore[on=1 bri=20.95 ct=400]  -> skip-state
+[07-15 20:44:34] [8:44:30PM] Wednesday [WAKE]
+[07-15 20:44:34] sse stack free=6944 heap free=8582991
+[07-15 20:44:37] Lux: 0.8 → bri=31.7%, ct=382
+[07-15 20:44:37] SSE evt idx=4 on= 0 bri=+21.34 ct= 0  cacheBefore[on=1 bri=20.95 ct=398]  -> skip-state
+[07-15 20:44:37] SSE evt idx=4 on= 0 bri= 0.00 ct=+397  cacheBefore[on=1 bri=21.34 ct=398]  -> skip-state
+[07-15 20:44:39] setLight(Floor) → HTTP 200
+[07-15 20:44:39] Wake 2/40 — bri=21.9%/32.1%
+[07-15 20:44:39] SSE evt idx=4 on= 0 bri=+21.74 ct= 0  cacheBefore[on=1 bri=21.34 ct=397]  -> skip-state
+[07-15 20:44:39] SSE evt idx=4 on= 0 bri= 0.00 ct=+396  cacheBefore[on=1 bri=21.74 ct=397]  -> skip-state
+[07-15 20:44:44] SSE evt idx=4 on= 0 bri= 0.00 ct=+397  cacheBefore[on=1 bri=21.74 ct=396]  -> skip-state
+[07-15 20:45:04] [8:45:00PM] Wednesday [WAKE]
+[07-15 20:45:04] sse stack free=6944 heap free=8582991
+[07-15 20:45:07] Lux: 0.8 → bri=31.6%, ct=382
+[07-15 20:45:08] Dashboard command: NORMAL
+[07-15 20:45:08] forceState → NORMAL
+[07-15 20:45:12] SSE evt idx=4 on= 0 bri=+31.62 ct= 0  cacheBefore[on=1 bri=21.74 ct=397]  -> echo-match
+[07-15 20:45:12] SSE evt idx=4 on= 0 bri= 0.00 ct=+382  cacheBefore[on=1 bri=31.62 ct=397]  -> echo-match
+[07-15 20:45:12] setLight(Floor) → HTTP 200
+[07-15 20:45:13] setLight(Dresser) → HTTP 200
+[07-15 20:45:13] Bulbs updated.
+[07-15 20:45:14] SSE evt idx=1 on=+1 bri= 0.00 ct= 0  cacheBefore[on=0 bri=53.75 ct=348]  -> echo-match
+[07-15 20:45:14] SSE evt idx=1 on= 0 bri=+31.62 ct= 0  cacheBefore[on=1 bri=53.75 ct=348]  -> echo-match
+[07-15 20:45:14] SSE evt idx=1 on= 0 bri= 0.00 ct=+382  cacheBefore[on=1 bri=31.62 ct=348]  -> echo-match
+[07-15 20:45:34] [8:45:30PM] Wednesday [NORMAL]
+[07-15 20:45:34] sse stack free=6944 heap free=8582971
+[07-15 20:45:36] Lux: 1.9 → bri=39.6%, ct=370
+[07-15 20:45:38] setLight(Floor) → HTTP 200
+[07-15 20:45:38] SSE evt idx=4 on= 0 bri=+39.53 ct= 0  cacheBefore[on=1 bri=31.62 ct=382]  -> echo-match
+[07-15 20:45:38] SSE evt idx=4 on= 0 bri= 0.00 ct=+370  cacheBefore[on=1 bri=39.53 ct=382]  -> echo-match
+[07-15 20:45:39] setLight(Dresser) → HTTP 200
+[07-15 20:45:39] Bulbs updated.
+[07-15 20:45:40] SSE evt idx=1 on= 0 bri=+39.53 ct= 0  cacheBefore[on=1 bri=31.62 ct=382]  -> echo-match
+[07-15 20:45:40] SSE evt idx=1 on= 0 bri= 0.00 ct=+370  cacheBefore[on=1 bri=39.53 ct=382]  -> echo-match
+[07-15 20:46:04] [8:46:00PM] Wednesday [NORMAL]
+[07-15 20:46:04] sse stack free=6944 heap free=8582971
+[07-15 20:46:06] Lux: 2.8 → bri=44.0%, ct=363
+[07-15 20:46:09] setLight(Floor) → HTTP 200
+[07-15 20:46:09] SSE evt idx=4 on= 0 bri=+43.87 ct= 0  cacheBefore[on=1 bri=39.53 ct=370]  -> echo-match
+[07-15 20:46:09] SSE evt idx=4 on= 0 bri= 0.00 ct=+363  cacheBefore[on=1 bri=43.87 ct=370]  -> echo-match
+[07-15 20:46:10] setLight(Dresser) → HTTP 200
+[07-15 20:46:10] Bulbs updated.
+[07-15 20:46:11] SSE evt idx=1 on= 0 bri=+43.87 ct= 0  cacheBefore[on=1 bri=39.53 ct=370]  -> echo-match
+[07-15 20:46:11] SSE evt idx=1 on= 0 bri= 0.00 ct=+363  cacheBefore[on=1 bri=43.87 ct=370]  -> echo-match
+[07-15 20:46:34] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-15 20:46:34] [8:46:29PM] Wednesday [NORMAL]
+[07-15 20:46:34] sse stack free=6944 heap free=8582959
+[07-15 20:46:35] Lux: 3.5 → bri=46.4%, ct=360
+[07-15 20:46:37] SSE evt idx=4 on= 0 bri=+46.25 ct= 0  cacheBefore[on=1 bri=43.87 ct=363]  -> echo-match
+[07-15 20:46:37] SSE evt idx=4 on= 0 bri= 0.00 ct=+360  cacheBefore[on=1 bri=46.25 ct=363]  -> echo-match
+[07-15 20:46:37] setLight(Floor) → HTTP 200
+[07-15 20:46:39] setLight(Dresser) → HTTP 200
+[07-15 20:46:39] Bulbs updated.
+[07-15 20:46:39] SSE evt idx=1 on= 0 bri=+46.25 ct= 0  cacheBefore[on=1 bri=43.87 ct=363]  -> echo-match
+[07-15 20:46:39] SSE evt idx=1 on= 0 bri= 0.00 ct=+360  cacheBefore[on=1 bri=46.25 ct=363]  -> echo-match
+[07-15 20:47:05] [8:47:01PM] Wednesday [NORMAL]
+[07-15 20:47:05] sse stack free=6944 heap free=8582975
+[07-15 20:47:06] Lux: 3.9 → bri=47.7%, ct=358
+[07-15 20:47:09] setLight(Floor) → HTTP 200
+[07-15 20:47:09] SSE evt idx=4 on= 0 bri=+47.83 ct= 0  cacheBefore[on=1 bri=46.25 ct=360]  -> echo-match
+[07-15 20:47:09] SSE evt idx=4 on= 0 bri= 0.00 ct=+358  cacheBefore[on=1 bri=47.83 ct=360]  -> echo-match
+[07-15 20:47:10] SSE evt idx=4 on= 0 bri= 0.00 ct=+359  cacheBefore[on=1 bri=47.83 ct=358]  -> echo-match
+[07-15 20:47:10] setLight(Dresser) → HTTP 200
+[07-15 20:47:10] Bulbs updated.
+[07-15 20:47:11] SSE evt idx=1 on= 0 bri=+47.83 ct= 0  cacheBefore[on=1 bri=46.25 ct=360]  -> echo-match
+[07-15 20:47:11] SSE evt idx=1 on= 0 bri= 0.00 ct=+358  cacheBefore[on=1 bri=47.83 ct=360]  -> echo-match
+[07-15 20:47:20] SSE evt idx=4 on= 0 bri= 0.00 ct=+358  cacheBefore[on=1 bri=47.83 ct=359]  -> noop-echo
+[07-15 20:47:35] [8:47:31PM] Wednesday [NORMAL]
+[07-15 20:47:35] sse stack free=6944 heap free=8582975
+[07-15 20:47:36] Lux: 4.1 → bri=48.3%, ct=357
+[07-15 20:47:38] No change — skipping PUT.
+[07-15 20:48:04] [8:48:00PM] Wednesday [NORMAL]
+[07-15 20:48:04] sse stack free=6944 heap free=8583011
+[07-15 20:48:05] Lux: 4.1 → bri=48.3%, ct=357
+[07-15 20:48:06] No change — skipping PUT.
+[07-15 20:48:35] [8:48:31PM] Wednesday [NORMAL]
+[07-15 20:48:35] sse stack free=6944 heap free=8583175
+[07-15 20:48:36] Lux: 4.0 → bri=48.1%, ct=357
+[07-15 20:48:37] No change — skipping PUT.
+[07-15 20:49:05] [8:49:01PM] Wednesday [NORMAL]
+[07-15 20:49:05] sse stack free=6944 heap free=8583871
+[07-15 20:49:06] Lux: 4.0 → bri=48.1%, ct=357
+[07-15 20:49:07] No change — skipping PUT.
+[07-15 20:49:34] [8:49:30PM] Wednesday [NORMAL]
+[07-15 20:49:34] sse stack free=6944 heap free=8584543
+[07-15 20:49:35] Lux: 4.0 → bri=48.1%, ct=357
+[07-15 20:49:37] No change — skipping PUT.
+[07-15 20:50:04] [8:50:00PM] Wednesday [NORMAL]
+[07-15 20:50:04] sse stack free=6944 heap free=8584543
+[07-15 20:50:05] Lux: 4.0 → bri=48.1%, ct=357
+[07-15 20:50:06] No change — skipping PUT.
+[07-15 20:50:35] [8:50:30PM] Wednesday [NORMAL]
+[07-15 20:50:35] sse stack free=6944 heap free=8584555
+[07-15 20:50:35] Lux: 4.0 → bri=48.1%, ct=357
+[07-15 20:50:37] No change — skipping PUT.

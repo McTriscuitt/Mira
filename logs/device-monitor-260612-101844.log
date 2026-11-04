@@ -1,0 +1,2731 @@
+[10:18:55AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584303
+Lux: 17.2 → bri=61.2%, ct=338
+setLight(Floor) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:19:25AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583631
+Lux: 42.4 → bri=66.4%, ct=330
+setLight(Floor) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:19:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583627
+Lux: 19.1 → bri=61.7%, ct=337
+setLight(Floor) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:20:25AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583403
+Lux: 24.9 → bri=63.1%, ct=335
+setLight(Floor) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:20:55AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583403
+Lux: 19.2 → bri=61.7%, ct=337
+setLight(Floor) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:21:25AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583411
+Lux: 40.6 → bri=66.1%, ct=330
+setLight(Floor) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:21:55AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583411
+Lux: 51.0 → bri=67.7%, ct=328
+setLight(Floor) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:22:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583411
+Lux: 47.8 → bri=67.3%, ct=328
+No change — skipping PUT.
+[10:22:55AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583411
+Lux: 387.4 → bri=70.8%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:23:25AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583411
+Lux: 453.6 → bri=75.4%, ct=316
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:23:55AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583263
+Lux: 492.1 → bri=82.8%, ct=305
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:24:24AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583067
+Lux: 603.6 → bri=71.8%, ct=322
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:24:54AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583239
+Lux: 451.6 → bri=75.1%, ct=317
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:25:25AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583215
+Lux: 488.2 → bri=81.8%, ct=307
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:25:55AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583211
+Lux: 604.1 → bri=71.8%, ct=322
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:26:25AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583211
+Lux: 466.4 → bri=77.3%, ct=313
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:26:55AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583211
+Lux: 506.5 → bri=69.2%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:27:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583215
+Lux: 404.0 → bri=71.3%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:27:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583067
+Lux: 416.3 → bri=72.0%, ct=321
+No change — skipping PUT.
+[10:28:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583067
+Lux: 419.7 → bri=72.2%, ct=321
+No change — skipping PUT.
+[10:28:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583067
+Lux: 421.7 → bri=72.3%, ct=321
+No change — skipping PUT.
+[10:29:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583515
+Lux: 419.7 → bri=72.2%, ct=321
+No change — skipping PUT.
+[10:29:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584639
+Lux: 416.3 → bri=72.0%, ct=321
+No change — skipping PUT.
+[10:30:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584635
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[10:30:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584635
+Lux: 413.8 → bri=71.8%, ct=322
+No change — skipping PUT.
+[10:31:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584635
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[10:31:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584635
+Lux: 408.4 → bri=71.5%, ct=322
+No change — skipping PUT.
+[10:32:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584639
+Lux: 410.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[10:32:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584639
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[10:33:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584635
+Lux: 410.9 → bri=71.7%, ct=322
+No change — skipping PUT.
+[10:33:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584631
+Lux: 412.9 → bri=71.8%, ct=322
+No change — skipping PUT.
+[10:34:25AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584631
+Lux: 412.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[10:34:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584631
+Lux: 416.3 → bri=72.0%, ct=321
+No change — skipping PUT.
+[10:35:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584635
+Lux: 416.3 → bri=72.0%, ct=321
+No change — skipping PUT.
+[10:35:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584631
+Lux: 417.3 → bri=72.0%, ct=321
+No change — skipping PUT.
+[10:36:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584631
+Lux: 420.2 → bri=72.2%, ct=321
+No change — skipping PUT.
+[10:36:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584631
+Lux: 415.3 → bri=71.9%, ct=321
+No change — skipping PUT.
+[10:37:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584631
+Lux: 419.2 → bri=72.1%, ct=321
+No change — skipping PUT.
+SSE: stale — reconnecting
+SSE: connected.
+[10:37:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584639
+Lux: 428.1 → bri=72.7%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:38:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583743
+Lux: 475.8 → bri=79.0%, ct=311
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:38:55AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 601.1 → bri=71.7%, ct=322
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:39:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 569.1 → bri=70.9%, ct=323
+No change — skipping PUT.
+[10:39:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 509.9 → bri=69.3%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:40:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 405.5 → bri=71.4%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:40:55AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583067
+Lux: 432.0 → bri=73.1%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:41:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583059
+Lux: 477.8 → bri=79.4%, ct=310
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:41:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583051
+Lux: 576.6 → bri=71.1%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:42:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583063
+Lux: 494.6 → bri=83.4%, ct=304
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:42:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582919
+Lux: 698.3 → bri=74.1%, ct=318
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:43:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 506.5 → bri=69.2%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:43:56AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 415.8 → bri=71.9%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:44:26AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 472.8 → bri=78.4%, ct=312
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:44:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 547.2 → bri=70.3%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:45:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 438.4 → bri=73.6%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:45:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 489.6 → bri=82.1%, ct=306
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:46:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 660.4 → bri=73.2%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:46:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 509.9 → bri=69.3%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:47:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 447.2 → bri=74.6%, ct=317
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:47:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582927
+Lux: 504.0 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:48:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 436.4 → bri=73.5%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:48:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583215
+Lux: 494.1 → bri=83.3%, ct=304
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:49:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583215
+Lux: 658.9 → bri=73.1%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:49:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583215
+Lux: 503.5 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:50:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583239
+Lux: 438.9 → bri=73.7%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:50:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583215
+Lux: 500.5 → bri=69.0%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:51:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583215
+Lux: 464.0 → bri=76.9%, ct=314
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:51:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 529.8 → bri=69.8%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:52:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583071
+Lux: 473.8 → bri=78.6%, ct=311
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:52:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583043
+Lux: 659.4 → bri=73.2%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:53:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583043
+Lux: 588.1 → bri=71.4%, ct=322
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:53:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583043
+Lux: 505.0 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:54:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 504.5 → bri=69.1%, ct=326
+No change — skipping PUT.
+[10:54:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 455.6 → bri=75.6%, ct=316
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[10:55:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 578.6 → bri=71.2%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:55:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 560.1 → bri=70.7%, ct=323
+No change — skipping PUT.
+[10:56:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 635.8 → bri=72.6%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:56:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 620.7 → bri=72.2%, ct=321
+No change — skipping PUT.
+[10:57:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 524.3 → bri=69.7%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:57:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 559.6 → bri=70.7%, ct=323
+No change — skipping PUT.
+[10:58:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 575.1 → bri=71.1%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[10:58:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 563.6 → bri=70.8%, ct=323
+No change — skipping PUT.
+[10:59:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 576.1 → bri=71.1%, ct=323
+No change — skipping PUT.
+[10:59:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583503
+Lux: 537.2 → bri=70.0%, ct=324
+No change — skipping PUT.
+[11:00:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583503
+Lux: 548.2 → bri=70.3%, ct=324
+No change — skipping PUT.
+[11:00:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584647
+Lux: 498.5 → bri=84.6%, ct=303
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:01:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583503
+Lux: 721.1 → bri=74.6%, ct=318
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+SSE stale revert — Floor reported pre-PUT values; queueing re-assert.
+Stale revert — re-asserting Floor to on=1 bri=74.6 ct=318
+setLight(Floor) → HTTP 200
+[11:01:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583051
+Lux: 573.6 → bri=71.0%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:02:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 525.3 → bri=69.7%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:02:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 504.5 → bri=69.1%, ct=326
+No change — skipping PUT.
+[11:03:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 473.8 → bri=78.6%, ct=311
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:03:57AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 584.1 → bri=71.3%, ct=322
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:04:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 531.8 → bri=69.9%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:04:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 512.4 → bri=69.4%, ct=325
+No change — skipping PUT.
+[11:05:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 451.6 → bri=75.1%, ct=317
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+SSE stale revert — Floor reported pre-PUT values; queueing re-assert.
+Stale revert — re-asserting Floor to on=1 bri=75.1 ct=317
+setLight(Floor) → HTTP 200
+[11:05:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 515.4 → bri=69.4%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:06:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 468.4 → bri=77.6%, ct=313
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:06:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 436.4 → bri=73.5%, ct=319
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:07:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 488.2 → bri=81.8%, ct=307
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:07:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 576.1 → bri=71.1%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:08:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 447.2 → bri=74.6%, ct=317
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:08:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 481.2 → bri=80.2%, ct=309
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:09:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 571.6 → bri=71.0%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:09:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 444.3 → bri=74.3%, ct=318
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:10:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 477.8 → bri=79.4%, ct=310
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:10:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 555.2 → bri=70.5%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:11:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 425.6 → bri=72.6%, ct=320
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:11:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 456.1 → bri=75.7%, ct=316
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:12:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583079
+Lux: 503.0 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:12:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 414.8 → bri=71.9%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:13:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 448.7 → bri=74.8%, ct=317
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:13:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 503.0 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:14:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 438.9 → bri=73.7%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:14:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 477.3 → bri=79.3%, ct=310
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:15:27AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 560.6 → bri=70.7%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:15:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 433.0 → bri=73.1%, ct=320
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:16:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 459.0 → bri=76.1%, ct=315
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:16:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 506.0 → bri=69.2%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:17:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 410.4 → bri=71.6%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:17:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 441.3 → bri=73.9%, ct=318
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:18:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 503.0 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:18:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 420.2 → bri=72.2%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:19:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 490.6 → bri=82.4%, ct=306
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:19:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 618.7 → bri=72.2%, ct=321
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:20:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 464.5 → bri=77.0%, ct=314
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:20:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 554.2 → bri=70.5%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:21:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 456.6 → bri=75.8%, ct=316
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:21:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 555.2 → bri=70.5%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:22:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 467.9 → bri=77.5%, ct=313
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:22:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 580.1 → bri=71.2%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:23:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 448.7 → bri=74.8%, ct=317
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:23:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583031
+Lux: 514.9 → bri=69.4%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:24:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 424.1 → bri=72.5%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:24:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 467.4 → bri=77.5%, ct=313
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:25:28AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583051
+Lux: 574.6 → bri=71.0%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:25:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583051
+Lux: 476.3 → bri=79.1%, ct=311
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:26:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583051
+Lux: 561.1 → bri=70.7%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:26:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 433.9 → bri=73.2%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:27:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 465.9 → bri=77.2%, ct=314
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:27:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 530.8 → bri=69.9%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:28:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 420.7 → bri=72.2%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:28:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 453.6 → bri=75.4%, ct=316
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:29:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 502.0 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:29:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 418.2 → bri=72.1%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:30:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 456.6 → bri=75.8%, ct=316
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:30:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583079
+Lux: 513.9 → bri=69.4%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:31:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 452.6 → bri=75.2%, ct=316
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:31:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 505.0 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:32:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 444.3 → bri=74.3%, ct=318
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:32:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 513.4 → bri=69.4%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:33:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 449.2 → bri=74.8%, ct=317
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:33:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 516.4 → bri=69.5%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+SSE stale revert — Floor reported pre-PUT values; queueing re-assert.
+Stale revert — re-asserting Floor to on=1 bri=69.5 ct=325
+setLight(Floor) → HTTP 200
+[11:34:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 446.7 → bri=74.5%, ct=318
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:34:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 505.0 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:35:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 440.8 → bri=73.9%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:35:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 501.0 → bri=69.0%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:36:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 440.3 → bri=73.8%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:37:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583199
+Lux: 501.0 → bri=69.0%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:37:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 440.3 → bri=73.8%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:37:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 501.0 → bri=69.0%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:38:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 441.8 → bri=74.0%, ct=318
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:38:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 433.0 → bri=73.1%, ct=320
+No change — skipping PUT.
+[11:39:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 432.0 → bri=73.1%, ct=320
+No change — skipping PUT.
+[11:39:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583055
+Lux: 432.5 → bri=73.1%, ct=320
+No change — skipping PUT.
+[11:40:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583503
+Lux: 433.5 → bri=73.2%, ct=320
+No change — skipping PUT.
+[11:40:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584623
+Lux: 419.2 → bri=72.1%, ct=321
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:41:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583727
+Lux: 465.4 → bri=77.1%, ct=314
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:41:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 545.7 → bri=70.3%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:42:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 451.2 → bri=75.1%, ct=317
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:42:58AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 515.4 → bri=69.4%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:43:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582911
+Lux: 437.4 → bri=73.5%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:43:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582759
+Lux: 479.8 → bri=79.8%, ct=310
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:44:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582903
+Lux: 590.6 → bri=71.5%, ct=322
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:44:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 467.4 → bri=77.5%, ct=313
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:45:29AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 552.2 → bri=70.5%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:45:59AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 451.6 → bri=75.1%, ct=317
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:46:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 483.7 → bri=80.7%, ct=308
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:47:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 573.1 → bri=71.0%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:47:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 427.6 → bri=72.7%, ct=320
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:48:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 446.2 → bri=74.5%, ct=318
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:48:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 470.4 → bri=78.0%, ct=312
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:49:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582735
+Lux: 555.2 → bri=70.5%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:49:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 436.9 → bri=73.5%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:50:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583019
+Lux: 466.4 → bri=77.3%, ct=313
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:50:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583019
+Lux: 522.3 → bri=69.6%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:51:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583043
+Lux: 411.9 → bri=71.7%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:51:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583019
+Lux: 450.7 → bri=75.0%, ct=317
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:52:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583019
+Lux: 509.4 → bri=69.3%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:52:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583019
+Lux: 429.5 → bri=72.9%, ct=320
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:53:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 473.8 → bri=78.6%, ct=311
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:53:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 564.6 → bri=70.8%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:54:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 449.2 → bri=74.8%, ct=317
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:54:31AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 502.0 → bri=69.1%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:55:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 414.3 → bri=71.8%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:55:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 460.5 → bri=76.4%, ct=315
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:56:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 525.3 → bri=69.7%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[11:56:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 403.6 → bri=71.3%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[11:57:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 421.7 → bri=72.3%, ct=321
+No change — skipping PUT.
+[11:57:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 421.2 → bri=72.3%, ct=321
+No change — skipping PUT.
+[11:58:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 420.7 → bri=72.2%, ct=321
+No change — skipping PUT.
+[11:58:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8583347
+Lux: 419.7 → bri=72.2%, ct=321
+No change — skipping PUT.
+[11:59:00AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 417.8 → bri=72.0%, ct=321
+No change — skipping PUT.
+[11:59:30AM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 417.8 → bri=72.0%, ct=321
+No change — skipping PUT.
+[12:00:00PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 415.8 → bri=71.9%, ct=321
+No change — skipping PUT.
+[12:00:30PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 415.3 → bri=71.9%, ct=321
+No change — skipping PUT.
+[12:01:00PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 414.8 → bri=71.9%, ct=322
+No change — skipping PUT.
+[12:01:29PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 414.8 → bri=71.9%, ct=322
+No change — skipping PUT.
+[12:01:59PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 414.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[12:02:30PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 413.8 → bri=71.8%, ct=322
+No change — skipping PUT.
+[12:03:00PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584439
+Lux: 412.9 → bri=71.8%, ct=322
+No change — skipping PUT.
+[12:03:30PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584439
+Lux: 413.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[12:04:00PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584439
+Lux: 413.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[12:04:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584439
+Lux: 414.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[12:05:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 415.3 → bri=71.9%, ct=321
+No change — skipping PUT.
+[12:05:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 415.3 → bri=71.9%, ct=321
+No change — skipping PUT.
+[12:06:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 416.3 → bri=72.0%, ct=321
+No change — skipping PUT.
+[12:06:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584443
+Lux: 417.3 → bri=72.0%, ct=321
+No change — skipping PUT.
+SSE: stale — reconnecting
+SSE: connected.
+[12:07:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584451
+Lux: 417.8 → bri=72.0%, ct=321
+No change — skipping PUT.
+[12:07:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584451
+Lux: 418.7 → bri=72.1%, ct=321
+No change — skipping PUT.
+[12:08:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584451
+Lux: 419.2 → bri=72.1%, ct=321
+No change — skipping PUT.
+[12:08:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584451
+Lux: 420.2 → bri=72.2%, ct=321
+No change — skipping PUT.
+[12:09:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584451
+Lux: 421.2 → bri=72.3%, ct=321
+No change — skipping PUT.
+[12:09:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584451
+Lux: 421.7 → bri=72.3%, ct=321
+No change — skipping PUT.
+[12:10:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584451
+Lux: 428.1 → bri=72.7%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:10:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583403
+Lux: 465.9 → bri=77.2%, ct=314
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:11:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 525.3 → bri=69.7%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:11:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 404.0 → bri=71.3%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:12:00PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 422.7 → bri=72.4%, ct=321
+No change — skipping PUT.
+[12:12:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 422.7 → bri=72.4%, ct=321
+No change — skipping PUT.
+[12:13:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 429.5 → bri=72.9%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:13:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 465.4 → bri=77.1%, ct=314
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:14:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 524.8 → bri=69.7%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:14:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 423.6 → bri=72.4%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:15:00PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 457.6 → bri=75.9%, ct=315
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:15:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 501.0 → bri=69.0%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:16:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 395.7 → bri=71.0%, ct=323
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:16:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582727
+Lux: 419.7 → bri=72.2%, ct=321
+No change — skipping PUT.
+[12:17:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582759
+Lux: 419.7 → bri=72.2%, ct=321
+No change — skipping PUT.
+[12:17:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582731
+Lux: 420.7 → bri=72.2%, ct=321
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:18:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 437.9 → bri=73.6%, ct=319
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:18:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583023
+Lux: 455.6 → bri=75.6%, ct=316
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:19:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 487.7 → bri=81.6%, ct=307
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:19:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 581.6 → bri=71.2%, ct=322
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:20:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 427.1 → bri=72.7%, ct=320
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:20:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 448.2 → bri=74.7%, ct=317
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:21:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 493.6 → bri=83.2%, ct=305
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:21:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 620.7 → bri=72.2%, ct=321
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:22:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 457.6 → bri=75.9%, ct=315
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:22:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 494.6 → bri=83.4%, ct=304
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:23:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 628.7 → bri=72.4%, ct=321
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:23:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 438.9 → bri=73.7%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:24:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 453.1 → bri=75.3%, ct=316
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:24:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582895
+Lux: 482.7 → bri=80.5%, ct=309
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:25:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 562.6 → bri=70.7%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:25:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 417.8 → bri=72.0%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:26:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582739
+Lux: 432.5 → bri=73.1%, ct=320
+No change — skipping PUT.
+[12:26:31PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582739
+Lux: 433.9 → bri=73.2%, ct=319
+No change — skipping PUT.
+[12:27:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582739
+Lux: 436.9 → bri=73.5%, ct=319
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:27:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 470.9 → bri=78.1%, ct=312
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:28:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 546.2 → bri=70.3%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:28:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 417.8 → bri=72.0%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:29:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 451.2 → bri=75.1%, ct=317
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:29:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 495.1 → bri=83.6%, ct=304
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:30:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8580555
+Lux: 638.3 → bri=72.6%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:30:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 464.9 → bri=77.0%, ct=314
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:31:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 524.3 → bri=69.7%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:31:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582883
+Lux: 414.3 → bri=71.8%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:32:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582731
+Lux: 441.8 → bri=74.0%, ct=318
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:32:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 473.3 → bri=78.5%, ct=312
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:33:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 530.8 → bri=69.9%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:33:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 406.0 → bri=71.4%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:34:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 424.6 → bri=72.5%, ct=321
+No change — skipping PUT.
+[12:34:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 424.6 → bri=72.5%, ct=321
+No change — skipping PUT.
+[12:35:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583027
+Lux: 424.6 → bri=72.5%, ct=321
+No change — skipping PUT.
+[12:35:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583475
+Lux: 433.5 → bri=73.2%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:36:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583703
+Lux: 462.5 → bri=76.7%, ct=314
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:36:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583023
+Lux: 516.9 → bri=69.5%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:37:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583023
+Lux: 416.8 → bri=72.0%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:37:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 446.7 → bri=74.5%, ct=318
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:38:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 446.7 → bri=74.5%, ct=318
+No change — skipping PUT.
+[12:38:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582879
+Lux: 445.7 → bri=74.4%, ct=318
+No change — skipping PUT.
+[12:39:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582903
+Lux: 444.8 → bri=74.3%, ct=318
+No change — skipping PUT.
+[12:39:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583555
+Lux: 445.3 → bri=74.4%, ct=318
+No change — skipping PUT.
+[12:40:01PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584451
+Lux: 431.5 → bri=73.0%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:40:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583555
+Lux: 461.0 → bri=76.4%, ct=315
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:41:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 508.4 → bri=69.2%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:41:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 410.9 → bri=71.7%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:42:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 439.8 → bri=73.8%, ct=319
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:42:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 460.5 → bri=76.4%, ct=315
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:43:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582871
+Lux: 499.5 → bri=84.9%, ct=302
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:43:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 650.9 → bri=72.9%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:44:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582731
+Lux: 445.3 → bri=74.4%, ct=318
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:44:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 478.8 → bri=79.6%, ct=310
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:45:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582851
+Lux: 560.1 → bri=70.7%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:45:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 435.9 → bri=73.4%, ct=319
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:46:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 452.1 → bri=75.2%, ct=317
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:46:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 474.8 → bri=78.8%, ct=311
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:47:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 536.7 → bri=70.0%, ct=324
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:47:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 422.2 → bri=72.3%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:48:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 449.2 → bri=74.8%, ct=317
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:48:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 466.4 → bri=77.3%, ct=313
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:49:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582731
+Lux: 508.4 → bri=69.2%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:49:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582863
+Lux: 409.4 → bri=71.6%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:50:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583007
+Lux: 436.4 → bri=73.5%, ct=319
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:50:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583007
+Lux: 463.5 → bri=76.8%, ct=314
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:51:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583007
+Lux: 509.4 → bri=69.3%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:51:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583007
+Lux: 408.0 → bri=71.5%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:52:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583019
+Lux: 434.4 → bri=73.3%, ct=319
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:52:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583019
+Lux: 458.0 → bri=76.0%, ct=315
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:53:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 498.5 → bri=84.6%, ct=303
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:53:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 639.3 → bri=72.7%, ct=320
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:54:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 458.0 → bri=76.0%, ct=315
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:54:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582847
+Lux: 501.5 → bri=69.0%, ct=326
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+SSE stale revert — Floor reported pre-PUT values; queueing re-assert.
+Stale revert — re-asserting Floor to on=1 bri=69.0 ct=326
+setLight(Floor) → HTTP 200
+[12:55:02PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 410.9 → bri=71.7%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:55:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 439.4 → bri=73.7%, ct=319
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:56:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582899
+Lux: 467.9 → bri=77.5%, ct=313
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:56:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582875
+Lux: 526.3 → bri=69.7%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[12:57:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582863
+Lux: 418.7 → bri=72.1%, ct=321
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[12:57:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582719
+Lux: 414.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[12:58:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582719
+Lux: 413.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[12:58:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582731
+Lux: 399.6 → bri=71.2%, ct=323
+No change — skipping PUT.
+[12:59:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8583179
+Lux: 397.2 → bri=71.1%, ct=323
+No change — skipping PUT.
+[12:59:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584299
+Lux: 411.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:00:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584307
+Lux: 411.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:00:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584307
+Lux: 411.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:01:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584307
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:01:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584307
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:02:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584311
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:02:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584311
+Lux: 408.4 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:03:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8584311
+Lux: 408.4 → bri=71.5%, ct=322
+No change — skipping PUT.
+SSE: connect failed
+[1:03:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8620355
+Lux: 407.5 → bri=71.5%, ct=322
+No change — skipping PUT.
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+[1:04:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8621119
+Lux: 407.5 → bri=71.5%, ct=322
+No change — skipping PUT.
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+[1:04:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8621119
+Lux: 407.0 → bri=71.5%, ct=322
+No change — skipping PUT.
+SSE: connect failed
+SSE: connect failed
+SSE: connect failed
+SSE: connected.
+[1:05:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 397.7 → bri=71.1%, ct=323
+No change — skipping PUT.
+[1:05:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 404.0 → bri=71.3%, ct=322
+No change — skipping PUT.
+[1:06:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 407.0 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:06:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.5 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:07:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.5 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:07:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.0 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:08:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.0 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:08:32PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.0 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:09:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582031
+Lux: 405.0 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:09:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.5 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:10:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.0 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:10:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.5 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:11:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8581763
+Lux: 407.0 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:11:33PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.5 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:12:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.5 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:12:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.5 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:13:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.0 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:13:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.0 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:14:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 407.0 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:14:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 406.5 → bri=71.4%, ct=322
+No change — skipping PUT.
+[1:15:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 407.0 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:15:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 408.0 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:16:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 408.4 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:16:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:17:05PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:17:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:18:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 410.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:18:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:19:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:19:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:20:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582063
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:20:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582063
+Lux: 410.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:21:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582063
+Lux: 410.9 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:21:35PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582063
+Lux: 410.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:22:05PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 411.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:22:35PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 410.9 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:23:05PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:23:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:24:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:24:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:25:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582091
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:25:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 400.1 → bri=71.2%, ct=323
+No change — skipping PUT.
+[1:26:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:26:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:27:03PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 408.4 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:27:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 408.4 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:28:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:28:35PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582031
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:29:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:29:34PM] Friday [NORMAL]
+sse stack free=7432 heap free=8582067
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+SSE: stale — reconnecting
+[1:30:04PM] Friday [NORMAL]
+sse stack free=7432 heap free=8576119
+Lux: 409.4 → bri=71.6%, ct=322
+SSE: connected.
+No change — skipping PUT.
+[1:30:34PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582047
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:31:04PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582047
+Lux: 409.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:31:33PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582047
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:32:04PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:32:34PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:33:04PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:33:34PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:34:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:34:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 409.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:35:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 410.4 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:35:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 411.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:36:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 411.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:36:36PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 412.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:37:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 412.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:37:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 413.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[1:38:06PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 413.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[1:38:36PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 413.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[1:39:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 412.9 → bri=71.8%, ct=322
+No change — skipping PUT.
+[1:39:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582079
+Lux: 413.3 → bri=71.8%, ct=322
+No change — skipping PUT.
+[1:40:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+SSE: stale — reconnecting
+Lux: 411.9 → bri=71.7%, ct=322
+SSE: connected.
+No change — skipping PUT.
+[1:40:34PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582051
+Lux: 411.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:41:04PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582051
+Lux: 411.9 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:41:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582051
+Lux: 411.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:42:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582047
+Lux: 411.4 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:42:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582043
+Lux: 394.3 → bri=71.0%, ct=323
+No change — skipping PUT.
+[1:43:04PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582043
+Lux: 392.8 → bri=70.9%, ct=323
+No change — skipping PUT.
+[1:43:34PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582043
+Lux: 394.3 → bri=71.0%, ct=323
+No change — skipping PUT.
+[1:44:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582047
+Lux: 394.3 → bri=71.0%, ct=323
+No change — skipping PUT.
+[1:44:34PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582051
+Lux: 396.2 → bri=71.0%, ct=323
+No change — skipping PUT.
+[1:45:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582043
+Lux: 411.9 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:45:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582043
+Lux: 401.6 → bri=71.2%, ct=322
+No change — skipping PUT.
+[1:46:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582043
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:46:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582043
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:47:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582051
+Lux: 403.6 → bri=71.3%, ct=322
+No change — skipping PUT.
+[1:47:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582051
+Lux: 408.4 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:48:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582043
+Lux: 408.4 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:48:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582047
+Lux: 408.0 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:49:06PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582047
+Lux: 408.9 → bri=71.6%, ct=322
+No change — skipping PUT.
+[1:49:36PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582047
+Lux: 408.0 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:50:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 408.0 → bri=71.5%, ct=322
+SSE: stale — reconnecting
+No change — skipping PUT.
+SSE: connected.
+[1:50:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582059
+Lux: 404.0 → bri=71.3%, ct=322
+No change — skipping PUT.
+[1:51:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582059
+Lux: 393.3 → bri=70.9%, ct=323
+No change — skipping PUT.
+[1:51:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8582055
+Lux: 390.4 → bri=70.8%, ct=323
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:52:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8581295
+Lux: 408.4 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:52:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8581295
+Lux: 416.3 → bri=72.0%, ct=321
+No change — skipping PUT.
+[1:53:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8581295
+Lux: 421.2 → bri=72.3%, ct=321
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:53:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580627
+Lux: 445.7 → bri=74.4%, ct=318
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:54:06PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580627
+Lux: 473.3 → bri=78.5%, ct=312
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:54:36PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580627
+Lux: 520.4 → bri=69.6%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[1:55:05PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580627
+Lux: 393.3 → bri=70.9%, ct=323
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:55:35PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580627
+Lux: 410.9 → bri=71.7%, ct=322
+No change — skipping PUT.
+[1:56:06PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580627
+Lux: 407.0 → bri=71.5%, ct=322
+No change — skipping PUT.
+[1:56:36PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580627
+Lux: 423.1 → bri=72.4%, ct=321
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:57:06PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580635
+Lux: 442.8 → bri=74.1%, ct=318
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:57:36PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580635
+Lux: 468.4 → bri=77.6%, ct=313
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:58:06PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580635
+Lux: 521.3 → bri=69.6%, ct=325
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+setLight(Ceiling_1) → HTTP 200
+Bulbs updated.
+[1:58:36PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580519
+Lux: 412.9 → bri=71.8%, ct=322
+setLight(Ceiling_1) → HTTP 200
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:59:06PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580631
+Lux: 439.8 → bri=73.8%, ct=319
+setLight(Floor) → HTTP 200
+setLight(Chest) → HTTP 200
+setLight(Dresser) → HTTP 200
+Bulbs updated.
+[1:59:36PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580775
+Lux: 439.4 → bri=73.7%, ct=319
+No change — skipping PUT.
+[2:00:06PM] Friday [NORMAL]
+sse stack free=7336 heap free=8580775
+Lux: 426.6 → bri=72.6%, ct=320
+No change — skipping PUT.

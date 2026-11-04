@@ -1,0 +1,253 @@
+--- soak logger started 2026-07-16 19:27:04 ---
+--- port opened 19:27:04 ---
+[07-16 19:27:04] No change — skipping PUT.
+[07-16 19:27:32] [7:27:30PM] Thursday [NORMAL]
+[07-16 19:27:32] sse stack free=10216 heap free=8585415
+[07-16 19:27:32] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:27:33] No change — skipping PUT.
+[07-16 19:28:02] [7:28:00PM] Thursday [NORMAL]
+[07-16 19:28:02] sse stack free=10216 heap free=8585403
+[07-16 19:28:02] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:28:04] No change — skipping PUT.
+[07-16 19:28:32] [7:28:30PM] Thursday [NORMAL]
+[07-16 19:28:32] sse stack free=10216 heap free=8585435
+[07-16 19:28:32] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:28:35] No change — skipping PUT.
+[07-16 19:29:02] [7:29:00PM] Thursday [NORMAL]
+[07-16 19:29:02] sse stack free=10216 heap free=8585399
+[07-16 19:29:02] Lux: 14.0 → bri=60.3%, ct=339
+[07-16 19:29:03] No change — skipping PUT.
+[07-16 19:29:32] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-16 19:29:32] [7:29:29PM] Thursday [NORMAL]
+[07-16 19:29:32] sse stack free=10216 heap free=8585399
+[07-16 19:29:32] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:29:34] No change — skipping PUT.
+[07-16 19:30:03] [7:30:01PM] Thursday [NORMAL]
+[07-16 19:30:03] sse stack free=10216 heap free=8585411
+[07-16 19:30:03] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:30:05] No change — skipping PUT.
+[07-16 19:30:32] [7:30:30PM] Thursday [NORMAL]
+[07-16 19:30:32] sse stack free=10216 heap free=8585411
+[07-16 19:30:32] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:30:35] No change — skipping PUT.
+[07-16 19:31:02] [7:31:00PM] Thursday [NORMAL]
+[07-16 19:31:02] sse stack free=10216 heap free=8585415
+[07-16 19:31:02] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:31:04] No change — skipping PUT.
+[07-16 19:31:07] SSE: stale — reconnecting
+[07-16 19:31:08] SSE: connected.
+[07-16 19:31:32] [7:31:30PM] Thursday [NORMAL]
+[07-16 19:31:32] sse stack free=7028 heap free=8585159
+[07-16 19:31:33] Lux: 13.6 → bri=60.2%, ct=339
+[07-16 19:31:33] No change — skipping PUT.
+[07-16 19:32:02] [7:32:00PM] Thursday [NORMAL]
+[07-16 19:32:02] sse stack free=7028 heap free=8585159
+[07-16 19:32:03] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:32:03] No change — skipping PUT.
+[07-16 19:32:32] [7:32:30PM] Thursday [NORMAL]
+[07-16 19:32:32] sse stack free=7028 heap free=8585159
+[07-16 19:32:33] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:32:35] No change — skipping PUT.
+[07-16 19:33:02] [7:33:00PM] Thursday [NORMAL]
+[07-16 19:33:02] sse stack free=7028 heap free=8585159
+[07-16 19:33:03] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:33:04] No change — skipping PUT.
+[07-16 19:33:32] [7:33:31PM] Thursday [NORMAL]
+[07-16 19:33:32] sse stack free=7028 heap free=8585375
+[07-16 19:33:33] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:33:35] No change — skipping PUT.
+[07-16 19:34:02] [7:34:01PM] Thursday [NORMAL]
+[07-16 19:34:02] sse stack free=7028 heap free=8585375
+[07-16 19:34:03] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:34:05] No change — skipping PUT.
+[07-16 19:34:31] [7:34:30PM] Thursday [NORMAL]
+[07-16 19:34:31] sse stack free=7028 heap free=8585375
+[07-16 19:34:32] Lux: 14.0 → bri=60.3%, ct=339
+[07-16 19:34:34] No change — skipping PUT.
+[07-16 19:35:01] [7:35:00PM] Thursday [NORMAL]
+[07-16 19:35:01] sse stack free=7028 heap free=8585375
+[07-16 19:35:02] Lux: 14.0 → bri=60.3%, ct=339
+[07-16 19:35:04] No change — skipping PUT.
+[07-16 19:35:31] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-16 19:35:31] [7:35:29PM] Thursday [NORMAL]
+[07-16 19:35:31] sse stack free=7028 heap free=8585375
+[07-16 19:35:32] Lux: 14.0 → bri=60.3%, ct=339
+[07-16 19:35:33] No change — skipping PUT.
+[07-16 19:36:02] [7:36:01PM] Thursday [NORMAL]
+[07-16 19:36:02] sse stack free=7028 heap free=8585375
+[07-16 19:36:03] Lux: 13.6 → bri=60.2%, ct=339
+[07-16 19:36:05] No change — skipping PUT.
+[07-16 19:36:31] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-16 19:36:31] [7:36:29PM] Thursday [NORMAL]
+[07-16 19:36:31] sse stack free=7028 heap free=8585375
+[07-16 19:36:32] Lux: 14.0 → bri=60.3%, ct=339
+[07-16 19:36:33] No change — skipping PUT.
+[07-16 19:37:02] [7:37:01PM] Thursday [NORMAL]
+[07-16 19:37:02] sse stack free=7028 heap free=8585375
+[07-16 19:37:03] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:37:05] No change — skipping PUT.
+[07-16 19:37:31] [7:37:30PM] Thursday [NORMAL]
+[07-16 19:37:31] sse stack free=7028 heap free=8585375
+[07-16 19:37:32] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:37:33] No change — skipping PUT.
+[07-16 19:38:01] [7:38:00PM] Thursday [NORMAL]
+[07-16 19:38:01] sse stack free=7028 heap free=8585375
+[07-16 19:38:02] Lux: 14.2 → bri=60.3%, ct=339
+[07-16 19:38:03] No change — skipping PUT.
+[07-16 19:38:32] [7:38:30PM] Thursday [NORMAL]
+[07-16 19:38:32] sse stack free=7028 heap free=8585375
+[07-16 19:38:32] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:38:34] No change — skipping PUT.
+[07-16 19:39:01] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-16 19:39:01] [7:38:59PM] Thursday [NORMAL]
+[07-16 19:39:01] sse stack free=7028 heap free=8585375
+[07-16 19:39:02] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:39:04] No change — skipping PUT.
+[07-16 19:39:33] [7:39:31PM] Thursday [NORMAL]
+[07-16 19:39:33] sse stack free=7028 heap free=8585383
+[07-16 19:39:33] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:39:35] No change — skipping PUT.
+[07-16 19:40:01] [7:40:00PM] Thursday [NORMAL]
+[07-16 19:40:01] sse stack free=7028 heap free=8585359
+[07-16 19:40:02] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:40:03] No change — skipping PUT.
+[07-16 19:40:31] [7:40:30PM] Thursday [NORMAL]
+[07-16 19:40:31] sse stack free=7028 heap free=8585419
+[07-16 19:40:32] Lux: 13.8 → bri=60.2%, ct=339
+[07-16 19:40:34] No change — skipping PUT.
+[07-16 19:41:02] [7:41:00PM] Thursday [NORMAL]
+[07-16 19:41:02] sse stack free=7028 heap free=8585371
+[07-16 19:41:02] Lux: 14.0 → bri=60.3%, ct=339
+[07-16 19:41:04] No change — skipping PUT.
+[07-16 19:41:09] SSE: stale — reconnecting
+[07-16 19:41:10] SSE: connected.
+[07-16 19:41:31] [7:41:30PM] Thursday [NORMAL]
+[07-16 19:41:31] sse stack free=7028 heap free=8585167
+[07-16 19:41:32] Lux: 13.8 → bri=60.2%, ct=339
+[07-16 19:41:34] No change — skipping PUT.
+[07-16 19:42:02] [7:42:00PM] Thursday [NORMAL]
+[07-16 19:42:02] sse stack free=7028 heap free=8585167
+[07-16 19:42:02] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:42:04] No change — skipping PUT.
+[07-16 19:42:31] [7:42:30PM] Thursday [NORMAL]
+[07-16 19:42:31] sse stack free=7028 heap free=8585167
+[07-16 19:42:32] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:42:34] No change — skipping PUT.
+[07-16 19:43:01] [7:43:00PM] Thursday [NORMAL]
+[07-16 19:43:01] sse stack free=7028 heap free=8585167
+[07-16 19:43:02] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:43:04] No change — skipping PUT.
+[07-16 19:43:31] [7:43:30PM] Thursday [NORMAL]
+[07-16 19:43:31] sse stack free=7028 heap free=8585391
+[07-16 19:43:32] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:43:33] No change — skipping PUT.
+[07-16 19:44:02] [7:44:00PM] Thursday [NORMAL]
+[07-16 19:44:02] sse stack free=7028 heap free=8585391
+[07-16 19:44:02] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:44:04] No change — skipping PUT.
+[07-16 19:44:31] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-16 19:44:31] [7:44:29PM] Thursday [NORMAL]
+[07-16 19:44:31] sse stack free=7028 heap free=8585391
+[07-16 19:44:32] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:44:34] No change — skipping PUT.
+[07-16 19:45:03] [7:45:01PM] Thursday [NORMAL]
+[07-16 19:45:03] sse stack free=7028 heap free=8585391
+[07-16 19:45:03] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:45:05] No change — skipping PUT.
+[07-16 19:45:33] [7:45:31PM] Thursday [NORMAL]
+[07-16 19:45:33] sse stack free=7028 heap free=8585391
+[07-16 19:45:33] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:45:35] No change — skipping PUT.
+[07-16 19:46:02] [7:46:00PM] Thursday [NORMAL]
+[07-16 19:46:02] sse stack free=7028 heap free=8585391
+[07-16 19:46:02] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:46:04] No change — skipping PUT.
+[07-16 19:46:32] [7:46:30PM] Thursday [NORMAL]
+[07-16 19:46:32] sse stack free=7028 heap free=8585391
+[07-16 19:46:32] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:46:33] No change — skipping PUT.
+[07-16 19:47:02] [7:47:00PM] Thursday [NORMAL]
+[07-16 19:47:02] sse stack free=7028 heap free=8585391
+[07-16 19:47:02] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:47:04] No change — skipping PUT.
+[07-16 19:47:32] [7:47:30PM] Thursday [NORMAL]
+[07-16 19:47:32] sse stack free=7028 heap free=8585391
+[07-16 19:47:32] Lux: 13.8 → bri=60.2%, ct=339
+[07-16 19:47:34] No change — skipping PUT.
+[07-16 19:48:02] [7:48:00PM] Thursday [NORMAL]
+[07-16 19:48:02] sse stack free=7028 heap free=8585391
+[07-16 19:48:02] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:48:04] No change — skipping PUT.
+[07-16 19:48:32] [7:48:30PM] Thursday [NORMAL]
+[07-16 19:48:32] sse stack free=7028 heap free=8585391
+[07-16 19:48:32] Lux: 13.8 → bri=60.2%, ct=339
+[07-16 19:48:33] No change — skipping PUT.
+[07-16 19:49:02] [7:49:00PM] Thursday [NORMAL]
+[07-16 19:49:02] sse stack free=7028 heap free=8585391
+[07-16 19:49:02] Lux: 13.8 → bri=60.2%, ct=339
+[07-16 19:49:05] No change — skipping PUT.
+[07-16 19:49:32] [7:49:30PM] Thursday [NORMAL]
+[07-16 19:49:32] sse stack free=7028 heap free=8585391
+[07-16 19:49:32] Lux: 13.8 → bri=60.2%, ct=339
+[07-16 19:49:33] No change — skipping PUT.
+[07-16 19:50:02] [7:50:00PM] Thursday [NORMAL]
+[07-16 19:50:02] sse stack free=7028 heap free=8585391
+[07-16 19:50:02] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:50:05] No change — skipping PUT.
+[07-16 19:50:32] [7:50:30PM] Thursday [NORMAL]
+[07-16 19:50:32] sse stack free=7028 heap free=8585391
+[07-16 19:50:33] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:50:34] No change — skipping PUT.
+[07-16 19:51:02] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-16 19:51:02] [7:50:59PM] Thursday [NORMAL]
+[07-16 19:51:02] sse stack free=7028 heap free=8585387
+[07-16 19:51:02] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:51:04] No change — skipping PUT.
+[07-16 19:51:11] SSE: stale — reconnecting
+[07-16 19:51:13] SSE: connected.
+[07-16 19:51:33] [7:51:31PM] Thursday [NORMAL]
+[07-16 19:51:33] sse stack free=7028 heap free=8585139
+[07-16 19:51:34] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:51:35] No change — skipping PUT.
+[07-16 19:52:03] [7:52:01PM] Thursday [NORMAL]
+[07-16 19:52:03] sse stack free=7028 heap free=8585139
+[07-16 19:52:04] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:52:05] No change — skipping PUT.
+[07-16 19:52:32] [7:52:30PM] Thursday [NORMAL]
+[07-16 19:52:32] sse stack free=7028 heap free=8585127
+[07-16 19:52:33] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:52:34] No change — skipping PUT.
+[07-16 19:53:02] [7:53:00PM] Thursday [NORMAL]
+[07-16 19:53:02] sse stack free=7028 heap free=8585131
+[07-16 19:53:03] Lux: 14.0 → bri=60.3%, ct=339
+[07-16 19:53:04] No change — skipping PUT.
+[07-16 19:53:32] Tick align: 1000 ms to boundary — just-fired tick claims it, skipping ahead.
+[07-16 19:53:32] [7:53:29PM] Thursday [NORMAL]
+[07-16 19:53:32] sse stack free=7028 heap free=8585347
+[07-16 19:53:33] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:53:35] No change — skipping PUT.
+[07-16 19:54:03] [7:54:01PM] Thursday [NORMAL]
+[07-16 19:54:03] sse stack free=7028 heap free=8585347
+[07-16 19:54:04] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:54:05] No change — skipping PUT.
+[07-16 19:54:33] [7:54:31PM] Thursday [NORMAL]
+[07-16 19:54:33] sse stack free=7028 heap free=8585359
+[07-16 19:54:34] Lux: 14.1 → bri=60.3%, ct=339
+[07-16 19:54:35] No change — skipping PUT.
+[07-16 19:55:02] [7:55:00PM] Thursday [NORMAL]
+[07-16 19:55:02] sse stack free=7028 heap free=8585347
+[07-16 19:55:03] Lux: 14.0 → bri=60.3%, ct=339
+[07-16 19:55:04] No change — skipping PUT.
+[07-16 19:55:32] [7:55:31PM] Thursday [NORMAL]
+[07-16 19:55:32] sse stack free=7028 heap free=8585355
+[07-16 19:55:33] Lux: 14.0 → bri=60.3%, ct=339
+[07-16 19:55:34] No change — skipping PUT.
+[07-16 19:56:02] [7:56:00PM] Thursday [NORMAL]
+[07-16 19:56:02] sse stack free=7028 heap free=8585355
+[07-16 19:56:03] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:56:04] No change — skipping PUT.
+[07-16 19:56:32] [7:56:30PM] Thursday [NORMAL]
+[07-16 19:56:32] sse stack free=7028 heap free=8585379
+[07-16 19:56:33] Lux: 13.9 → bri=60.3%, ct=339
+[07-16 19:56:35] Dashboard command: SOFT_PAUSE
+[07-16 19:56:35] forceState → SOFT_PAUSE

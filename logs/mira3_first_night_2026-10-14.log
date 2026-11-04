@@ -1,0 +1,395 @@
+--- soak logger started 2026-10-14 23:33:48 ---
+--- port opened 23:33:48 ---
+[10-14 23:33:49] SSE: connected.
+[10-14 23:33:49] SSE task started on core 0.
+[10-14 23:33:53] PUT Floor → 25.0% 392mk over 15.0s : 200
+[10-14 23:33:54] [11:33PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=1.5  heap=8523339 sse=10112
+[10-14 23:34:02] [11:34PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=1.8  heap=8516023 sse=10112
+[10-14 23:34:32] [11:34PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568119 sse=10112
+[10-14 23:35:02] [11:35PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8515083 sse=10112
+[10-14 23:35:32] [11:35PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8568287 sse=10112
+[10-14 23:36:02] [11:36PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568287 sse=10112
+[10-14 23:36:32] [11:36PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8568287 sse=10112
+[10-14 23:37:02] [11:37PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8568287 sse=10112
+[10-14 23:37:32] [11:37PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568287 sse=10112
+[10-14 23:38:02] [11:38PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568287 sse=10112
+[10-14 23:38:32] [11:38PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8518727 sse=10112
+[10-14 23:39:02] [11:39PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8521059 sse=10112
+[10-14 23:39:32] [11:39PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8517759 sse=10112
+[10-14 23:40:02] [11:40PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568287 sse=10112
+[10-14 23:40:32] [11:40PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8568319 sse=10112
+[10-14 23:41:02] [11:41PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8515091 sse=10112
+[10-14 23:41:32] [11:41PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8568287 sse=10112
+[10-14 23:42:02] [11:42PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8568287 sse=10112
+[10-14 23:42:32] [11:42PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568287 sse=10112
+[10-14 23:43:02] [11:43PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8515075 sse=10112
+[10-14 23:43:32] [11:43PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8565147 sse=10112
+[10-14 23:44:02] [11:44PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568287 sse=10112
+[10-14 23:44:14] SSE: stale — reconnecting
+[10-14 23:44:15] SSE: connected.
+[10-14 23:44:32] [11:44PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568203 sse=7008
+[10-14 23:45:02] [11:45PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8521871 sse=7008
+[10-14 23:45:32] [11:45PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8565051 sse=7008
+[10-14 23:46:02] [11:46PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8523491 sse=7008
+[10-14 23:46:32] [11:46PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8521859 sse=7008
+[10-14 23:47:02] [11:47PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8523455 sse=7008
+[10-14 23:47:32] [11:47PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8519747 sse=7008
+[10-14 23:48:02] [11:48PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8515467 sse=7008
+[10-14 23:48:32] [11:48PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8517163 sse=7008
+[10-14 23:49:02] [11:49PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568207 sse=7008
+[10-14 23:49:32] [11:49PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568207 sse=7008
+[10-14 23:50:02] [11:50PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568207 sse=7008
+[10-14 23:50:32] [11:50PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8521907 sse=7008
+[10-14 23:51:02] [11:51PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568207 sse=7008
+[10-14 23:51:32] [11:51PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568207 sse=7008
+[10-14 23:52:02] [11:52PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568203 sse=7008
+[10-14 23:52:32] [11:52PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568203 sse=7008
+[10-14 23:53:02] [11:53PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568207 sse=7008
+[10-14 23:53:32] [11:53PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.0  heap=8568207 sse=7008
+[10-14 23:54:02] [11:54PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=2.1  heap=8568207 sse=7008
+[10-14 23:54:32] [11:54PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=1.7  heap=8520847 sse=7008
+[10-14 23:55:02] [11:55PM Wednesday] ACTIVE in-line  25.0%  on=F--- want=F--- out=----  lux=1.6  heap=8517363 sse=7008
+[10-14 23:55:22] Asleep — everything off — 11:55PM Wednesday
+[10-14 23:55:35] [11:55PM Wednesday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.2  heap=8521907 sse=7008
+[10-14 23:56:05] [11:56PM Wednesday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.2  heap=8517139 sse=7008
+[10-14 23:56:35] [11:56PM Wednesday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.2  heap=8518075 sse=7008
+[10-14 23:57:05] [11:57PM Wednesday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.2  heap=8568207 sse=7008
+[10-14 23:57:35] [11:57PM Wednesday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8517551 sse=7008
+[10-14 23:58:05] [11:58PM Wednesday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568239 sse=7008
+[10-14 23:58:35] [11:58PM Wednesday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-14 23:59:05] [11:59PM Wednesday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-14 23:59:35] [11:59PM Wednesday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568207 sse=7008
+[10-15 00:00:05] [12:00AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568207 sse=7008
+[10-15 00:00:35] [12:00AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568207 sse=7008
+[10-15 00:01:05] [12:01AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568207 sse=7008
+[10-15 00:01:35] [12:01AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568207 sse=7008
+[10-15 00:02:05] [12:02AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568207 sse=7008
+[10-15 00:02:35] [12:02AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568207 sse=7008
+[10-15 00:03:05] [12:03AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568207 sse=7008
+[10-15 00:03:35] [12:03AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568207 sse=7008
+[10-15 00:04:05] [12:04AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521915 sse=7008
+[10-15 00:04:35] [12:04AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521915 sse=7008
+[10-15 00:05:05] [12:05AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8519743 sse=7008
+[10-15 00:05:26] SSE: stale — reconnecting
+[10-15 00:05:27] SSE: connected.
+[10-15 00:05:35] [12:05AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521195 sse=7008
+[10-15 00:06:05] [12:06AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8516847 sse=7008
+[10-15 00:06:35] [12:06AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:07:05] [12:07AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:07:35] [12:07AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:08:05] [12:08AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:08:35] [12:08AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:09:05] [12:09AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:09:35] [12:09AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:10:05] [12:10AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:10:35] [12:10AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:11:05] [12:11AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:11:35] [12:11AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:12:05] [12:12AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:12:35] [12:12AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:13:05] [12:13AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568203 sse=7008
+[10-15 00:13:35] [12:13AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521927 sse=7008
+[10-15 00:14:05] [12:14AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8514131 sse=7008
+[10-15 00:14:35] [12:14AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520287 sse=7008
+[10-15 00:15:05] [12:15AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8515399 sse=7008
+[10-15 00:15:29] SSE: stale — reconnecting
+[10-15 00:15:30] SSE: connected.
+[10-15 00:15:35] [12:15AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8527615 sse=6928
+[10-15 00:16:05] [12:16AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568219 sse=6928
+[10-15 00:16:35] [12:16AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568219 sse=6928
+[10-15 00:17:05] [12:17AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568215 sse=6928
+[10-15 00:17:35] [12:17AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568215 sse=6928
+[10-15 00:18:05] [12:18AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568223 sse=6928
+[10-15 00:18:35] [12:18AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568211 sse=6928
+[10-15 00:19:05] [12:19AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568211 sse=6928
+[10-15 00:19:35] [12:19AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:20:05] [12:20AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:20:35] [12:20AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568023 sse=6928
+[10-15 00:21:05] [12:21AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568023 sse=6928
+[10-15 00:21:35] [12:21AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:22:05] [12:22AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:22:35] [12:22AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:23:05] [12:23AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567855 sse=6928
+[10-15 00:23:35] [12:23AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521699 sse=6928
+[10-15 00:24:05] [12:24AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8519643 sse=6928
+[10-15 00:24:35] [12:24AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520995 sse=6928
+[10-15 00:25:05] [12:25AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8516451 sse=6928
+[10-15 00:25:35] [12:25AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:26:05] [12:26AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:26:35] [12:26AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:27:05] [12:27AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:27:35] [12:27AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:28:05] [12:28AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:28:35] [12:28AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:29:05] [12:29AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:29:35] [12:29AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:30:05] [12:30AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:30:35] [12:30AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:30:42] SSE: stale — reconnecting
+[10-15 00:30:43] SSE: connected.
+[10-15 00:31:05] [12:31AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568019 sse=6928
+[10-15 00:31:35] [12:31AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568019 sse=6928
+[10-15 00:32:05] [12:32AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568019 sse=6928
+[10-15 00:32:35] [12:32AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521703 sse=6928
+[10-15 00:33:05] [12:33AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8519311 sse=6928
+[10-15 00:33:35] [12:33AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520071 sse=6928
+[10-15 00:34:05] [12:34AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8528787 sse=6928
+[10-15 00:34:35] [12:34AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8564667 sse=6928
+[10-15 00:35:05] [12:35AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568019 sse=6928
+[10-15 00:35:35] [12:35AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568051 sse=6928
+[10-15 00:36:05] [12:36AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568019 sse=6928
+[10-15 00:36:35] [12:36AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568019 sse=6928
+[10-15 00:37:05] [12:37AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568019 sse=6928
+[10-15 00:37:35] [12:37AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568019 sse=6928
+[10-15 00:38:05] [12:38AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568019 sse=6928
+[10-15 00:38:35] [12:38AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520643 sse=6928
+[10-15 00:39:05] [12:39AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567807 sse=6928
+[10-15 00:39:35] [12:39AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8514855 sse=6928
+[10-15 00:40:05] [12:40AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8517979 sse=6928
+[10-15 00:40:35] [12:40AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520819 sse=6928
+[10-15 00:40:45] SSE: stale — reconnecting
+[10-15 00:40:47] SSE: connected.
+[10-15 00:41:05] [12:41AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8515459 sse=6928
+[10-15 00:41:35] [12:41AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8517499 sse=6928
+[10-15 00:42:05] [12:42AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8528979 sse=6928
+[10-15 00:42:35] [12:42AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8526651 sse=6928
+[10-15 00:43:05] [12:43AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:43:35] [12:43AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:44:05] [12:44AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:44:35] [12:44AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:45:05] [12:45AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:45:35] [12:45AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:46:05] [12:46AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:46:35] [12:46AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:47:05] [12:47AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:47:35] [12:47AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:48:05] [12:48AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:48:35] [12:48AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:49:05] [12:49AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:49:35] [12:49AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:50:05] [12:50AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:50:35] [12:50AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6928
+[10-15 00:50:49] SSE: stale — reconnecting
+[10-15 00:50:50] SSE: connected.
+[10-15 00:51:05] [12:51AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 00:51:35] [12:51AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 00:52:05] [12:52AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 00:52:35] [12:52AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 00:53:05] [12:53AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 00:53:35] [12:53AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 00:54:05] [12:54AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 00:54:35] [12:54AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568003 sse=6928
+[10-15 00:55:05] [12:55AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521647 sse=6928
+[10-15 00:55:35] [12:55AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521675 sse=6928
+[10-15 00:56:05] [12:56AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8518895 sse=6928
+[10-15 00:56:35] [12:56AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520771 sse=6928
+[10-15 00:57:05] [12:57AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8516247 sse=6928
+[10-15 00:57:35] [12:57AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8527375 sse=6928
+[10-15 00:58:05] [12:58AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 00:58:35] [12:58AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 00:59:05] [12:59AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.2  heap=8567999 sse=6928
+[10-15 00:59:35] [12:59AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567999 sse=6928
+[10-15 01:00:05] [1:00AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568007 sse=6928
+[10-15 01:00:35] [1:00AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568007 sse=6928
+[10-15 01:00:51] SSE: stale — reconnecting
+[10-15 01:00:52] SSE: connected.
+[10-15 01:01:05] [1:01AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:01:35] [1:01AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:02:05] [1:02AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:02:35] [1:02AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:03:05] [1:03AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:03:35] [1:03AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:04:05] [1:04AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:04:35] [1:04AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567859 sse=6868
+[10-15 01:05:05] [1:05AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8519855 sse=6868
+[10-15 01:05:35] [1:05AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8519439 sse=6868
+[10-15 01:06:05] [1:06AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8565331 sse=6868
+[10-15 01:06:35] [1:06AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8517495 sse=6868
+[10-15 01:07:05] [1:07AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568051 sse=6868
+[10-15 01:07:35] [1:07AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:08:05] [1:08AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568051 sse=6868
+[10-15 01:08:35] [1:08AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:09:05] [1:09AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:09:35] [1:09AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:10:05] [1:10AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568007 sse=6868
+[10-15 01:10:35] [1:10AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568007 sse=6868
+[10-15 01:10:53] SSE: stale — reconnecting
+[10-15 01:10:54] SSE: connected.
+[10-15 01:11:05] [1:11AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568051 sse=6868
+[10-15 01:11:35] [1:11AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568051 sse=6868
+[10-15 01:12:05] [1:12AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568059 sse=6868
+[10-15 01:12:35] [1:12AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568059 sse=6868
+[10-15 01:13:05] [1:13AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568059 sse=6868
+[10-15 01:13:35] [1:13AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521735 sse=6868
+[10-15 01:14:05] [1:14AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521735 sse=6868
+[10-15 01:14:35] [1:14AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8518795 sse=6868
+[10-15 01:15:05] [1:15AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520999 sse=6868
+[10-15 01:15:35] [1:15AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8515331 sse=6868
+[10-15 01:16:05] [1:16AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8517535 sse=6868
+[10-15 01:16:35] [1:16AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568063 sse=6868
+[10-15 01:17:05] [1:17AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568063 sse=6868
+[10-15 01:17:35] [1:17AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568063 sse=6868
+[10-15 01:18:05] [1:18AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568063 sse=6868
+[10-15 01:18:35] [1:18AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568063 sse=6868
+[10-15 01:19:05] [1:19AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568063 sse=6868
+[10-15 01:19:35] [1:19AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568063 sse=6868
+[10-15 01:20:05] [1:20AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568063 sse=6868
+[10-15 01:20:35] [1:20AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568063 sse=6868
+[10-15 01:20:55] SSE: stale — reconnecting
+[10-15 01:20:56] SSE: connected.
+[10-15 01:21:05] [1:21AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:21:35] [1:21AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:22:05] [1:22AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:22:35] [1:22AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521703 sse=6868
+[10-15 01:23:05] [1:23AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521687 sse=6868
+[10-15 01:23:35] [1:23AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8518611 sse=6868
+[10-15 01:24:05] [1:24AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8515563 sse=6868
+[10-15 01:24:35] [1:24AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8516299 sse=6868
+[10-15 01:25:05] [1:25AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8517639 sse=6868
+[10-15 01:25:35] [1:25AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:26:05] [1:26AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:26:35] [1:26AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:27:05] [1:27AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:27:35] [1:27AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:28:05] [1:28AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:28:35] [1:28AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568023 sse=6868
+[10-15 01:29:05] [1:29AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568023 sse=6868
+[10-15 01:29:35] [1:29AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:30:05] [1:30AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:30:35] [1:30AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568011 sse=6868
+[10-15 01:30:57] SSE: stale — reconnecting
+[10-15 01:30:58] SSE: connected.
+[10-15 01:31:05] [1:31AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521695 sse=6868
+[10-15 01:31:35] [1:31AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8518027 sse=6868
+[10-15 01:32:05] [1:32AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520155 sse=6868
+[10-15 01:32:35] [1:32AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8516775 sse=6868
+[10-15 01:33:05] [1:33AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8527435 sse=6868
+[10-15 01:33:35] [1:33AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:34:05] [1:34AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:34:35] [1:34AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:35:05] [1:35AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:35:35] [1:35AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:36:05] [1:36AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:36:35] [1:36AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:37:05] [1:37AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:37:35] [1:37AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:38:05] [1:38AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:38:35] [1:38AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:39:05] [1:39AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:39:35] [1:39AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 01:40:05] [1:40AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521747 sse=6868
+[10-15 01:40:35] [1:40AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520115 sse=6868
+[10-15 01:41:00] SSE: stale — reconnecting
+[10-15 01:41:01] SSE: connected.
+[10-15 01:41:05] [1:41AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8516459 sse=6868
+[10-15 01:41:35] [1:41AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8527407 sse=6868
+[10-15 01:42:05] [1:42AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:42:35] [1:42AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:43:05] [1:43AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:43:35] [1:43AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:44:05] [1:44AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:44:35] [1:44AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:45:05] [1:45AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:45:35] [1:45AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:46:05] [1:46AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:46:35] [1:46AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:47:05] [1:47AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:47:35] [1:47AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:48:05] [1:48AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8567887 sse=6868
+[10-15 01:48:35] [1:48AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568039 sse=6868
+[10-15 01:49:05] [1:49AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521699 sse=6868
+[10-15 01:49:35] [1:49AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8519479 sse=6868
+[10-15 01:50:05] [1:50AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520999 sse=6868
+[10-15 01:50:35] [1:50AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8516715 sse=6868
+[10-15 01:51:02] SSE: stale — reconnecting
+[10-15 01:51:03] SSE: connected.
+[10-15 01:51:05] [1:51AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8564895 sse=6868
+[10-15 01:51:35] [1:51AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:52:05] [1:52AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:52:35] [1:52AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:53:05] [1:53AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:53:35] [1:53AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:54:05] [1:54AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:54:35] [1:54AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:55:05] [1:55AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:55:35] [1:55AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:56:05] [1:56AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:56:35] [1:56AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:57:05] [1:57AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:57:35] [1:57AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568023 sse=6868
+[10-15 01:58:05] [1:58AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 01:58:35] [1:58AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521719 sse=6868
+[10-15 01:59:05] [1:59AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521727 sse=6868
+[10-15 01:59:35] [1:59AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8518963 sse=6868
+[10-15 02:00:05] [2:00AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8519323 sse=6868
+[10-15 02:00:35] [2:00AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8527435 sse=6868
+[10-15 02:01:04] SSE: stale — reconnecting
+[10-15 02:01:05] [2:01AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8511347 sse=6868
+[10-15 02:01:06] SSE: connected.
+[10-15 02:01:35] [2:01AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568079 sse=6868
+[10-15 02:02:05] [2:02AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568047 sse=6868
+[10-15 02:02:35] [2:02AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568047 sse=6868
+[10-15 02:03:05] [2:03AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568047 sse=6868
+[10-15 02:03:35] [2:03AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568047 sse=6868
+[10-15 02:04:05] [2:04AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568047 sse=6868
+[10-15 02:04:35] [2:04AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568047 sse=6868
+[10-15 02:05:05] [2:05AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568047 sse=6868
+[10-15 02:05:35] [2:05AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568047 sse=6868
+[10-15 02:06:05] [2:06AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568027 sse=6868
+[10-15 02:06:35] [2:06AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8514911 sse=6868
+[10-15 02:07:05] [2:07AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521787 sse=6868
+[10-15 02:07:35] [2:07AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8514887 sse=6868
+[10-15 02:08:05] [2:08AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520731 sse=6868
+[10-15 02:08:35] [2:08AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8516199 sse=6868
+[10-15 02:09:05] [2:09AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8527459 sse=6868
+[10-15 02:09:35] [2:09AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:10:05] [2:10AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:10:35] [2:10AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:11:05] [2:11AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:11:08] SSE: stale — reconnecting
+[10-15 02:11:09] SSE: connected.
+[10-15 02:11:35] [2:11AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:12:05] [2:12AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 02:12:35] [2:12AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 02:13:05] [2:13AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568043 sse=6868
+[10-15 02:13:35] [2:13AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568031 sse=6868
+[10-15 02:14:05] [2:14AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:14:35] [2:14AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:15:05] [2:15AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568043 sse=6868
+[10-15 02:15:35] [2:15AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.2  heap=8568043 sse=6868
+[10-15 02:16:05] [2:16AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521723 sse=6868
+[10-15 02:16:35] [2:16AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8514843 sse=6868
+[10-15 02:17:05] [2:17AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520679 sse=6868
+[10-15 02:17:35] [2:17AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8515931 sse=6868
+[10-15 02:18:05] [2:18AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8517503 sse=6868
+[10-15 02:18:35] [2:18AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568043 sse=6868
+[10-15 02:19:05] [2:19AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568043 sse=6868
+[10-15 02:19:35] [2:19AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568043 sse=6868
+[10-15 02:20:05] [2:20AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568043 sse=6868
+[10-15 02:20:35] [2:20AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568043 sse=6868
+[10-15 02:21:05] [2:21AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568043 sse=6868
+[10-15 02:21:10] SSE: stale — reconnecting
+[10-15 02:21:11] SSE: connected.
+[10-15 02:21:35] [2:21AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568043 sse=6868
+[10-15 02:22:05] [2:22AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:22:35] [2:22AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:23:05] [2:23AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:23:35] [2:23AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:24:05] [2:24AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521711 sse=6868
+[10-15 02:24:35] [2:24AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8521735 sse=6868
+[10-15 02:25:05] [2:25AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8520083 sse=6868
+[10-15 02:25:35] [2:25AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8515331 sse=6868
+[10-15 02:26:05] [2:26AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8518847 sse=6868
+[10-15 02:26:35] [2:26AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:27:05] [2:27AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:27:35] [2:27AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:28:05] [2:28AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:28:35] [2:28AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:29:05] [2:29AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:29:35] [2:29AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:30:05] [2:30AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:30:35] [2:30AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:31:05] [2:31AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6868
+[10-15 02:31:12] SSE: stale — reconnecting
+[10-15 02:31:13] SSE: connected.
+[10-15 02:31:35] [2:31AM Thursday] ASLEEP in-line   0.0%  on=---- want=---- out=----  lux=0.1  heap=8568035 sse=6848
