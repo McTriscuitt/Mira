@@ -8,6 +8,12 @@ Smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (ABX00083)
 
 **Start every firmware session with `Markdowns/MIRA_3.md`.** It's the 3.0 spec, architecture, decisions log, and first-flash checklist; the user's verbatim inputs are in `V3 Migration Docs/`. The lux-reactive 2.x system is tagged `mira-2-final` (3.0 is on branch `mira-3` until it's verified on the board).
 
+## Project Memory
+
+Durable notes for every session, on any machine, live in `Markdowns/memory/`. The index is imported below; open a linked file when it's relevant. Save new memories there, not in the per-machine auto-memory folder, and commit them. This repo is public, so never put credentials or personal details in them.
+
+@Markdowns/memory/MEMORY.md
+
 ## User Notes
 - all .md's for error parsing and rectifying are in \Mira\Bug Records\
 - all .md's for information on the system code/upgrades/etc are in \mira\Markdowns
@@ -53,7 +59,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
-- **Nov 3-4, 2026, terminal and dashboard rework built overnight, NOT deployed:** on branch `terminal-mira`, tested locally only. **Next: the morning checklist at the top of `Markdowns/TERMINAL_MIRA_BUILD_LOG.md`**, which starts with merging into `mira-3`. Every liberty taken is listed there too.
+- **Nov 3-4, 2026, terminal and dashboard rework merged into `mira-3` and pushed (`172cb6d`, login code fix `a5a392e`):** the live checks are still open. **Next: step 2 onward of the checklist at the top of `Markdowns/TERMINAL_MIRA_BUILD_LOG.md`**, which also lists every liberty taken. Admin secrets were remade on Nov 3 after the first password was lost.
 - **Nov 3, 2026, `NAP` and `EXTEND` flashed:** the board booted and shows on the dashboard, but neither command has been run on the real lights yet. New admin secrets are set in Railway. **Next: all dashboard and terminal work. Start with "Start here" in `Markdowns/TERMINAL_MIRA_PLAN.md`. The user wants no liberties: ask before building anything undecided.**
 - **Nov 2, 2026, portfolio rework phase 1 finished:** the terminal landing page is live at `/`, the dashboard moved to `/mira`. 
 - **Nov 2, 2026, flashed, booted, checklist still open:** new evening (19:00–20:00 →40%, chest off; 20:45–21:00 →25%; dresser off 22:30), in-line filter for false holds, wall-switch handling via `zigbee_connectivity`, NVS power-loss replay. Next step: the "Nov 2 reflash checklist" in `Markdowns/MIRA_3.md`.
