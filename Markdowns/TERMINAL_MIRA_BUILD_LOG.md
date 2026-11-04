@@ -1,7 +1,7 @@
 # TERMINAL_MIRA_BUILD_LOG.md: overnight build, Nov 3-4, 2026
 
 **Status: merged into `mira-3` and pushed Nov 3 (`172cb6d`), with the login code fix in `a5a392e`.
-The live checks below are still open from step 2.** The overnight build didn't touch the firmware
+Login worked on a real phone on Nov 3; the other live checks below are still open.** The overnight build didn't touch the firmware
 (no changes in `src/`) or send any command to the real board.
 
 ---
@@ -15,10 +15,11 @@ real lights.
    `042c012`: notes, the `NAP`/`EXTEND` firmware and the secrets script), which didn't reflash
    anything. Whether Railway's deploy succeeded is confirmed by the steps below.
 2. **Check the public side.** Open the site and type `mira`, then `status`, then `log`.
-3. **Log in.** Type `login`, then your password, then the six-digit code.
+3. **Log in. Worked on a real phone, Nov 3.** Type `login`, then your password, then the six-digit
+   code.
    - The password is the one from `tools/make_admin_secrets.py`, not the old dashboard password. The
      secrets were remade on Nov 3, so use that newest password and authenticator entry.
-   - On a phone, the code sends itself at the sixth digit. This hasn't been tried on a real phone yet.
+   - On a phone, the code sends itself at the sixth digit.
    - If you immediately see `that took too long`, the origin check is refusing you. Railway's logs
      will show a `refused origin` line. Tell me what it says.
 4. **Check the IP.** Type `access`. The last line starts `you:`.
@@ -167,5 +168,5 @@ The browser test uses a fake board that I wrote from `src/dashboard.cpp`. To rer
 - **Your real secrets and authenticator:** tests generated their own password and codes with the
   same libraries `tools/make_admin_secrets.py` uses.
 - **Real phones:** phone checks used Chromium's phone emulation, and they didn't include login. That's
-  how the missing return key on an iPhone's number pad got through (fixed in `a5a392e`). The fix
-  itself was tested in desktop Chromium.
+  how the missing return key on a phone's number pad got through (fixed in `a5a392e`). Login has
+  since worked on a real phone; nothing else has been tried on one.

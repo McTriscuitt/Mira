@@ -59,7 +59,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
-- **Nov 3-4, 2026, terminal and dashboard rework merged into `mira-3` and pushed (`172cb6d`, login code fix `a5a392e`):** the live checks are still open. **Next: step 2 onward of the checklist at the top of `Markdowns/TERMINAL_MIRA_BUILD_LOG.md`**, which also lists every liberty taken. Admin secrets were remade on Nov 3 after the first password was lost.
+- **Nov 3-4, 2026, terminal and dashboard rework merged into `mira-3` and pushed (`172cb6d`, login code fix `a5a392e`):** login worked on a real phone, and the other live checks are still open. **Next: the rest of the checklist at the top of `Markdowns/TERMINAL_MIRA_BUILD_LOG.md`**, which also lists every liberty taken. Admin secrets were remade on Nov 3 after the first password was lost.
 - **Nov 3, 2026, `NAP` and `EXTEND` flashed:** the board booted and shows on the dashboard, but neither command has been run on the real lights yet. New admin secrets are set in Railway. **Next: all dashboard and terminal work. Start with "Start here" in `Markdowns/TERMINAL_MIRA_PLAN.md`. The user wants no liberties: ask before building anything undecided.**
 - **Nov 2, 2026, portfolio rework phase 1 finished:** the terminal landing page is live at `/`, the dashboard moved to `/mira`. 
 - **Nov 2, 2026, flashed, booted, checklist still open:** new evening (19:00–20:00 →40%, chest off; 20:45–21:00 →25%; dresser off 22:30), in-line filter for false holds, wall-switch handling via `zigbee_connectivity`, NVS power-loss replay. Next step: the "Nov 2 reflash checklist" in `Markdowns/MIRA_3.md`.

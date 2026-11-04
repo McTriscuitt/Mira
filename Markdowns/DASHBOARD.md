@@ -1,6 +1,6 @@
 # DASHBOARD.md: the site
 
-> **Merged into `mira-3` and pushed Nov 3, but the live checks are still open.** See the checklist in
+> **Merged into `mira-3` and pushed Nov 3. Login works; the other live checks are still open.** See the checklist in
 > `TERMINAL_MIRA_BUILD_LOG.md`.
 
 Flask + plain HTML/CSS/JS on Railway (Hobby plan, PostgreSQL). `/` is a portfolio terminal, and Mira
