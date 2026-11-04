@@ -28,6 +28,7 @@ streams are admin-only and capped at 4.
 | `static/js/mira.js` | Mira's directory |
 | `static/js/portfolio-content.js` | The site's words and project list. **Edit this for content** |
 | `static/js/legacy-*.js`, `static/css/legacy-*.css` | The old pages |
+| `static/manifest.webmanifest`, `static/img/apple-touch-icon.png`, `icon-192.png`, `icon-512.png` | Home-screen install: name, full-screen mode, icons. The PNGs are renders of `static/img/app-icon.svg`: square, opaque, artwork inside the middle 80% so Android's masks can't clip it |
 | `tests/` | `python -m pytest tests`; `python tests/e2e_terminal.py` drives a real browser |
 
 `app.py` boots on SQLite now, so the tests need no Postgres. Set `MIRA_TEST_DATABASE_URL` to run them

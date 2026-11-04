@@ -246,6 +246,18 @@ def test_headers_on_every_page(client):
         assert response.headers['Cache-Control'] == 'no-store'
 
 
+def test_home_screen_icon_files_exist(client):
+    for path in ('/', '/mira'):
+        page = client.get(path).get_data(as_text=True)
+        assert 'rel="apple-touch-icon" href="/static/img/apple-touch-icon.png"' in page
+        assert 'rel="manifest" href="/static/manifest.webmanifest"' in page
+    assert client.get('/static/img/apple-touch-icon.png').status_code == 200
+    manifest = client.get('/static/manifest.webmanifest').get_json(force=True)
+    assert manifest['start_url'] == '/' and manifest['display'] == 'standalone'
+    for icon in manifest['icons']:
+        assert client.get(icon['src']).status_code == 200, icon['src']
+
+
 def test_visitors_get_no_cookie(client):
     assert 'Set-Cookie' not in client.get('/').headers
 

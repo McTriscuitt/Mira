@@ -7,6 +7,12 @@
   <meta name="theme-color" content="#0d0d0d">
   <title>Tristan DeOrnellis</title>
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Tristan">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
   <script src="{{ url_for('static', filename='js/portfolio-content.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/terminal.js') }}" defer></script>
