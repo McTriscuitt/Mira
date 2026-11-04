@@ -1,7 +1,7 @@
 # Memory Index
 
 
-- [Terminal rework merged to mira-3](project_terminal_mira_next.md) — pushed Nov 3 (172cb6d); live checks still open, from step 2 of the checklist in Markdowns/TERMINAL_MIRA_BUILD_LOG.md
+- [Terminal rework merged to mira-3](project_terminal_mira_next.md) — pushed Nov 3 (172cb6d); login worked on a phone, other live checks still open in Markdowns/TERMINAL_MIRA_BUILD_LOG.md
 - [Mira 3.0 schedule rework](project_mira3_rework.md) — running since Oct 14; Nov 2 changes (new evening, false-hold filter, wall switches, NVS power-loss replay) flashed Nov 2; NAP + EXTEND flashed Nov 3, boot confirmed on the dashboard; reflash checklist in MIRA_3.md still open; board on COM4; native tests need CLion MinGW on PATH; MIRA_3.md is source of truth
 
 - [Crash Investigation Sept 12](project_crash_investigation_sep12.md) — daily morning panics + WiFi wedges; watchdog + reset-reason flashed Sept 12, next crash self-identifies in the Online log (kept in 3.0, + "ntp-timeout"); dashboard SSE staleness caused a false-alarm restart
