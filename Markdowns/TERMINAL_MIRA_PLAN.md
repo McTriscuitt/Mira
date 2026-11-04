@@ -3,7 +3,7 @@
 Written Nov 2, 2026. Updated Nov 3 as the handoff for the dashboard session.
 
 > **Update, Nov 3-4:** the user allowed liberties for an overnight build, which is on branch
-> `terminal-mira`, not deployed. `TERMINAL_MIRA_BUILD_LOG.md` lists what was built, every liberty
+> `terminal-mira`, then merged into `mira-3` and pushed Nov 3. `TERMINAL_MIRA_BUILD_LOG.md` lists what was built, every liberty
 > taken and the morning checklist. This file is kept as the record of the decisions. The note below
 > describes how it was written.
 

@@ -1,8 +1,8 @@
 # TERMINAL_MIRA_BUILD_LOG.md: overnight build, Nov 3-4, 2026
 
-**Status: built and tested locally, not deployed.** The work is on branch `terminal-mira`. Railway
-only watches `mira-3`, so the live site hasn't changed. The firmware wasn't touched (no changes in
-`src/`) and no command was sent to the real board.
+**Status: merged into `mira-3` and pushed Nov 3 (`172cb6d`), with the login code fix in `a5a392e`.
+The live checks below are still open from step 2.** The overnight build didn't touch the firmware
+(no changes in `src/`) or send any command to the real board.
 
 ---
 
@@ -11,18 +11,14 @@ only watches `mira-3`, so the live site hasn't changed. The firmware wasn't touc
 Do these in order. Steps 2-6 need you, because they use your password, your authenticator or the
 real lights.
 
-1. **Deploy.** This makes it live:
-   ```
-   git checkout mira-3
-   git merge terminal-mira
-   git push
-   ```
-   Your local `mira-3` was already 3 commits ahead of GitHub when this started (`4c4c508`,
-   `d331040`, `042c012`: notes, the `NAP`/`EXTEND` firmware and the secrets script). This push sends
-   them too. That's expected, and it doesn't reflash anything.
+1. **Deploy. Pushed Nov 3.** The push also sent 3 older local commits (`4c4c508`, `d331040`,
+   `042c012`: notes, the `NAP`/`EXTEND` firmware and the secrets script), which didn't reflash
+   anything. Whether Railway's deploy succeeded is confirmed by the steps below.
 2. **Check the public side.** Open the site and type `mira`, then `status`, then `log`.
 3. **Log in.** Type `login`, then your password, then the six-digit code.
-   - Your old dashboard login stops working at this deploy, so this is the only way in.
+   - The password is the one from `tools/make_admin_secrets.py`, not the old dashboard password. The
+     secrets were remade on Nov 3, so use that newest password and authenticator entry.
+   - On a phone, the code sends itself at the sixth digit. This hasn't been tried on a real phone yet.
    - If you immediately see `that took too long`, the origin check is refusing you. Railway's logs
      will show a `refused origin` line. Tell me what it says.
 4. **Check the IP.** Type `access`. The last line starts `you:`.
@@ -39,7 +35,8 @@ real lights.
 9. **Finish the Nov 2 checklist** in `MIRA_3.md`: wall switch, power loss and false hold.
 
 **To undo the deploy:** use Railway's redeploy on the previous deployment, or run
-`git revert -m 1 <merge commit>` on `mira-3` and push. The database changes only add things, and
+`git revert -m 1 172cb6d` on `mira-3` and push, which also needs `a5a392e` reverted first. The
+database changes only add things, and
 the old code ran fine on the upgraded schema in testing, so rolling back is safe.
 
 ---
@@ -134,7 +131,8 @@ Each of these was my call, and any can be changed.
 ### Not done, on purpose
 
 - **`mira-3` isn't merged into `main`.** That waits for the firmware to be verified.
-- **Nothing was pushed to `mira-3`,** as you chose.
+- **Nothing was pushed to `mira-3` overnight,** as you chose. You asked for the merge and push on
+  Nov 3.
 - **The `/legacy/lux` page is unchanged apart from its move.** It still has the 2.x curve math, since
   you said legacy may fall out of step.
 
@@ -148,6 +146,7 @@ Each of these was my call, and any can be changed.
 | Unit tests, Postgres 18 | 54 passed |
 | Browser test, Chromium, on Postgres 18 | 62 of 62 checks passed |
 | Upgrade: live code's schema, then new code, then live code again | Passed |
+| After the login code fix (JavaScript only): unit tests and browser test, SQLite | 54 passed; 63 of 63 checks passed |
 
 The browser test uses a fake board that I wrote from `src/dashboard.cpp`. To rerun:
 `python -m pytest tests` and `python tests/e2e_terminal.py`, from `dashboard/`.
@@ -167,4 +166,6 @@ The browser test uses a fake board that I wrote from `src/dashboard.cpp`. To rer
   Python. Railway uses `psycopg2`, and Railway's Postgres version may not be 18.
 - **Your real secrets and authenticator:** tests generated their own password and codes with the
   same libraries `tools/make_admin_secrets.py` uses.
-- **Real phones:** phone checks used Chromium's phone emulation.
+- **Real phones:** phone checks used Chromium's phone emulation, and they didn't include login. That's
+  how the missing return key on an iPhone's number pad got through (fixed in `a5a392e`). The fix
+  itself was tested in desktop Chromium.

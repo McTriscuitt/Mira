@@ -1,7 +1,7 @@
 # DASHBOARD.md: the site
 
-> **On branch `terminal-mira` until it's merged and verified.** Until then, `mira-3` and the live
-> site still run the older design. See `TERMINAL_MIRA_BUILD_LOG.md`.
+> **Merged into `mira-3` and pushed Nov 3, but the live checks are still open.** See the checklist in
+> `TERMINAL_MIRA_BUILD_LOG.md`.
 
 Flask + plain HTML/CSS/JS on Railway (Hobby plan, PostgreSQL). `/` is a portfolio terminal, and Mira
 is a directory inside it. The old dashboard lives on at `/legacy` for the admin. It was reworked once
@@ -68,6 +68,7 @@ Hidden commands are a convenience only. Anyone can read the JS; the server enfor
 ## Login and security
 
 - **Check:** password, then a six-digit code, then one `incorrect`. A whole try counts as one attempt.
+  The code sends itself at the sixth digit, because an iPhone's number pad has no return key.
 - **Lockout:** 3 failures lock an address for 15 min (a whole /64 on IPv6). 30 failures across all
   addresses block login for an hour. Stored in Postgres.
 - **Codes** work once: `auth_state.last_totp_step` refuses a repeat.

@@ -423,7 +423,7 @@ after every 10-minute reconnect, which would otherwise read it as turned back on
 **Docs (deleted):** `LIGHTCURVE.md`, `SYSTEM.md`, `FIRMWARE.md`,
 `System Explanation OLD.md`.
 
-**Deferred to the dashboard session** (done on branch `terminal-mira`, except the "away" toggle
+**Deferred to the dashboard session** (done in the terminal rework, merged Nov 3, except the "away" toggle
 and the lux page's 2.x curve math, which stays as a legacy page):
 - `lux_curve.html`, the `/lux` page, and the curve-JS duplicates in `index.html`
 - the dashboard exclusion chips and the HARD_OFF/WIND_DOWN buttons
