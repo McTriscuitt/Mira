@@ -52,6 +52,11 @@ on a local Postgres; they drop every table, so `conftest.py` refuses any databas
 
 **Inside `mira`:**
 
+What a light command did is read from the board's own line about that light
+(`Chest off for today — dashboard`, `Chest on ignored — asleep …`). For any command, a
+board line `Dashboard command X is unknown` (firmware older than the command) counts as
+a refusal.
+
 | Command | Sends | Who |
 |---|---|---|
 | `status` | Fetches once | Anyone |
@@ -62,6 +67,7 @@ on a local Postgres; they drop every table, so `conftest.py` refuses any databas
 | `sleep` | `SLEEP` | Admin |
 | `nap [min]` | `NAP`, default 60 | Admin |
 | `extend 30\|30m\|1h` | `EXTEND` | Admin |
+| `floor`, `dresser`, `chest`, `ceiling` + `on`\|`off` | `LIGHT_ON` / `LIGHT_OFF`, value = roster index (0-3, `src/lights.h` order). Off is out for today; on brings it back in line. One help row, `<light> on\|off`. Needs the Nov 5 firmware | Admin |
 | `simulate` | Work-in-progress notice for now | Anyone |
 
 Hidden commands are a convenience only. Anyone can read the JS; the server enforces every restriction.
@@ -110,7 +116,7 @@ Hidden commands are a convenience only. Anyone can read the JS; the server enfor
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/api/logout` | Body `{"all": true}` ends every session |
-| POST | `/api/command` | Queue `RESUME`, `HOLD`, `WAKE`, `SLEEP`, `NAP` or `EXTEND` |
+| POST | `/api/command` | Queue `RESUME`, `HOLD`, `WAKE`, `SLEEP`, `NAP`, `EXTEND`, `LIGHT_ON` or `LIGHT_OFF` |
 | GET | `/api/command/<id>` | `outcome`: waiting, picked_up, applied, ignored, unconfirmed, expired, cancelled |
 | POST | `/api/command/<id>/cancel` | Cancel before pickup |
 | GET | `/api/status/stream` | SSE: `status`, `log` and `ended` events, 25 s keepalive |

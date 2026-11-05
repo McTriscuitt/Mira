@@ -206,7 +206,9 @@ def test_retention_deletes_old_records(client, app):
 def test_only_known_commands_are_stored_word_for_word(client, app):
     for line, stored in [('nap 90', 'nap 90'), ('HOLD', 'hold'), ('hunter2', '[unknown]'),
                          ('nap hunter2', '[unknown]'), ('login', 'login'),
-                         ('open secret', '[unknown]'), ('x' * 500, '[unknown]')]:
+                         ('open secret', '[unknown]'), ('x' * 500, '[unknown]'),
+                         ('dresser off', 'dresser off'), ('Chest ON', 'chest on'),
+                         ('ceiling', 'ceiling'), ('chest hunter2', '[unknown]')]:
         client.post('/api/visit/command', json={'command': line, 'path': '/mira'})
         with app.app_context():
             assert Visit.query.order_by(Visit.id.desc()).first().command == stored

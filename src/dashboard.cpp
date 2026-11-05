@@ -104,6 +104,8 @@ static const CmdName CMD_NAMES[] = {
     {"NAP_REMAINING",            (int)Director::Cmd::NapRemaining},
     {"NAP",                      (int)Director::Cmd::Nap},     // value: minutes, or none for the default
     {"EXTEND",                   (int)Director::Cmd::Extend},  // value: minutes added to the hold or nap
+    {"LIGHT_ON",                 (int)Director::Cmd::LightOn},   // value: roster index (lights.h)
+    {"LIGHT_OFF",                (int)Director::Cmd::LightOff},  // value: roster index (lights.h)
     {"HARD_OFF",                 -1},
     {"WIND_DOWN",                -1},
     {"SET_WIND_DOWN_STEP",       -1},

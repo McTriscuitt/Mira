@@ -11,6 +11,7 @@
   const SLOW_POLL_MS = 5000;
   const FAST_POLL_FOR_MS = 60000;
   const STREAM_RETRY_MS = 30000;
+  // In src/lights.h order: a light command sends its light's index here.
   const LIGHTS = ['floor', 'dresser', 'chest', 'ceiling'];
 
   const MODE_LABELS = {
@@ -118,6 +119,8 @@
     SLEEP: 'asleep.',
     NAP: 'napping.',
     EXTEND: 'extended.',
+    LIGHT_ON: 'on.',
+    LIGHT_OFF: 'off for today.',
   };
 
   function wait(ms) {
@@ -209,6 +212,21 @@
       return null;
     }
     return sendControl('extend', 'EXTEND', minutes);
+  }
+
+  // `dresser off` keeps that light off for the rest of today; `dresser on` turns it back
+  // on, in line with the schedule.
+  function lightCommand(light) {
+    return function (args) {
+      const word = (args[0] || '').toLowerCase();
+      const typed = word ? light + ' ' + word : light;
+      if (!Terminal.isAdmin()) return sendControl(typed, 'LIGHT_ON');
+      if (args.length !== 1 || (word !== 'on' && word !== 'off')) {
+        print('usage: ' + light + ' on, or ' + light + ' off for the rest of today', 'error');
+        return null;
+      }
+      return sendControl(typed, word === 'on' ? 'LIGHT_ON' : 'LIGHT_OFF', LIGHTS.indexOf(light));
+    };
   }
 
   function runSimulate() {
@@ -323,6 +341,10 @@
       run: runSimulate,
     },
   };
+  // One help row covers all four (see lightHelpRow).
+  LIGHTS.forEach(function (light) {
+    COMMANDS[light] = { light: true, control: true, run: lightCommand(light) };
+  });
 
   function helpRow(name) {
     const command = COMMANDS[name];
@@ -332,8 +354,18 @@
     return [{ run: name }, [command.description + ' ', { text: '(admin only)', className: 'tag' }]];
   }
 
+  function lightHelpRow() {
+    const description = 'one light on or off for today: ' + LIGHTS.slice(0, -1).join(', ')
+      + ' or ' + LIGHTS[LIGHTS.length - 1];
+    if (Terminal.isAdmin()) return ['<light> on|off', description];
+    return ['<light> on|off', [description + ' ', { text: '(admin only)', className: 'tag' }]];
+  }
+
   function help() {
-    Terminal.printRows(Object.keys(COMMANDS).map(helpRow).concat([
+    const names = Object.keys(COMMANDS).filter(function (name) { return !COMMANDS[name].light; });
+    const rows = names.map(helpRow);
+    rows.splice(names.indexOf('simulate'), 0, lightHelpRow());
+    Terminal.printRows(rows.concat([
       [{ run: 'cd ..' }, 'back to the top; back and exit work too'],
       [{ run: 'clear' }, 'clear the screen'],
     ]));

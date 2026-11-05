@@ -87,7 +87,8 @@ public:
     };
 
     enum class Mode : uint8_t { Asleep, Wake, Active, Hold, Nap };
-    enum class Cmd  : uint8_t { Resume, Hold, Wake, Sleep, NapRemaining, Nap, Extend };
+    // LightOn / LightOff: value is the roster index (lights.h).
+    enum class Cmd  : uint8_t { Resume, Hold, Wake, Sleep, NapRemaining, Nap, Extend, LightOn, LightOff };
 
     // 'M' 'I' · major 3 · DirectorState layout v1. Bump the last byte whenever
     // DirectorState changes, so a soft reset across a firmware update infers
@@ -167,6 +168,7 @@ private:
     void startNap(const Now& now, LightMask group, uint32_t durMs = NAP_MS);
     void commandNap(const Now& now, int32_t minutes);
     void commandExtend(const Now& now, int32_t minutes);
+    void commandLight(const Now& now, int32_t idx, bool on);
     void driveOff(const Now& now, int i);  // send an off, or wait on / retry the one already sent
     void endNap(const char* why);
     void goToSleep(const char* why);

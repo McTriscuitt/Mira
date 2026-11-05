@@ -1,11 +1,11 @@
 ---
 name: mira-3-schedule-rework
-description: "Mira 3.0 (NOT 2.0) time-of-day rewrite — running on the board since Oct 14 2026, Nov 2 changes flashed but unverified; source of truth Markdowns/MIRA_3.md; read it before any firmware work"
+description: "Mira 3.0 (NOT 2.0) time-of-day rewrite — running on the board since Oct 14 2026; wall switches confirmed Nov 5; LIGHT_ON/LIGHT_OFF built Nov 5, not flashed; source of truth Markdowns/MIRA_3.md; read it before any firmware work"
 metadata:
   node_type: memory
   type: project
   originSessionId: 0ef52c24-96bc-4dea-8b86-04940bb05db1
-  modified: 2026-11-02T16:56:29.005Z
+  modified: 2026-11-05T00:00:00.000Z
 ---
 
 Mira 3.0 replaces the lux-reactive system with a time-of-day timeline of single
@@ -23,6 +23,12 @@ new evening (75→40 at 19:00–20:00, chest off 20:00; 40→25 at 20:45–21:00
 wall-switch handling, NVS power-loss replay (§10). The next step is the "Nov 2 reflash
 checklist" at the end of MIRA_3.md; wall-switch timing (hardware unknown #7) can only be
 measured at home. The dashboard overhaul for the portfolio comes after that.
+
+**Nov 5:** the user confirmed the wall-switch handling works on the real lights (checklist
+item 1 / unknown #7; no timings given). Built and pushed, **not flashed**: the dashboard
+light commands `LIGHT_ON`/`LIGHT_OFF` (terminal `dresser off`, `chest on`; MIRA_3.md §5).
+The board refuses them until it's reflashed, and the board build wasn't compiled in that
+cloud session (PlatformIO registry blocked), so `pio run` before flashing.
 
 **Facts that aren't in the code:** 18 days of logs (Oct 14–Nov 2) showed no panics or
 watchdog resets after 3.0, DST fine. The board isn't always online, so a telemetry gap

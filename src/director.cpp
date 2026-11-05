@@ -592,6 +592,58 @@ void Director::commandExtend(const Now& now, int32_t minutes) {
     dirty_ = true;
 }
 
+// The terminal's `<light> on` / `<light> off`: switching one light from the dashboard
+// does what switching it in the Hue app does (MIRA_3.md §5), except Mira sends the
+// switch, so it acts now in every mode. Off is out for today and never starts a nap
+// (one named light isn't "everything off"); on clears that and joins the light in line.
+// Asleep is the exception, as in the app: on starts the wake inside the wake window
+// and is refused outside it, where Mira has no level to give a light.
+void Director::commandLight(const Now& now, int32_t idx, bool on) {
+    if (idx < 0 || idx >= LIGHT_COUNT) {
+        note("Light %s ignored — no light %d", on ? "on" : "off", (int)idx);
+        return;
+    }
+    const int       i    = (int)idx;
+    const LightMask b    = lightBit(i);
+    const char*     name = lightName(i);
+    retryAtMs_[i] = 0;  // an explicit command goes out now, not at the next backoff slot
+
+    if (s_.asleep) {
+        if (on && mdsNow(now) < toMds(SLEEP_CUTOFF)) {
+            note("%s on — dashboard", name);
+            startWake(now, -1, "dashboard");
+            s_.want |= b;  // rides the wake from the start, like a light already on
+        } else if (on) {
+            note("%s on ignored — asleep (Wake starts the day)", name);
+        } else if (physOn_ & b) {
+            note("%s off — dashboard", name);  // the wake clears out-for-today anyway
+            send(now, i, false, 0.0f, FADE_MS, false);
+        } else {
+            note("%s off ignored — already off", name);
+        }
+        return;
+    }
+
+    pendingOff_   &= (LightMask)~b;  // this decides it, not an app off still being grouped
+    joinDurMs_[i]  = 0;
+    if (on) {
+        s_.want |= b;
+        s_.out  &= (LightMask)~b;
+        note("%s on — dashboard", name);
+        if (napActive()) {
+            endNap("dashboard");  // as in the app: the rest of the nap set comes back too
+        } else if (holdActive() && !(physOn_ & b)) {
+            joinLight(now, i, FADE_MS);  // the hold sends nothing else; this one is yours
+        }
+    } else {
+        s_.want &= (LightMask)~b;
+        s_.out  |= b;
+        note("%s off for today — dashboard", name);
+        if (paused() && (physOn_ & b)) driveOff(now, i);  // reconcile sends nothing while held
+    }
+    dirty_ = true;
+}
+
 void Director::endNap(const char* why) {
     if (!napActive()) return;
     s_.napUntilMs = 0;
@@ -771,6 +823,12 @@ void Director::onCommand(const Now& now, Cmd cmd, int32_t value) {
             break;
         case Cmd::Extend:
             commandExtend(now, value);
+            break;
+        case Cmd::LightOn:
+            commandLight(now, value, true);
+            break;
+        case Cmd::LightOff:
+            commandLight(now, value, false);
             break;
     }
     processTimers(now);  // a nap set to 0 min ends right away

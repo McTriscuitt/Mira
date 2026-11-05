@@ -26,6 +26,10 @@ MAX_MINUTES = 720
 MAX_STREAMS = 4
 _stream_slots = threading.BoundedSemaphore(MAX_STREAMS)
 
+# The board's lights in src/lights.h order. A light command's value is the index, and
+# these are the firmware's lightName()s, which its log lines about that light start with.
+LIGHT_NAMES = ('Floor', 'Dresser', 'Chest', 'Ceiling')
+
 # Action -> (lowest value, highest value), or None for no value. NAP's value is optional.
 ALLOWED_COMMANDS = {
     'RESUME': None,
@@ -34,6 +38,8 @@ ALLOWED_COMMANDS = {
     'SLEEP': None,
     'NAP': (1, MAX_MINUTES),
     'EXTEND': (1, MAX_MINUTES),
+    'LIGHT_ON': (0, len(LIGHT_NAMES) - 1),
+    'LIGHT_OFF': (0, len(LIGHT_NAMES) - 1),
 }
 VALUE_OPTIONAL = {'NAP'}
 
@@ -56,6 +62,7 @@ _IGNORED_PREFIX = {
     'EXTEND': 'Extend ignored',
 }
 _APPLIED_LOG = {'EXTEND': 'extended'}
+_LIGHT_WORDS = {'LIGHT_ON': 'on', 'LIGHT_OFF': 'off'}
 _SETTLE = timedelta(seconds=2)    # the board acks slightly before it posts the new status
 _GIVE_UP = timedelta(seconds=30)
 
@@ -257,6 +264,35 @@ def cancel_command(command_id):
     return jsonify({'ok': True})
 
 
+def _ignored_patterns(command):
+    """LIKE patterns for the board's refusal of this command. Firmware too old to know a
+    command refuses it in a line of its own (src/dashboard.cpp)."""
+    patterns = [f'Dashboard command {command.action} is %']
+    prefix = _IGNORED_PREFIX.get(command.action)
+    if prefix:
+        patterns.append(f'%{prefix}%')
+    if command.action in _LIGHT_WORDS and command.value in range(len(LIGHT_NAMES)):
+        # "Chest on ignored — asleep (Wake starts the day)"
+        patterns.append(f'{LIGHT_NAMES[command.value]} {_LIGHT_WORDS[command.action]} ignored%')
+    return patterns
+
+
+def _applied_pattern(command):
+    marker = _APPLIED_LOG.get(command.action)
+    if marker:
+        return f'%{marker}%'
+    if command.action in _LIGHT_WORDS and command.value in range(len(LIGHT_NAMES)):
+        # "Chest on — dashboard", "Chest off for today — dashboard"
+        return f'{LIGHT_NAMES[command.value]} {_LIGHT_WORDS[command.action]}%— dashboard%'
+    return None
+
+
+def _latest_log_like(since, pattern):
+    return (EventLog.query
+            .filter(EventLog.timestamp >= since, EventLog.message.like(pattern))
+            .order_by(EventLog.timestamp.desc()).first())
+
+
 def command_outcome(command, now=None):
     """Returns (outcome, note). Outcome is one of waiting, picked_up, applied, ignored,
     unconfirmed, expired or cancelled."""
@@ -270,19 +306,14 @@ def command_outcome(command, now=None):
         return 'waiting', None
 
     since = command.created_at
-    prefix = _IGNORED_PREFIX.get(command.action)
-    if prefix:
-        ignored = (EventLog.query
-                   .filter(EventLog.timestamp >= since, EventLog.message.like(f'%{prefix}%'))
-                   .order_by(EventLog.timestamp.desc()).first())
+    for pattern in _ignored_patterns(command):
+        ignored = _latest_log_like(since, pattern)
         if ignored:
             return 'ignored', ignored.message
 
-    marker = _APPLIED_LOG.get(command.action)
-    if marker:
-        applied = (EventLog.query
-                   .filter(EventLog.timestamp >= since, EventLog.message.like(f'%{marker}%'))
-                   .order_by(EventLog.timestamp.desc()).first())
+    pattern = _applied_pattern(command)
+    if pattern:
+        applied = _latest_log_like(since, pattern)
         if applied:
             return 'applied', applied.message
 

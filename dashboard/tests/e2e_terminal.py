@@ -31,6 +31,7 @@ PORT = 5077
 BASE = f'http://127.0.0.1:{PORT}'
 
 results = []
+LIGHT_NAMES = ('Floor', 'Dresser', 'Chest', 'Ceiling')  # src/lights.h order and wording
 
 
 def check(name, condition, detail=''):
@@ -94,6 +95,10 @@ class FakeBoard:
         elif action == 'WAKE':
             self.mode = 'WAKE'
             self.log('Wake — dashboard (25% → 75% over 15 min)')
+        elif action == 'LIGHT_OFF':
+            self.log(f'{LIGHT_NAMES[value]} off for today — dashboard')
+        elif action == 'LIGHT_ON':
+            self.log(f'{LIGHT_NAMES[value]} on — dashboard')
 
     def run(self):
         while not self.stop.is_set():
@@ -199,6 +204,8 @@ def visitor_checks(term, board, page, csp_errors):
     term.expect_text('hold is a mira command')
     term.type('mira hold')
     term.expect_text('enter mira first')
+    term.type('dresser off')
+    term.expect_text('dresser is a mira command')
     term.type('clear')
 
     term.type('mira')
@@ -215,7 +222,8 @@ def visitor_checks(term, board, page, csp_errors):
     term.type('help')
     term.expect_text('admin only')
     help_text = term.text()
-    for name in ('status', 'log', 'normal', 'hold', 'wake', 'sleep', 'nap', 'extend', 'simulate'):
+    for name in ('status', 'log', 'normal', 'hold', 'wake', 'sleep', 'nap', 'extend', 'simulate',
+                 '<light> on|off', 'floor, dresser, chest or ceiling'):
         check(f'mira help lists {name}', name in help_text)
     for secret in ('login', 'logout', 'access', 'legacy'):
         check(f'mira help hides {secret}', secret not in help_text)
@@ -223,7 +231,8 @@ def visitor_checks(term, board, page, csp_errors):
     term.type('clear')
 
     received_before = len(board.received)
-    for attempt in ('hold', 'nap 90', 'extend 30', 'sleep', 'wake', 'normal'):
+    for attempt in ('hold', 'nap 90', 'extend 30', 'sleep', 'wake', 'normal', 'dresser off',
+                    'chest on', 'ceiling'):
         term.type(attempt)
         term.expect_text('not open to visitors')
         term.type('clear')
@@ -395,6 +404,34 @@ def admin_checks(term, board, page):
     term.expect_text('past 9:00 PM')
     board.refuse.clear()
     term.shot('10-nap-refused')
+    term.type('clear')
+
+    term.type('dresser off')
+    term.expect_text('off for today.', timeout=15000)
+    check('dresser off sends LIGHT_OFF 1', board.received[-1] == ('LIGHT_OFF', 1), board.received[-1:])
+    term.type('clear')
+    term.type('Chest ON')
+    expect(page.locator('#output .line').last).to_have_text('on.', timeout=15000)
+    check('chest on sends LIGHT_ON 2', board.received[-1] == ('LIGHT_ON', 2), board.received[-1:])
+    term.shot('10b-light-commands')
+    term.type('clear')
+
+    board.refuse['LIGHT_ON'] = 'Ceiling on ignored — asleep (Wake starts the day)'
+    term.type('ceiling on')
+    term.expect_text('the board refused', timeout=15000)
+    term.expect_text('Ceiling on ignored — asleep')
+    board.refuse['LIGHT_OFF'] = 'Dashboard command LIGHT_OFF is unknown in 3.0 — ignored'
+    term.type('floor off')
+    term.expect_text('LIGHT_OFF is unknown', timeout=15000)
+    board.refuse.clear()
+    term.type('clear')
+
+    received_before = len(board.received)
+    term.type('dresser')
+    term.expect_text('usage: dresser on')
+    term.type('chest maybe')
+    term.expect_text('usage: chest on')
+    check('a usage error sends nothing', len(board.received) == received_before, board.received[-1:])
     term.type('clear')
 
     term.type('nap banana')

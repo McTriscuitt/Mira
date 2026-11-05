@@ -21,7 +21,7 @@ const Terminal = (function () {
     '^(?:help|about|projects|contact|resume|clear|privacy|ls|whoami|pwd|login|logout(?: all)?' +
     '|access(?: logins| visits| commands)?|legacy|mira|\\./mira|open mira|cd(?: mira| \\.\\.| ~| /)?' +
     '|back|exit|status|log(?: \\d{1,3})?|normal|hold|wake|sleep|nap(?: \\d{1,4})?' +
-    '|extend(?: \\d{1,4}[mh]?)?|simulate)$'
+    '|extend(?: \\d{1,4}[mh]?)?|simulate|(?:floor|dresser|chest|ceiling)(?: on| off)?)$'
   );
 
   const terminal = document.getElementById('terminal');

@@ -40,7 +40,8 @@ little 2.x code survives beyond what §8 lists as kept.
 | 5 | First flash + hardware-unknowns verification | **IN PROGRESS**: flashed Oct 14 23:33 (`4ba1a97`); first-night findings in `MIRA_3_FIRST_NIGHT.md`. Checklist at the end. |
 | 6 | Docs: delete lux-era docs, rewrite CLAUDE.md, merge `mira-3` → `main` | **PARTIAL.** Docs deleted and CLAUDE.md rewritten for 3.0. Merge waits for step 5. |
 | 7 | Power-loss replay: save the day's facts to NVS, replay missed events at power-on | **FLASHED Nov 2, boot not yet confirmed**: §10. Native tests pass; NVS and a real outage are unverified on the board. |
-| 8 | False holds + wall switches: in-line filter, `zigbee_connectivity` | **FLASHED Nov 2, boot not yet confirmed**: §6 and §8. The bridge side needs hardware unknown #7. |
+| 8 | False holds + wall switches: in-line filter, `zigbee_connectivity` | **Wall switches TESTED: the user confirmed them on the real lights, Nov 5** (unknown #7). False holds still unverified: §6 and §8. |
+| 9 | Dashboard light commands: `LIGHT_ON` / `LIGHT_OFF` (the terminal's `dresser off`, `chest on`) | **BUILT Nov 5, not flashed**: §5 and §8. 9 native tests pass. The board build wasn't compiled (that session couldn't reach the PlatformIO registry), so run `pio run` before flashing. Checklist at the end. |
 
 **DST note:** the board runs 2.x until step 5. DST ends Nov 1. If 3.0 isn't flashed
 by then, 2.x's fixed `UTC_OFFSET_SEC` puts its evening gates an hour off (stopgap on
@@ -176,6 +177,23 @@ native test `test_full_day_auto_wake_one_command_per_change` pins this exactly.
 "One light" versus "every light" is judged over a short **grouping window** (~3 s).
 A room toggle in the Hue app arrives as a burst of per-light events, and it should
 read as one all-off, not three single-light offs.
+
+**From the dashboard** (user, Nov 5: type `dresser off` or `chest on` "and that will turn
+those lights on or off for the day"). A light command does what switching that light in
+the app does, except Mira sends the switch, so it takes effect in any mode:
+
+| You type… | When | Mira… |
+|---|---|---|
+| `<light> off` | awake (incl. wake, hold, nap) | sends the off (15 s fade) and marks it **out for today**. It never starts a nap, even on the last light on; from 21:00 the last light out still means asleep |
+| `<light> off` | asleep | sends the off if the light is on |
+| `<light> on` | in charge | sets *want on*, clears *out*, and fades it into line over 15 s |
+| `<light> on` | hold | the same, right away; the other lights stay held |
+| `<light> on` | nap | ends the nap. The rest of the nap set comes back too |
+| `<light> on` | asleep, 06:00 to 21:00 | starts the wake, with this light riding it from the start |
+| `<light> on` | asleep, otherwise | refused: `Wake` starts the day |
+
+The last writer still wins: a light turned on this way still goes off at its scheduled
+off (ceiling 19:00, chest 20:00, dresser 22:30).
 
 ## 6. Hold, nap, and catching up
 
@@ -381,9 +399,11 @@ after every 10-minute reconnect, which would otherwise read it as turned back on
   | `SET_SOFT_PAUSE_REMAINING` | `NAP_REMAINING` | nap minutes left |
   | | `NAP` | turn everything off and nap; `value` is minutes, default 60. Refused from 9 PM, while asleep, or already napping. Replaces a hold |
   | | `EXTEND` | add `value` minutes to the hold or nap. A nap still becomes asleep at 9 PM, and lights-out still ends a hold |
+  | | `LIGHT_ON` / `LIGHT_OFF` | one light on, or off for today; `value` is the roster index (floor 0, dresser 1, chest 2, ceiling 3). §5 has what each does in each mode |
 
   `HARD_OFF`, `WIND_DOWN`, the step seeks, stable-lux, and exclude/include are
-  acked and logged as retired.
+  acked and logged as retired. (`EXCLUDE_LIGHT`/`INCLUDE_LIGHT` stay retired: their
+  values were 2.x roster indices, which `LIGHT_ON`/`LIGHT_OFF` don't share.)
 
 **Tests**
 - Run: `pio test -e native -e native_legs`. It needs a host gcc on PATH; CLion's
@@ -399,6 +419,13 @@ after every 10-minute reconnect, which would otherwise read it as turned back on
   - naps (timeout, early end, 21:00 → sleep), out-for-today and its scheduled-join
     block, all-off after 21:00
   - dashboard wake at night, nap-remaining 0
+  - dashboard light commands: off is out for today (and not a nap on the last light;
+    asleep after 21:00), off before a scheduled on, on mid-fade, on during a nap and a
+    hold, asleep at night and in the day, a bad index
+- Without PlatformIO (its registry was blocked in the Nov 5 cloud session), the same two
+  envs build by hand: g++ `-std=gnu++11 -Wall -Wextra -I src` on `timeline.cpp`,
+  `director.cpp` and the test file, linked with Unity's `unity.c`; add
+  `-DMAX_FADE_MS=1800000UL` for `test_legs`.
   - HTTP-failure backoff, an unreachable bulb, stale revert
   - soft-reset restore (no commands re-sent; missed events still fire)
   - legs
@@ -665,6 +692,25 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
   so the user considers it very unlikely.
 - A report within 5% of the in-line level isn't a hold (Claude's proposal, accepted).
 
+**Dashboard light commands (user, Nov 5)**
+- The user asked for admins to type something like `dresser off` or `chest on` in Mira to
+  "turn those lights on or off for the day". Off is *out for today*; on clears it.
+- **(Claude's calls, change any)**
+  - Each command does what the same switch in the Hue app does (§5), so the rules stay the
+    ones already agreed. Where the app has nothing to copy, the command acts now: a hold
+    protects your change, and this is your change. On during a hold lands at the in-line
+    level, with a 15 s fade-in like Mira's other turn-ons; off fades over 15 s like its
+    other offs.
+  - Off never starts a nap, even on the last light on: one named light isn't "everything
+    off", and a nap would bring it back in an hour. `nap` does that.
+  - Asleep, on starts the wake from 06:00 to 21:00, as the app does; outside that it's
+    refused, because Mira has no level to give a light at night. Off is sent if the light
+    is on.
+  - New wire names, `LIGHT_ON`/`LIGHT_OFF`, with the 3.0 roster index.
+  - One help row, `<light> on|off`, admin only like the other controls.
+  - The site counts a board line `Dashboard command X is unknown`/`retired` as a refusal
+    for any command, so until the reflash a light command shows the board refusing it.
+
 **Found in build/review (fixed before any flash)**
 1. **The freeze would have dropped lights to ~1% after a cold boot.** The Director
    didn't know the bulbs' brightness at boot, so a freeze computed "where the fade
@@ -695,7 +741,7 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
 
 *Status from the Railway logs, Oct 14 – Nov 2 (`MIRA_3_FIRST_NIGHT.md` → "Nov 2"):*
 *#1 the bridge accepts 60-min fades, landing time unmeasured; #2 mid-fade reports do*
-*appear; #3, #4, #5 no data; #6 likely linear; #7 new, unmeasured.*
+*appear; #3, #4, #5 no data; #6 likely linear; #7 confirmed working by the user, Nov 5.*
 
 1. **60-min single-command fades.** Hue's transition field appears to cap near
    109 min (16 bits of tenths of a second, inherited from v1). The longest stage is
@@ -721,6 +767,8 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
 7. **Wall switches.** Does the bridge send `zigbee_connectivity` when a bulb loses
    power, and how soon? Is `owner.rid` on the stream event as assumed? An off-and-on
    faster than the bridge notices sends no event, so an off-path report still holds.
+   **Tested: the user confirmed the wall-switch handling works on the real lights, Nov 5.**
+   No timings were reported, and the quick off-and-on (Nov 2 checklist item 2) is still open.
 
 ## First-flash checklist (step 5)
 
@@ -758,7 +806,8 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
 Flashed Nov 2 while the board was away from home WiFi, so run these once it's back. First
 confirm the dashboard log shows `Online (…) — Mira 3.0` and a `Boot — …` line.
 
-1. **Wall switch (unknown #7):** with serial running, cut the chest at its switch. Time
+1. **Done: the user confirmed it on the real lights, Nov 5.** **Wall switch (unknown #7):**
+   with serial running, cut the chest at its switch. Time
    `SSE: Chest connectivity connectivity_issue`, then expect `Chest lost power` and
    `Chest off — out for today`. Wait past a 10-min `SSE: stale` reconnect: it must stay
    out. Restore it: `Chest has power again`, then a 15 s PUT and no `you set` hold.
@@ -767,3 +816,16 @@ confirm the dashboard log shows `Online (…) — Mira 3.0` and a `Boot — …`
    it back in. Expect `Boot — power loss; caught up from …` and the missed offs.
 4. **False holds:** watch a morning wake for `reported N% — in line, no hold` where a
    `Hold` used to appear.
+
+## Nov 5 reflash checklist (light commands)
+
+Before flashing, `dresser off` in the terminal should report the board refusing it
+(`Dashboard command LIGHT_OFF is unknown`). Then `pio run`, flash, and confirm
+`Online (…) — Mira 3.0`.
+
+1. **Off:** `dresser off` → `Dresser off for today — dashboard`, one 15 s off PUT, and
+   `status` lists the dresser as out for today. The next scheduled event leaves it off.
+2. **On:** `dresser on` → `Dresser on — dashboard`, a 15 s fade into line, then one glide
+   command if a fade is running. No `you set` hold.
+3. **During a hold:** `chest on` turns on only the chest; the held lights don't move.
+4. **Last light:** `floor off` with only the floor on before 9 PM stays awake, with no nap.

@@ -137,11 +137,14 @@ def test_commands_need_csrf_even_when_logged_in(client):
 def test_command_allowlist_and_bounds(client):
     login(client)
     for action, value in [('HOLD', None), ('RESUME', None), ('WAKE', None), ('SLEEP', None),
-                          ('NAP', None), ('NAP', 90), ('EXTEND', 30)]:
+                          ('NAP', None), ('NAP', 90), ('EXTEND', 30),
+                          ('LIGHT_ON', 0), ('LIGHT_OFF', 3)]:
         assert send(client, action, value).status_code == 200, action
     for action, value in [('HARD_OFF', None), ('WIND_DOWN', None), ('EVIL', None),
                           ('NAP', 0), ('NAP', 721), ('NAP', 'x'), ('EXTEND', None),
-                          ('EXTEND', True), ('HOLD', 5), ('NAP_REMAINING', 0), (None, None)]:
+                          ('EXTEND', True), ('HOLD', 5), ('NAP_REMAINING', 0), (None, None),
+                          ('LIGHT_ON', None), ('LIGHT_OFF', 4), ('LIGHT_OFF', -1),
+                          ('LIGHT_ON', True), ('LIGHT_ON', 'chest'), ('EXCLUDE_LIGHT', 1)]:
         assert send(client, action, value).status_code == 400, (action, value)
 
 
@@ -213,6 +216,46 @@ def test_old_ignored_line_does_not_count(client, app):
     command_id = send(client, 'HOLD').get_json()['id']
     ack(client, command_id)
     assert outcome_of(app, command_id)[0] != 'ignored'
+
+
+def board_log(client, message):
+    client.post('/api/log', headers=BOARD, json={'message': message + ' — 3:00 PM Thursday'})
+
+
+def test_light_command_is_confirmed_by_its_own_line(client, app):
+    login(client)
+    off_id = send(client, 'LIGHT_OFF', 1).get_json()['id']
+    on_id = send(client, 'LIGHT_ON', 2).get_json()['id']
+    ack(client, off_id)
+    ack(client, on_id)
+    board_log(client, 'Chest off for today — dashboard')  # another light, the other way
+    board_log(client, 'Dresser off — out for today')       # the Hue app's wording, not ours
+    assert outcome_of(app, off_id)[0] == 'picked_up'
+    assert outcome_of(app, on_id)[0] == 'picked_up'
+    board_log(client, 'Dresser off for today — dashboard')
+    board_log(client, 'Chest on — dashboard')
+    outcome, note = outcome_of(app, off_id)
+    assert outcome == 'applied' and note.startswith('Dresser off for today')
+    assert outcome_of(app, on_id)[0] == 'applied'
+
+
+def test_light_command_refused_by_the_board(client, app):
+    login(client)
+    command_id = send(client, 'LIGHT_ON', 2).get_json()['id']
+    ack(client, command_id)
+    board_log(client, 'Chest on ignored — asleep (Wake starts the day)')
+    outcome, note = outcome_of(app, command_id)
+    assert outcome == 'ignored' and 'asleep' in note
+
+
+def test_command_unknown_to_older_firmware_reads_as_refused(client, app):
+    login(client)
+    command_id = send(client, 'LIGHT_OFF', 0).get_json()['id']
+    ack(client, command_id)
+    client.post('/api/log', headers=BOARD,
+                json={'message': 'Dashboard command LIGHT_OFF is unknown in 3.0 — ignored'})
+    outcome, note = outcome_of(app, command_id)
+    assert outcome == 'ignored' and 'unknown' in note
 
 
 def test_outcome_expired(app):

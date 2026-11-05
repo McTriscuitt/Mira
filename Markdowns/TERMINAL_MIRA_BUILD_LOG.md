@@ -33,7 +33,8 @@ real lights.
 7. **Delete `DASHBOARD_PASSWORD` and `DEMO_PASSWORD` from Railway**, once login has worked.
 8. **Test Watch Paths.** This was still open from the plan: confirm a firmware-only push doesn't
    redeploy and a dashboard change does.
-9. **Finish the Nov 2 checklist** in `MIRA_3.md`: wall switch, power loss and false hold.
+9. **Finish the Nov 2 checklist** in `MIRA_3.md`: power loss and false hold. (The wall switch was
+   confirmed on Nov 5.)
 
 **To undo the deploy:** use Railway's redeploy on the previous deployment, or run
 `git revert -m 1 172cb6d` on `mira-3` and push, which also needs `a5a392e` reverted first. The

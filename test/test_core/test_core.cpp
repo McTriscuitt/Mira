@@ -898,6 +898,151 @@ void test_extend_with_nothing_to_extend_is_ignored() {
     TEST_ASSERT_TRUE(s.logged("needs a number"));
 }
 
+// ── one light from the dashboard (`dresser off`, `chest on`) ────────────────
+
+void test_light_off_command_sends_the_off_and_is_out_for_today() {
+    Sim s;
+    s.boot(T(0, 11, 59), ALL);
+    s.runTo(T(0, 12, 0));
+    size_t m = s.mark();
+    s.command(Director::Cmd::LightOff, LIGHT_DRESSER);
+    TEST_ASSERT_EQUAL(1, s.count(m));
+    assertPut(s.find(m, LIGHT_DRESSER), false, 0.0f, FADE_MS, 0);
+    TEST_ASSERT_TRUE(s.logged("Dresser off for today — dashboard"));
+    TEST_ASSERT_EQUAL((int)DRESSER, (int)s.d.outMask());
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    m = s.mark();
+    s.runTo(T(0, 17, 0, 1));  // the next fade skips it
+    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_DRESSER));
+    TEST_ASSERT_EQUAL(1, s.countFor(m, LIGHT_FLOOR));
+}
+
+void test_light_off_command_on_the_last_light_is_not_a_nap() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR);
+    s.runTo(T(0, 14, 0));
+    s.command(Director::Cmd::LightOff, LIGHT_FLOOR);
+    s.runTo(T(0, 14, 0, 10));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    TEST_ASSERT_FALSE(s.env.on[LIGHT_FLOOR]);
+    size_t m = s.mark();
+    s.runTo(T(0, 15, 30));  // no nap to end, so nothing comes back
+    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_FLOOR));
+}
+
+void test_light_off_command_after_9pm_on_the_last_light_is_asleep() {
+    Sim s;
+    s.boot(T(0, 22, 59), FLOOR);
+    s.runTo(T(0, 23, 0));
+    s.command(Director::Cmd::LightOff, LIGHT_FLOOR);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)s.mode());  // the same rule as any last light out
+}
+
+void test_light_off_command_before_a_scheduled_on_keeps_it_off() {
+    Sim s;
+    s.boot(T(0, 9, 29), FLOOR | DRESSER | CHEST);
+    s.runTo(T(0, 9, 30));
+    size_t m = s.mark();
+    s.command(Director::Cmd::LightOff, LIGHT_CEIL_1);  // already off: nothing to send
+    TEST_ASSERT_EQUAL(0, s.count(m));
+    s.runTo(T(0, 10, 0, 5));
+    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_CEIL_1));
+    TEST_ASSERT_TRUE(s.logged("Ceiling stays off — out for today"));
+}
+
+void test_light_on_command_brings_it_back_in_line_mid_fade() {
+    Sim s;
+    s.boot(T(0, 11, 59), ALL);
+    s.runTo(T(0, 12, 0));
+    s.command(Director::Cmd::LightOff, LIGHT_DRESSER);
+    s.runTo(T(0, 17, 30));
+    size_t m = s.mark();
+    s.command(Director::Cmd::LightOn, LIGHT_DRESSER);
+    TEST_ASSERT_TRUE(s.logged("Dresser on — dashboard"));
+    TEST_ASSERT_EQUAL(0, (int)s.d.outMask());
+    TEST_ASSERT_EQUAL(1, s.count(m));
+    assertPut(s.find(m, LIGHT_DRESSER), true, 100.0f - 25.0f * (30.25f / 60.0f), FADE_MS, 0);  // 15 s fade-in
+    m = s.mark();
+    s.runTo(T(0, 17, 30, 16));  // landed: one command for the rest of the fade
+    assertPut(s.find(m, LIGHT_DRESSER), true, 75.0f, 1785000);
+}
+
+void test_light_on_command_during_a_nap_ends_it() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR | DRESSER);
+    s.runTo(T(0, 14, 0));
+    s.command(Director::Cmd::Nap, -1);
+    s.runTo(T(0, 14, 10));
+    size_t m = s.mark();
+    s.command(Director::Cmd::LightOn, LIGHT_DRESSER);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    TEST_ASSERT_TRUE(s.logged("Nap over — dashboard"));
+    assertPut(s.find(m, LIGHT_DRESSER), true, 100.0f, FADE_MS, 0);
+    assertPut(s.find(m, LIGHT_FLOOR), true, 100.0f, FADE_MS, 0);  // the rest of the nap set too
+}
+
+void test_light_commands_during_a_hold_switch_only_that_light() {
+    Sim s;
+    s.boot(T(0, 11, 59), ALL);
+    s.runTo(T(0, 12, 0));
+    s.command(Director::Cmd::LightOff, LIGHT_CHEST);
+    s.runTo(T(0, 12, 0, 20));
+    s.userBri(LIGHT_FLOOR, 50.0f);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+    size_t m = s.mark();
+    s.command(Director::Cmd::LightOn, LIGHT_CHEST);
+    s.command(Director::Cmd::LightOff, LIGHT_DRESSER);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+    TEST_ASSERT_EQUAL(2, s.count(m));  // nothing else moves
+    assertPut(s.find(m, LIGHT_CHEST), true, 100.0f, FADE_MS, 0);
+    assertPut(s.find(m, LIGHT_DRESSER), false, 0.0f, FADE_MS, 0);
+    TEST_ASSERT_EQUAL((int)DRESSER, (int)s.d.outMask());
+    s.runTo(T(0, 12, 1));
+    m = s.mark();
+    s.command(Director::Cmd::Resume);
+    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_DRESSER));  // still out after the hold
+}
+
+void test_light_commands_while_asleep() {
+    Sim s;
+    s.boot(T(0, 21, 29), FLOOR | DRESSER);
+    s.runTo(T(0, 21, 30));
+    s.userOff(LIGHT_FLOOR);
+    s.userOff(LIGHT_DRESSER);
+    s.runTo(T(0, 21, 30, 4));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)s.mode());
+    s.runTo(T(0, 22, 0));
+    size_t m = s.mark();
+    s.command(Director::Cmd::LightOn, LIGHT_CHEST);  // no level to give it at night
+    TEST_ASSERT_EQUAL(0, s.count(m));
+    TEST_ASSERT_TRUE(s.logged("Chest on ignored — asleep"));
+    s.command(Director::Cmd::LightOff, LIGHT_DRESSER);
+    TEST_ASSERT_TRUE(s.logged("Dresser off ignored — already off"));
+    s.userOn(LIGHT_FLOOR, 25.0f);  // left alone, but an off from the dashboard is sent
+    m = s.mark();
+    s.command(Director::Cmd::LightOff, LIGHT_FLOOR);
+    TEST_ASSERT_EQUAL(1, s.count(m));
+    assertPut(s.find(m, LIGHT_FLOOR), false, 0.0f, FADE_MS, 0);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)s.mode());
+    m = s.mark();
+    s.command(Director::Cmd::LightOn, 7);  // not a light
+    TEST_ASSERT_EQUAL(0, s.count(m));
+    TEST_ASSERT_TRUE(s.logged("Light on ignored — no light 7"));
+}
+
+void test_light_on_command_asleep_in_the_day_starts_the_wake() {
+    Sim s;
+    s.boot(T(0, 13, 59), FLOOR);
+    s.command(Director::Cmd::Sleep);
+    s.runTo(T(0, 14, 0));
+    size_t m = s.mark();
+    s.command(Director::Cmd::LightOn, LIGHT_CHEST);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Wake, (int)s.mode());
+    TEST_ASSERT_TRUE(s.logged("Wake — dashboard"));
+    assertPut(s.find(m, LIGHT_FLOOR), true, 26.25f, FADE_MS, 0);  // 25 → 100 over 15 min
+    assertPut(s.find(m, LIGHT_CHEST), true, 26.25f, FADE_MS, 0);  // rides it from the start
+}
+
 // ── robustness ──────────────────────────────────────────────────────────────
 
 void test_failed_command_retries_with_backoff() {
@@ -1134,6 +1279,15 @@ int main(int argc, char** argv) {
     RUN_TEST(test_extended_hold_stays_frozen_past_a_fade_then_catches_up);
     RUN_TEST(test_lights_out_still_ends_an_extended_hold);
     RUN_TEST(test_extend_with_nothing_to_extend_is_ignored);
+    RUN_TEST(test_light_off_command_sends_the_off_and_is_out_for_today);
+    RUN_TEST(test_light_off_command_on_the_last_light_is_not_a_nap);
+    RUN_TEST(test_light_off_command_after_9pm_on_the_last_light_is_asleep);
+    RUN_TEST(test_light_off_command_before_a_scheduled_on_keeps_it_off);
+    RUN_TEST(test_light_on_command_brings_it_back_in_line_mid_fade);
+    RUN_TEST(test_light_on_command_during_a_nap_ends_it);
+    RUN_TEST(test_light_commands_during_a_hold_switch_only_that_light);
+    RUN_TEST(test_light_commands_while_asleep);
+    RUN_TEST(test_light_on_command_asleep_in_the_day_starts_the_wake);
     RUN_TEST(test_failed_command_retries_with_backoff);
     RUN_TEST(test_unreachable_bulb_backs_off_and_logs_once);
     RUN_TEST(test_stale_revert_resends);
