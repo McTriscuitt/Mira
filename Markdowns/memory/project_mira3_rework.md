@@ -15,7 +15,7 @@ long-duration PUTs (the bulbs do the fading); no state machine — per-light
 "2.0" was the unfinished "super reactive" N1/N2 line — never call this 2.0.
 
 **Status:** flashed Oct 14 2026 23:33 CT from `mira-3`; merged into `main` Nov 5.
-Board on **COM4**. Last lux build tagged `mira-2-final` (local tag).
+Board on **COM4**. Last lux build tagged `mira-2-final` (pushed to GitHub Nov 5).
 
 **Nov 2 session, flashed and pushed on `mira-3`, boot and behaviour not yet confirmed on the board:**
 new evening (75→40 at 19:00–20:00, chest off 20:00; 40→25 at 20:45–21:00; dresser off

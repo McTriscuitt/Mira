@@ -11,4 +11,4 @@ When committing, include untracked files (Markdowns, bug-record logs, planning d
 
 **Why:** Untracked docs left local create dead references (CLAUDE.md pointed at two Markdowns that weren't in the repo) and risk loss; the .gitignore already fences off what should stay local (secrets.h etc.).
 
-**How to apply:** After making the requested commit, check `git status` for untracked files and fold them into the push — either in the same commit if related or a separate docs commit. Only leave something untracked if it's obviously transient or the user says so. Related: [[no-coauthor-in-commits]].
+**How to apply:** After making the requested commit, check `git status` for untracked files and fold them into the push — either in the same commit if related or a separate docs commit. Only leave something untracked if it's obviously transient or the user says so. Don't hold back a commit or push to avoid a Railway redeploy: the user said (Nov 5, 2026) "I dont mind the site redeploying as i would rather have everything remote." Related: [[no-coauthor-in-commits]].
