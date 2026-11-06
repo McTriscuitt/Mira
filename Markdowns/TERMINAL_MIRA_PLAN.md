@@ -75,8 +75,8 @@ part of the redesign finished.
   - `dashboard/static/css/landing.css`
   - `dashboard/static/js/terminal.js`: behavior, with a `COMMANDS` table
   - `dashboard/static/js/portfolio-content.js`: the text and the project list
-- Railway settings: root directory `/dashboard`, branch `mira-3`. Since the Nov 5 merge it should be
-  `main`: the user switches that in Railway, and `mira-3` stays in step with `main` until then.
+- Railway settings: root directory `/dashboard`, branch `main` (switched from `mira-3` Nov 5,
+  after the merge; `mira-3` was then deleted).
 - `SQLAlchemy==2.0.55` is pinned because 2.1 defaults `postgresql://` to `psycopg`, which
   isn't installed. A fresh build without the pin crashes on boot with a 502.
 - Still open from phase 1:

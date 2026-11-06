@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (ABX00083)**. **Mira 3.0** (October 2026) drives 4 Philips Hue bulbs on a **time-of-day timeline** through the local Hue Bridge v2 API: at each point in the day where the lights should change, it sends one command per light with a target brightness, color temperature, and duration, and the bulbs do the fading. A VEML7700 lux sensor is read for reporting only.
 
-**Start every firmware session with `Markdowns/MIRA_3.md`.** It's the 3.0 spec, architecture, decisions log, and first-flash checklist; the user's verbatim inputs are in `V3 Migration Docs/`. The lux-reactive 2.x system is tagged `mira-2-final`. 3.0 was merged into `main` on Nov 5, 2026; work on `main` from here (`mira-3` is kept only until Railway deploys from `main`).
+**Start every firmware session with `Markdowns/MIRA_3.md`.** It's the 3.0 spec, architecture, decisions log, and first-flash checklist; the user's verbatim inputs are in `V3 Migration Docs/`. The lux-reactive 2.x system is tagged `mira-2-final`. 3.0 was merged into `main` on Nov 5, 2026; work on `main`. Railway deploys from `main`, and the `mira-3` branch was deleted Nov 5.
 
 ## Project Memory
 
@@ -59,7 +59,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
-- **Nov 5, 2026, `mira-3` merged into `main`.** Point Railway's deploy branch at `main`, then `mira-3` can be deleted.
+- **Nov 5, 2026, `mira-3` merged into `main`.** Railway now deploys from `main`; `mira-3` is deleted, and `mira-2-final` is pushed.
 - **Nov 5, 2026, dashboard light commands flashed, not yet tested on the lights:** inside `mira`, admins type `dresser off` / `chest on` (`floor`, `dresser`, `chest`, `ceiling`). Off is out for today, but only while the schedule still wants that light (after its scheduled off it's just off); on brings it back in line, or to the hold level during a hold. That out-for-today rule and the hold-level join apply to the Hue app and wall switches too. Flashed while the board was away from home WiFi, so `Online (…) — Mira 3.0` is unconfirmed. Rules: `Markdowns/MIRA_3.md` §5 and the Nov 5 decisions; "Nov 5 reflash checklist" at its end. **Tested:** wall switches (Nov 2 checklist #1) and power loss (#3); #2 and #4 are open.
 - **Nov 3-4, 2026, terminal and dashboard rework merged into `mira-3` and pushed (`172cb6d`, login code fix `a5a392e`):** login worked on a real phone, and the other live checks are still open. **Next: the rest of the checklist at the top of `Markdowns/TERMINAL_MIRA_BUILD_LOG.md`**, which also lists every liberty taken. Admin secrets were remade on Nov 3 after the first password was lost.
 - **Nov 3, 2026, `NAP` and `EXTEND` flashed:** the board booted and shows on the dashboard, but neither command has been run on the real lights yet. New admin secrets are set in Railway. **Next: all dashboard and terminal work. Start with "Start here" in `Markdowns/TERMINAL_MIRA_PLAN.md`. The user wants no liberties: ask before building anything undecided.**

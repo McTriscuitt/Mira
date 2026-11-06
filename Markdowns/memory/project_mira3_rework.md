@@ -33,8 +33,8 @@ only before that light's scheduled off (it also clears at the scheduled off and 
 and any light turned on during a hold joins the hold level (your last brightness in it,
 `DirectorState.holdBri`, `STATE_MAGIC` …0302). Nov 5 reflash checklist in MIRA_3.md is open.
 
-**Branch:** `mira-3` merged into `main` Nov 5 (user's call); work on `main`. Railway still
-deploys from `mira-3` until the user switches it, so keep `mira-3` in step until then.
+**Branch:** `mira-3` merged into `main` Nov 5 (user's call); work on `main`. Railway deploys
+from `main` (switched Nov 5), and the `mira-3` branch is deleted.
 
 **Facts that aren't in the code:** 18 days of logs (Oct 14–Nov 2) showed no panics or
 watchdog resets after 3.0, DST fine. The board isn't always online, so a telemetry gap
