@@ -605,6 +605,84 @@ def phone_checks(browser):
     context.close()
 
 
+def phone_tap_checks(browser):
+    """A tap on the prompt line, or anywhere that isn't a link or button, focuses the input,
+    which on a real phone raises the keyboard. Headless Chromium has no keyboard to show,
+    so these check focus, and that each tap focused freshly."""
+    context = browser.new_context(viewport={'width': 390, 'height': 760}, has_touch=True,
+                                  is_mobile=True, device_scale_factor=2)
+    page = context.new_page()
+    term = Term(page)
+    page.goto(BASE + '/mira')
+    expect(page.locator('#prompt-label')).to_have_text('~/mira $')
+    page.evaluate("""() => {
+        window.focusCount = 0;
+        document.getElementById('command-input').addEventListener('focus', () => window.focusCount++);
+    }""")
+
+    def focused():
+        return page.evaluate("document.activeElement.id === 'command-input'")
+
+    def tap(x, y):
+        page.evaluate('document.activeElement.blur()')
+        page.touchscreen.tap(x, y)
+        page.wait_for_timeout(50)
+        return focused()
+
+    check('a phone page loads without raising the keyboard', not focused())
+
+    row = page.locator('#prompt-form').bounding_box()
+    label = page.locator('#prompt-label').bounding_box()
+    x = row['x'] + row['width'] - 40
+    middle = row['y'] + row['height'] / 2
+    under = page.evaluate(f"""[
+        document.elementFromPoint({x}, {row['y'] - 8}).id,
+        document.elementFromPoint({x}, {row['y'] + row['height'] + 8}).id]""")
+    check('the input covers a finger-sized strip around the prompt line',
+          under == ['command-input', 'command-input'], under)
+
+    check('tapping the prompt line focuses the input', tap(x, middle))
+    check('tapping just above the line focuses the input', tap(x, row['y'] - 8))
+    check('tapping just below the line focuses the input', tap(x, row['y'] + row['height'] + 8))
+    check('tapping the ~/mira $ label focuses the input',
+          tap(label['x'] + label['width'] / 2, label['y'] + label['height'] / 2))
+    check('tapping empty space far below focuses the input', tap(200, 700))
+    title = page.locator('.line.title').bounding_box()
+    check('tapping output text focuses the input', tap(title['x'] + 20, title['y'] + 8))
+
+    # Focused with the keyboard down (Android's back button): a tap must focus afresh.
+    page.evaluate("document.getElementById('command-input').focus()")
+    before = page.evaluate('window.focusCount')
+    page.touchscreen.tap(200, 700)
+    page.wait_for_timeout(50)
+    after = page.evaluate('window.focusCount')
+    check('a tap re-raises the keyboard when the input is already focused',
+          focused() and after == before + 1, (before, after))
+
+    # A swipe is a scroll, not a tap.
+    page.evaluate('document.activeElement.blur()')
+    cdp = context.new_cdp_session(page)
+    cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': 200, 'y': 650}]})
+    cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': 200, 'y': 520}]})
+    cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+    page.wait_for_timeout(100)
+    check('a swipe does not raise the keyboard', not focused())
+
+    # A command tap runs the command and leaves the keyboard down, so the output stays in view.
+    page.locator('.command', has_text='help').first.tap()
+    term.expect_text('admin only')
+    check('tapping a command runs it without raising the keyboard', not focused())
+
+    # The prompt line still works after output has pushed it down the page.
+    page.locator('.command', has_text='schedule').first.tap()
+    term.expect_text('lights-out')
+    page.wait_for_timeout(200)
+    row = page.locator('#prompt-form').bounding_box()
+    check('tapping the prompt line works after output moves it',
+          tap(row['x'] + row['width'] - 40, row['y'] + row['height'] / 2), row)
+    context.close()
+
+
 def main():
     server = start_server()
     board = FakeBoard()
@@ -632,6 +710,7 @@ def main():
             context.close()
             stream_ends_on_logout(browser)
             phone_checks(browser)
+            phone_tap_checks(browser)
             browser.close()
     finally:
         board.stop.set()

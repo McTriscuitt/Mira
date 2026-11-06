@@ -181,6 +181,20 @@ noscript a { color: var(--accent); }
   .command, .link { padding: 2px 0; }
 }
 
+/* --- Touch screens --- */
+
+/* The prompt line is where a finger goes to type, but it's only one text line tall.
+   The input and its label reach 12px above and below it, so a tap on or near the
+   line lands on them and raises the keyboard natively. The negative margins cancel
+   the padding, so nothing moves. */
+@media (pointer: coarse) {
+  .prompt-line .prompt,
+  .command-input {
+    padding-block: 12px;
+    margin-block: -12px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal { animation: none; }
   .command, .link { transition: none; }

@@ -733,6 +733,52 @@ const Terminal = (function () {
     input.focus({ preventScroll: true });
   });
 
+  // On a phone, a tap anywhere but a link or button raises the keyboard at the prompt.
+  // The tap is handled at touchend rather than left to the click: a phone only raises
+  // the keyboard for a focus() made during a tap, and the mouse events it sends after
+  // one can blur the input again. Cancelling touchend stops those events, so the focus
+  // made here is the last word. Scrolls, long presses and pinches aren't taps.
+  let touchStart = null;
+
+  terminal.addEventListener('touchstart', function (event) {
+    const touch = event.touches[0];
+    touchStart = event.touches.length === 1
+      ? { x: touch.clientX, y: touch.clientY, at: event.timeStamp }
+      : null;
+  }, { passive: true });
+
+  terminal.addEventListener('touchend', function (event) {
+    const start = touchStart;
+    touchStart = null;
+    const touch = event.changedTouches[0];
+    if (!start || !touch || !event.cancelable) return;
+    if (event.timeStamp - start.at > 500) return;
+    if (Math.abs(touch.clientX - start.x) > 10 || Math.abs(touch.clientY - start.y) > 10) return;
+
+    if (form.hidden || event.target === input) return;   // the input handles its own taps
+    if (event.target.closest('a, button')) return;
+    if (String(window.getSelection())) return;            // this tap clears a selection
+    event.preventDefault();
+    raiseKeyboard();
+  });
+
+  // focus() does nothing to an input that already has focus, and a phone can leave it
+  // focused with the keyboard down: Android's back button does, and so does a focus()
+  // made outside a tap, like ask()'s after a request. Blurring first makes the focus new.
+  // No preventScroll, so the browser keeps the prompt above the keyboard.
+  function raiseKeyboard() {
+    if (document.activeElement === input && !keyboardUp()) input.blur();
+    input.focus();
+  }
+
+  // The keyboard shrinks the visible area without resizing the page. A best guess:
+  // a wrong "up" leaves the keyboard down until the input itself is tapped, and a wrong
+  // "down" only makes the keyboard blink.
+  function keyboardUp() {
+    const view = window.visualViewport;
+    return !!view && document.documentElement.clientHeight - view.height * view.scale > 150;
+  }
+
   // Coming back with the browser's back button can restore this page exactly as
   // it was left, mid-launch with the prompt hidden. Put the prompt back.
   window.addEventListener('pageshow', function () {

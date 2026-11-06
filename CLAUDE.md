@@ -59,6 +59,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
+- **Nov 6, 2026, phone tap-to-type fix (branch `claude/sharp-brahmagupta-kt41tc`, not yet on `main`):** tapping the prompt line on a phone sometimes didn't raise the keyboard. Taps now raise it from anywhere that isn't a link or command (`Markdowns/DASHBOARD.md`, "On a phone"). The e2e passes 94/94, but it hasn't been tried on a real phone. Next: merge to `main` (Railway deploys it), then tap the line on the phone, including after `schedule` pushes it to the bottom. The cloud environment's setup script was added the same day (see Build, Flash & Test).
 - **Nov 5, 2026, Mira 3.1 flashed (lux sensor removed):** its code is commented out in `main.cpp` and `platformio.ini` (uncomment to bring it back); the boot line now reads `Online (…) — Mira 3.1` (`MIRA_VERSION` in config.h). `schedule` says "rise" for brightening periods.
 - **Nov 5, 2026, `schedule` command flashed and verified by the user (all checklist items pass):** `schedule` (public) shows the day with `◀ now`; `schedule check` / `schedule update` (admin) show where the site's copy came from / ask the board for it. `status` is now admin-only, with a row per light. Logged in, `help` lists every hidden command in every directory. Firmware posts its schedule at boot and on `SEND_SCHEDULE`. Checklist (done): "Nov 5 reflash checklist (schedule post)" in `Markdowns/MIRA_3.md`.
 
@@ -75,6 +76,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 - `pio run` / `pio run --target upload` / `pio device monitor` (115200 baud) build and flash the board (`default_envs = arduino_nano_esp32`).
 - **Native tests:** `pio test -e native -e native_legs`. They run the pure core through simulated days on the host and need a host gcc/g++ on PATH (CLion's bundled MinGW works: `<CLion>\bin\mingw\bin`). The board env ignores tests.
+- **Cloud sessions (claude.ai/code, "Mira" environment):** the environment's setup script installs the dashboard's Python deps, pytest, Playwright (matched to the image's Chromium) and PlatformIO, and builds the native tests. So `pio test -e native -e native_legs` (~1 s), `python -m pytest tests` (~10 s) and `python tests/e2e_terminal.py` (~75 s) run with no setup. There's no board, COM port, bridge or real secrets. To compile-check firmware changes, run `cp -n src/secrets.h.example src/secrets.h && pio run`. The first run fetches ~5 GB of ESP32 toolchain (~3 min), so it's on demand, not in the setup script.
 - PlatformIO is the only build system. The IDE is CLion with the PlatformIO plugin. `.pio/libdeps/` is auto-generated — do not edit files there.
 - The board build is `-std=gnu++11` (Arduino-ESP32 2.0.17, GCC 8.4). Keep the core C++11: the native env compiles it with the same standard.
 

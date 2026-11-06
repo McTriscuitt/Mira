@@ -149,6 +149,14 @@ is what's out for today.
 | `/mira` | Terminal, inside Mira | Same, with the live status line |
 | `/legacy`, `/legacy/logs`, `/legacy/lux` | Redirects to `/` | Old dashboard |
 
+**On a phone** the keyboard stays down until you tap, so it doesn't cover the output. A tap on the
+prompt line, or anywhere that isn't a link or command, raises it. On touch screens the input and
+its label reach 12 px above and below the line (`landing.css`). `terminal.js` handles every other
+tap at `touchend`, and focuses afresh even when the input kept focus with the keyboard down
+(Android's back button). Tapping a command runs it and leaves the keyboard down. The e2e
+`phone_tap_checks` cover this, but headless Chromium has no keyboard, so a real phone is the
+final check.
+
 ## Later
 
 - **Simulation:** a 2D/3D room driven by commands, running the real C++ core compiled to WebAssembly.
