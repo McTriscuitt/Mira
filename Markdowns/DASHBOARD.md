@@ -68,7 +68,7 @@ a refusal.
 | `schedule` | The day the lights follow, with `◀ now` on the current stretch. Fetches `/api/schedule` | Anyone |
 | `schedule check` | Where the site's copy came from (the board, and when, or the site's own) | Admin |
 | `schedule update` | `SEND_SCHEDULE`: the board posts its schedule again | Admin |
-| `status` | Fetches once: mode (with the end time of a hold or nap), the schedule's level, each light on / off / out for today and whether the schedule agrees | Admin |
+| `status` | Fetches once: mode (with the end time of a hold or nap), the schedule's level, each light on / off / out for today and whether the schedule agrees. The room-light row shows only if the board sends lux, which it stopped doing in 3.1 | Admin |
 | `log [n]` | Fetches once, 50 lines at most for visitors | Anyone |
 | `normal` | `RESUME` | Admin |
 | `hold` | `HOLD` | Admin |

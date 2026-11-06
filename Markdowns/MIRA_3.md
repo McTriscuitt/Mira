@@ -41,6 +41,7 @@ little 2.x code survives beyond what §8 lists as kept.
 | 6 | Docs: delete lux-era docs, rewrite CLAUDE.md, merge `mira-3` → `main` | **DONE Nov 5.** Docs deleted, CLAUDE.md rewritten for 3.0, and `mira-3` merged into `main` (fast-forward). |
 | 7 | Power-loss replay: save the day's facts to NVS, replay missed events at power-on | **FLASHED Nov 2, boot not yet confirmed**: §10. Native tests pass; NVS and a real outage are unverified on the board. |
 | 8 | False holds + wall switches: in-line filter, `zigbee_connectivity` | **Wall switches TESTED: the user confirmed them on the real lights, Nov 5** (unknown #7). False holds still unverified: §6 and §8. |
+| 10 | Mira 3.1: schedule post (`/api/schedule` at boot and on `SEND_SCHEDULE`), lux sensor removed (code commented out), `MIRA_VERSION` | **FLASHED Nov 5.** Schedule post verified by the user (checklist at the end, all pass); the 3.1 flash only adds the lux removal and the version string. |
 | 9 | Dashboard light commands: `LIGHT_ON` / `LIGHT_OFF` (the terminal's `dresser off`, `chest on`) | **FLASHED Nov 5**, twice, both while the board was away from home WiFi, so it's unconfirmed. The second build reworked two things: out for today only while the schedule still wants the light, and a light turned on during a hold joins the hold level (§5, §8 decisions). 74 native tests pass. Checklist at the end. |
 
 **DST note:** the board runs 2.x until step 5. DST ends Nov 1. If 3.0 isn't flashed
@@ -858,6 +859,9 @@ Before flashing, `dresser off` in the terminal should report the board refusing 
    its scheduled off, and nothing is listed overnight.
 
 ## Nov 5 reflash checklist (schedule post)
+
+**All pass (user, Nov 5).** Then reflashed as 3.1 with the lux sensor removed: confirm
+`Online (…) — Mira 3.1` in the log, and that `status` has no room-light row.
 
 The board posts its schedule (`timeline.cpp` periods and events + the wake, CT and nap
 constants from `config.h`) to `POST /api/schedule` once at boot, retrying every

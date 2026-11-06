@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project: Mira
 
-Smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (ABX00083)**. **Mira 3.0** (October 2026) drives 4 Philips Hue bulbs on a **time-of-day timeline** through the local Hue Bridge v2 API: at each point in the day where the lights should change, it sends one command per light with a target brightness, color temperature, and duration, and the bulbs do the fading. A VEML7700 lux sensor is read for reporting only.
+Smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (ABX00083)**. **Mira 3.1** (3.0 from October 2026; 3.1 on Nov 5, 2026 added the schedule post and dropped the lux sensor) drives 4 Philips Hue bulbs on a **time-of-day timeline** through the local Hue Bridge v2 API: at each point in the day where the lights should change, it sends one command per light with a target brightness, color temperature, and duration, and the bulbs do the fading. The VEML7700 lux sensor was removed in 3.1; its code is commented out, not deleted.
 
 **Start every firmware session with `Markdowns/MIRA_3.md`.** It's the 3.0 spec, architecture, decisions log, and first-flash checklist; the user's verbatim inputs are in `V3 Migration Docs/`. The lux-reactive 2.x system is tagged `mira-2-final`. 3.0 was merged into `main` on Nov 5, 2026; work on `main`. Railway deploys from `main`, and the `mira-3` branch was deleted Nov 5.
 
@@ -59,7 +59,8 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
-- **Nov 5, 2026, `schedule` command built, not deployed or flashed:** `schedule` (public) shows the day with `◀ now`; `schedule check` / `schedule update` (admin) show where the site's copy came from / ask the board for it. `status` is now admin-only, with a row per light. Logged in, `help` lists every hidden command in every directory. Firmware posts its schedule at boot and on `SEND_SCHEDULE`; built (`pio run`) and native tests pass, needs a flash. Checklist: "Nov 5 reflash checklist (schedule post)" in `Markdowns/MIRA_3.md`.
+- **Nov 5, 2026, Mira 3.1 flashed (lux sensor removed):** its code is commented out in `main.cpp` and `platformio.ini` (uncomment to bring it back); the boot line now reads `Online (…) — Mira 3.1` (`MIRA_VERSION` in config.h). `schedule` says "rise" for brightening periods.
+- **Nov 5, 2026, `schedule` command flashed and verified by the user (all checklist items pass):** `schedule` (public) shows the day with `◀ now`; `schedule check` / `schedule update` (admin) show where the site's copy came from / ask the board for it. `status` is now admin-only, with a row per light. Logged in, `help` lists every hidden command in every directory. Firmware posts its schedule at boot and on `SEND_SCHEDULE`. Checklist (done): "Nov 5 reflash checklist (schedule post)" in `Markdowns/MIRA_3.md`.
 
 - **Nov 5, 2026, `mira-3` merged into `main`.** Railway now deploys from `main`; `mira-3` is deleted, and `mira-2-final` is pushed.
 - **Nov 5, 2026, dashboard light commands flashed, not yet tested on the lights:** inside `mira`, admins type `dresser off` / `chest on` (`floor`, `dresser`, `chest`, `ceiling`). Off is out for today, but only while the schedule still wants that light (after its scheduled off it's just off); on brings it back in line, or to the hold level during a hold. That out-for-today rule and the hold-level join apply to the Hue app and wall switches too. Flashed while the board was away from home WiFi, so `Online (…) — Mira 3.0` is unconfirmed. Rules: `Markdowns/MIRA_3.md` §5 and the Nov 5 decisions; "Nov 5 reflash checklist" at its end. **Tested:** wall switches (Nov 2 checklist #1) and power loss (#3); #2 and #4 are open.
@@ -82,7 +83,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 | Component | Detail |
 |-----------|--------|
 | MCU | Arduino Nano ESP32-S3 (ABX00083) |
-| Lux sensor | Adafruit VEML7700 — I2C, SDA=A4/GPIO11, SCL=A5/GPIO12. Reporting only in 3.0; optional (a missing sensor no longer hangs boot) |
+| Lux sensor | **Removed Nov 5, 2026 (3.1).** Was an Adafruit VEML7700 on I2C, SDA=A4/GPIO11, SCL=A5/GPIO12, reporting only. Its code and libs are commented out, ready to uncomment |
 | Buttons | D9 / D10 — retired June 2026; the code was deleted in 3.0 (it drove 2.x states; `mira-2-final` keeps it) |
 | Bulbs | Floor (Signe gradient), dresser, chest, ceiling 1 — Hue White & Color Ambiance, driven in v2 percent + mirek. Ceiling 2 exists but is out of the system |
 | Onboard RGB | Active LOW. Boot: red blink = WiFi, blue blink = waiting for the time, solid blue = time synced, off = boot complete |
@@ -116,7 +117,7 @@ Pure core (no Arduino; also compiled on the host by the tests):
 - `echo.h` — the own-echo test
 
 Shell:
-- `main.cpp` — WiFi + watchdog, boot reason, clock, lux, RTC persistence, the loop
+- `main.cpp` — WiFi + watchdog, boot reason, clock, RTC persistence, the loop (lux commented out in 3.1)
 - `bridge.cpp` — cert pin, cache, `bridgePut()`, the Core-0 SSE task + classifier
 - `dashboard.cpp` — the Core-0 net task: logs, status, command poll
 - `events.h` — the queue type both tasks feed

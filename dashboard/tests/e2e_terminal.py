@@ -259,7 +259,7 @@ def visitor_checks(term, board, page, csp_errors):
 
     term.type('schedule')
     term.expect_text('10:00–11:00 AM')
-    term.expect_text('fade 75→100%')
+    term.expect_text('rise 75→100%')
     term.expect_text('lights-out')
     term.expect_text('◀ now')
     check('visitor schedule has no source line', "site's own copy" not in term.text())
@@ -402,7 +402,7 @@ def admin_checks(term, board, page):
     term.type('schedule check')
     term.expect_text('the board sent this copy')
     term.type('schedule')
-    term.expect_text('fade 75→90%')
+    term.expect_text('rise 75→90%')
     term.type('clear')
 
     term.type('hold')

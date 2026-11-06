@@ -195,7 +195,8 @@
     if (Math.round(from) === Math.round(to)) {
       return 'steady ' + from.toFixed(0) + '%, ' + kelvin(ctForBri(sched, from)) + ' K';
     }
-    return 'fade ' + from.toFixed(0) + '→' + to.toFixed(0) + '%, '
+    // Brightening reads as a rise; only dimming is a fade.
+    return (to > from ? 'rise ' : 'fade ') + from.toFixed(0) + '→' + to.toFixed(0) + '%, '
       + kelvin(ctForBri(sched, from)) + '→' + kelvin(ctForBri(sched, to)) + ' K';
   }
 
@@ -207,7 +208,7 @@
       .map(function (name) { return name + ' at +' + Math.round(w.joins[name] / 60) + ' min'; });
     let text = 'wake: ';
     if (open && auto) text += 'the first light on after ' + clock(open.at) + ', or ' + clock(auto.at) + ' at the latest. ';
-    text += 'floor ' + w.from.toFixed(0) + '→' + w.to.toFixed(0) + '% over ' + Math.round(w.fade_s / 60) + ' min';
+    text += 'floor rises ' + w.from.toFixed(0) + '→' + w.to.toFixed(0) + '% over ' + Math.round(w.fade_s / 60) + ' min';
     return joins.length ? text + '; ' + joins.join(', ') : text;
   }
 
@@ -263,7 +264,7 @@
         + ' min nap; from ' + clock(cutoff.at) + ' on, it means asleep.', 'muted');
     }
     print('one light turned off stays off for the rest of the day. a brightness change holds '
-      + 'every light where it is until the next fade.', 'muted');
+      + 'every light where it is until the next rise or fade.', 'muted');
   }
 
   function printScheduleSource(sched) {

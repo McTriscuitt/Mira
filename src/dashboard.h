@@ -11,7 +11,7 @@
 struct StatusSnapshot {
     char      state[12];  // 2.x wire name — interim, so the current dashboard keeps rendering
     char      mode[8];    // 3.0 name: ASLEEP / WAKE / ACTIVE / HOLD / NAP
-    float     lux;        // reporting only; -1 when the sensor is missing
+    float     lux;        // -1: the lux sensor was removed in 3.1, so the post leaves it out
     float     bri;        // the in-line level right now
     int       ct;
     bool      ceilingOn;

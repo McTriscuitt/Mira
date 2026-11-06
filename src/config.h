@@ -11,6 +11,8 @@
 //
 #include <stdint.h>
 
+#define MIRA_VERSION "3.1"   // in the boot log line: Online (…) — Mira 3.1
+
 // ── Clock ───────────────────────────────────────────────────────────────────
 // US Central with automatic DST (2nd Sunday of March → 1st Sunday of November),
 // POSIX TZ format. Replaces 2.x's fixed UTC_OFFSET_SEC, which drifted an hour
@@ -117,7 +119,7 @@
 // #define PRESET_OFF_LIGHTS 1
 
 // ── Telemetry + dashboard ───────────────────────────────────────────────────
-#define TELEMETRY_TICK_S  30        // lux read + status snapshot, aligned to :00/:30
+#define TELEMETRY_TICK_S  30        // status snapshot, aligned to :00/:30
 #define NET_CMD_POLL_MS   5000UL    // dashboard command poll (netTask)
 #define SCHEDULE_RETRY_MS 300000UL  // the boot schedule post, retried this often until the site takes it
 

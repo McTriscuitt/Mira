@@ -15,7 +15,7 @@
 #include <esp_system.h>
 #include <sys/time.h>
 #include <time.h>
-#include <Adafruit_VEML7700.h>
+// #include <Adafruit_VEML7700.h>  // lux sensor removed Nov 5, 2026 (3.1). Uncomment to bring it back (and the lib in platformio.ini)
 #include <Preferences.h>
 #include "config.h"
 #include "secrets.h"
@@ -284,9 +284,10 @@ static void seedEchoRing(const Now& n) {
 
 // ── Status (dashboard) + Serial status line ─────────────────────────────────
 
-static Adafruit_VEML7700 veml;
-static bool  vemlOk  = false;
-static float lastLux = -1.0f;  // reporting only — nothing in 3.0 reacts to it
+// The VEML7700 lux sensor: lux sensor removed Nov 5, 2026 (3.1). Uncomment to bring it back.
+// static Adafruit_VEML7700 veml;
+// static bool  vemlOk  = false;
+static float lastLux = -1.0f;  // stays -1 (no sensor): the status post leaves lux out
 
 // The current dashboard predates 3.0 and renders the 2.x state names (interim,
 // MIRA_3.md §8); the 3.0 name rides along in "mode" for its rework.
@@ -333,18 +334,19 @@ static void printStatus() {
     maskStr(bridgeOnMask(), on);
     maskStr(director.wantMask(), want);
     maskStr(director.outMask(), out);
-    Serial.printf("[%s] %-6s in-line %5.1f%%  on=%s want=%s out=%s  lux=%.1f  heap=%u sse=%u\n",
+    // With the lux sensor (removed in 3.1), this line also printed "  lux=%.1f" after out=.
+    Serial.printf("[%s] %-6s in-line %5.1f%%  on=%s want=%s out=%s  heap=%u sse=%u\n",
                   timeString().c_str(), Director::modeName(director.mode(n)), director.inLineBri(n),
-                  on, want, out, lastLux, (unsigned)esp_get_free_heap_size(), (unsigned)bridgeSseStackFree());
+                  on, want, out, (unsigned)esp_get_free_heap_size(), (unsigned)bridgeSseStackFree());
 }
 
-// Every TELEMETRY_TICK_S on the wall clock (:00/:30): read lux, print, push status.
+// Every TELEMETRY_TICK_S on the wall clock (:00/:30): print, push status.
 static void serviceTelemetry() {
     static time_t next = 0;
     time_t t = time(nullptr);
     if (t < next) return;
     next = (t / TELEMETRY_TICK_S + 1) * TELEMETRY_TICK_S;
-    if (vemlOk) lastLux = veml.readLux(VEML_LUX_AUTO);
+    // if (vemlOk) lastLux = veml.readLux(VEML_LUX_AUTO);  // lux sensor removed in 3.1
     printStatus();
     pushStatus();
 }
@@ -409,11 +411,12 @@ void setup() {
     evQueue = xQueueCreate(32, sizeof(Event));
     dashboardStart();  // early, so every boot log line rides the queue
     char line[64];
-    snprintf(line, sizeof(line), "Online (%s) — Mira 3.0", bootReason);
+    snprintf(line, sizeof(line), "Online (%s) — Mira " MIRA_VERSION, bootReason);
     sendLog(line);
 
-    vemlOk = veml.begin();
-    if (!vemlOk) sendLog("Lux sensor not found — lux reporting off");  // no longer fatal
+    // Lux sensor removed in 3.1. Uncomment to bring it back:
+    // vemlOk = veml.begin();
+    // if (!vemlOk) sendLog("Lux sensor not found — lux reporting off");  // no longer fatal
 
     bridgeBegin();  // cert pin + seed the light cache
 

@@ -252,7 +252,7 @@ static void pollCommands() {
             if (!postEvent(ev)) return;  // full → no ack, retried next poll
         } else {
             char line[96];
-            snprintf(line, sizeof(line), "Dashboard command %s %s in 3.0 — ignored", name,
+            snprintf(line, sizeof(line), "Dashboard command %s %s — ignored", name,
                      cmd == -1 ? "is retired" : "is unknown");
             Serial.println(line);
             dashLog(line);
