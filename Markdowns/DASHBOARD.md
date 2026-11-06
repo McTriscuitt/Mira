@@ -21,7 +21,8 @@ streams are admin-only and capped at 4.
 | `broadcast.py` | Wakes open streams when the board posts |
 | `board_api.py` | The firmware's routes. Changing these means a reflash |
 | `auth_api.py` | Login, lockout, visitor logging, the `access` data |
-| `mira_api.py` | Status, log, stream, commands, and working out what a command did |
+| `mira_api.py` | Status, schedule, log, stream, commands, and working out what a command did |
+| `schedule.py` | The site's copy of the schedule, and the check on the copy the board posts. A test compares it with `src/config.h` |
 | `pages.py` | HTML pages |
 | `static/js/terminal.js` | The terminal's engine and root commands |
 | `static/js/terminal-admin.js` | `login`, `logout`, `access`, `legacy` |
@@ -48,6 +49,11 @@ on a local Postgres; they drop every table, so `conftest.py` refuses any databas
 **Everywhere:** `help`, `clear`, `cd`, `back`, `exit`, `pwd`, and the hidden `login`, `logout [all]`,
 `access [logins|visits|commands]`, `legacy`.
 
+**Admin help lists everything.** Logged in, `help` adds an "also yours, logged in" section with
+every hidden and secret command that works where you are (`login` excepted). The engine
+(`terminal.js` `printAdminHelp`) adds it after any directory's own help, so a new project gets it
+for free; a directory lists the engine commands its own help already covers in `helpCovers`.
+
 **At the top:** `mira`, `about`, `projects`, `contact`, `resume`, `privacy`. Also `ls`, `whoami`, `open`.
 
 **Inside `mira`:**
@@ -59,7 +65,10 @@ a refusal.
 
 | Command | Sends | Who |
 |---|---|---|
-| `status` | Fetches once | Anyone |
+| `schedule` | The day the lights follow, with `◀ now` on the current stretch. Fetches `/api/schedule` | Anyone |
+| `schedule check` | Where the site's copy came from (the board, and when, or the site's own) | Admin |
+| `schedule update` | `SEND_SCHEDULE`: the board posts its schedule again | Admin |
+| `status` | Fetches once: mode (with the end time of a hold or nap), the schedule's level, each light on / off / out for today and whether the schedule agrees | Admin |
 | `log [n]` | Fetches once, 50 lines at most for visitors | Anyone |
 | `normal` | `RESUME` | Admin |
 | `hold` | `HOLD` | Admin |
@@ -101,12 +110,13 @@ Hidden commands are a convenience only. Anyone can read the JS; the server enfor
 | POST | `/api/log` | A log line |
 | GET | `/api/command` | Oldest pending command. Expires anything over 5 min old first |
 | POST | `/api/command/<id>/ack` | Means queued on the board, not applied |
+| POST | `/api/schedule` | The board's schedule, at boot and on `SEND_SCHEDULE`. Replaces the site's copy |
 
 **Public**, rate limited.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/status/latest` | Visitors: cached 30 s, no memory stats. Admin: live, with memory stats |
+| GET | `/api/schedule` | The board's schedule if it has posted one, else the site's (`source`: `board` or `site`) |
 | GET | `/api/log/recent` | `?limit=N`. Admin also gets `search` and `exclude` |
 | POST | `/api/visit/command` | Records a typed command |
 | GET, POST | `/api/login` | GET: is login open, plus a CSRF token. POST: try it |
@@ -116,7 +126,8 @@ Hidden commands are a convenience only. Anyone can read the JS; the server enfor
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/api/logout` | Body `{"all": true}` ends every session |
-| POST | `/api/command` | Queue `RESUME`, `HOLD`, `WAKE`, `SLEEP`, `NAP`, `EXTEND`, `LIGHT_ON` or `LIGHT_OFF` |
+| GET | `/api/status/latest` | Live status with memory stats |
+| POST | `/api/command` | Queue `RESUME`, `HOLD`, `WAKE`, `SLEEP`, `NAP`, `EXTEND`, `LIGHT_ON`, `LIGHT_OFF` or `SEND_SCHEDULE` |
 | GET | `/api/command/<id>` | `outcome`: waiting, picked_up, applied, ignored, unconfirmed, expired, cancelled |
 | POST | `/api/command/<id>/cancel` | Cancel before pickup |
 | GET | `/api/status/stream` | SSE: `status`, `log` and `ended` events, 25 s keepalive |

@@ -20,7 +20,7 @@ const Terminal = (function () {
   const LOGGABLE = new RegExp(
     '^(?:help|about|projects|contact|resume|clear|privacy|ls|whoami|pwd|login|logout(?: all)?' +
     '|access(?: logins| visits| commands)?|legacy|mira|\\./mira|open mira|cd(?: mira| \\.\\.| ~| /)?' +
-    '|back|exit|status|log(?: \\d{1,3})?|normal|hold|wake|sleep|nap(?: \\d{1,4})?' +
+    '|back|exit|status|schedule(?: check| update)?|log(?: \\d{1,3})?|normal|hold|wake|sleep|nap(?: \\d{1,4})?' +
     '|extend(?: \\d{1,4}[mh]?)?|simulate|(?:floor|dresser|chest|ceiling)(?: on| off)?)$'
   );
 
@@ -321,7 +321,9 @@ const Terminal = (function () {
 
   // --- Commands ---
 
-  // `secret`: never in help, completion or "did you mean".
+  // `hidden`: left out of a visitor's help. `secret`: also never offered by completion or
+  // "did you mean". Both are listed in an admin's help (printAdminHelp), where `tap: false`
+  // keeps a row from being a button, for commands that need more words or end the login.
   // Commands marked `everywhere` also work inside a directory.
   const ROOT_COMMANDS = {
     help: {
@@ -330,15 +332,16 @@ const Terminal = (function () {
       run: function () {
         if (cwd) {
           cwd.help();
-          return;
+        } else {
+          printRows(
+            SITE.projects.map(function (project) {
+              return [{ run: project.name }, project.helpLine || 'open this project'];
+            }).concat(visibleCommands().map(function (name) {
+              return [{ run: name }, ROOT_COMMANDS[name].description];
+            }))
+          );
         }
-        printRows(
-          SITE.projects.map(function (project) {
-            return [{ run: project.name }, project.helpLine || 'open this project'];
-          }).concat(visibleCommands().map(function (name) {
-            return [{ run: name }, ROOT_COMMANDS[name].description];
-          }))
-        );
+        printAdminHelp();
         printKeyboardHint();
       },
     },
@@ -396,23 +399,45 @@ const Terminal = (function () {
       run: clearScreen,
     },
     // Terminal habits. Not listed in help, but they do what people expect.
-    ls: { hidden: true, run: function () { ROOT_COMMANDS.projects.run(); } },
-    whoami: { hidden: true, run: function () { ROOT_COMMANDS.about.run(); } },
-    open: { hidden: true, run: function (args) { openTarget(args[0]); } },
+    ls: {
+      hidden: true,
+      description: 'same as projects',
+      run: function () { ROOT_COMMANDS.projects.run(); },
+    },
+    whoami: {
+      hidden: true,
+      description: 'same as about',
+      run: function () { ROOT_COMMANDS.about.run(); },
+    },
+    open: {
+      hidden: true,
+      tap: false,
+      description: 'open a project: open mira',
+      run: function (args) { openTarget(args[0]); },
+    },
     pwd: {
       hidden: true,
       everywhere: true,
+      description: 'where you are',
       run: function () { print(cwd ? '~/' + cwd.name : '~'); },
     },
-    cd: { hidden: true, everywhere: true, run: changeDirectory },
+    cd: {
+      hidden: true,
+      everywhere: true,
+      tap: false,
+      description: 'cd mira enters a project, cd .. goes back',
+      run: changeDirectory,
+    },
     back: {
       hidden: true,
       everywhere: true,
+      description: 'back to the top',
       run: function () { changeDirectory([]); },
     },
     exit: {
       hidden: true,
       everywhere: true,
+      description: 'back to the top',
       run: function () { changeDirectory([]); },
     },
   };
@@ -421,6 +446,27 @@ const Terminal = (function () {
     Object.keys(commands).forEach(function (name) {
       ROOT_COMMANDS[name] = commands[name];
     });
+  }
+
+  // Logged in, help also lists the hidden and secret commands that work here. Inside a
+  // directory that's the `everywhere` ones, minus any its own help already lists
+  // (`helpCovers`). Every directory gets this without doing anything.
+  function printAdminHelp() {
+    if (!admin) return;
+    const covered = (cwd && cwd.helpCovers) || [];
+    const names = Object.keys(ROOT_COMMANDS).filter(function (name) {
+      const command = ROOT_COMMANDS[name];
+      return (command.hidden || command.secret) && command.description
+        && !command.notForAdmin && isAvailable(name)
+        && (!cwd || command.everywhere) && covered.indexOf(name) < 0;
+    });
+    if (names.length === 0) return;
+    print('');
+    print('also yours, logged in:', 'muted');
+    printRows(names.map(function (name) {
+      const command = ROOT_COMMANDS[name];
+      return [command.tap === false ? name : { run: name }, command.description];
+    }));
   }
 
   function printKeyboardHint() {

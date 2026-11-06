@@ -164,9 +164,26 @@
   }
 
   Terminal.addCommands({
-    login: { secret: true, everywhere: true, run: login },
-    logout: { secret: true, everywhere: true, run: logout },
-    access: { secret: true, everywhere: true, run: access },
-    legacy: { secret: true, everywhere: true, run: legacy },
+    // Already logged in, `login` has nothing to do, so an admin's help leaves it out.
+    login: { secret: true, everywhere: true, notForAdmin: true, run: login },
+    logout: {
+      secret: true,
+      everywhere: true,
+      tap: false,
+      description: 'log out here; logout all logs out everywhere',
+      run: logout,
+    },
+    access: {
+      secret: true,
+      everywhere: true,
+      description: 'recent logins; access visits and access commands show more',
+      run: access,
+    },
+    legacy: {
+      secret: true,
+      everywhere: true,
+      description: 'the old dashboard',
+      run: legacy,
+    },
   });
 })();

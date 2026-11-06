@@ -36,7 +36,6 @@ os.environ.update(
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app as app_module  # noqa: E402
-import mira_api  # noqa: E402
 from models import AuthState, db  # noqa: E402
 from security import rate_limiter  # noqa: E402
 
@@ -53,7 +52,6 @@ def app():
         db.session.add(AuthState(id=1, last_totp_step=0))
         db.session.commit()
     rate_limiter.reset()
-    mira_api.reset_caches()
     yield flask_app
 
 

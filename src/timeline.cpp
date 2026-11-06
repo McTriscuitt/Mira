@@ -75,6 +75,16 @@ Period periodAt(int32_t mds) {
     return night;
 }
 
+int periodCount() {
+    return SEG_COUNT;
+}
+
+Period periodByIndex(int i) {
+    const Seg& s = SEGS[i < 0 ? 0 : (i >= SEG_COUNT ? SEG_COUNT - 1 : i)];
+    Period p = { true, isFade(s), s.start, s.end, s.b0, s.b1 };
+    return p;
+}
+
 float profileBri(int32_t mds) {
     Period p = periodAt(mds);
     if (!p.fade) return p.b1;

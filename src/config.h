@@ -119,6 +119,7 @@
 // ── Telemetry + dashboard ───────────────────────────────────────────────────
 #define TELEMETRY_TICK_S  30        // lux read + status snapshot, aligned to :00/:30
 #define NET_CMD_POLL_MS   5000UL    // dashboard command poll (netTask)
+#define SCHEDULE_RETRY_MS 300000UL  // the boot schedule post, retried this often until the site takes it
 
 // ── WiFi watchdog (Sept 12, 2026) ───────────────────────────────────────────
 // The STA link occasionally drops and the core's auto-reconnect can wedge

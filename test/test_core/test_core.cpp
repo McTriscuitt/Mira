@@ -201,6 +201,22 @@ void test_profile_levels() {
     TEST_ASSERT_FALSE(periodAt(toMds(HHMM(12, 0))).fade);
 }
 
+// The dashboard's schedule is built from periodByIndex: the periods must tile the
+// driven day from the wake window to lights-out with no gap, and agree with periodAt.
+void test_period_table_tiles_the_driven_day() {
+    TEST_ASSERT_TRUE(periodCount() > 0);
+    TEST_ASSERT_EQUAL_INT32(0, periodByIndex(0).startMds);
+    for (int i = 0; i < periodCount(); i++) {
+        Period p = periodByIndex(i);
+        Period at = periodAt(p.startMds);
+        TEST_ASSERT_EQUAL_INT32(p.startMds, at.startMds);
+        TEST_ASSERT_EQUAL_INT32(p.endMds, at.endMds);
+        TEST_ASSERT_FLOAT_WITHIN(0.01f, p.b1, at.b1);
+        if (i > 0) TEST_ASSERT_EQUAL_INT32(periodByIndex(i - 1).endMds, p.startMds);
+    }
+    TEST_ASSERT_EQUAL_INT32(toMds(LIGHTS_OUT_AT), periodByIndex(periodCount() - 1).endMds);
+}
+
 void test_next_fade_start_is_the_hold_end() {
     TEST_ASSERT_EQUAL_INT32(toMds(HHMM(10, 0)), holdEndAfter(toMds(HHMM(9, 5))));
     TEST_ASSERT_EQUAL_INT32(toMds(HHMM(17, 0)), holdEndAfter(toMds(HHMM(12, 0))));
@@ -1335,6 +1351,7 @@ int main(int argc, char** argv) {
     UNITY_BEGIN();
     RUN_TEST(test_ct_map_matches_2x);
     RUN_TEST(test_profile_levels);
+    RUN_TEST(test_period_table_tiles_the_driven_day);
     RUN_TEST(test_next_fade_start_is_the_hold_end);
     RUN_TEST(test_crossing_midnight_and_dst);
     RUN_TEST(test_echo_early_window_accepts_the_whole_range);

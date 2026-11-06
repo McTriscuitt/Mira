@@ -856,3 +856,23 @@ Before flashing, `dresser off` in the terminal should report the board refusing 
    `Chest off — off on the schedule now`.
 6. **Out clears on its own:** a light that's out for today drops off the `status` list at
    its scheduled off, and nothing is listed overnight.
+
+## Nov 5 reflash checklist (schedule post)
+
+The board posts its schedule (`timeline.cpp` periods and events + the wake, CT and nap
+constants from `config.h`) to `POST /api/schedule` once at boot, retrying every
+`SCHEDULE_RETRY_MS` (5 min) until the site takes it, and again on the dashboard command
+`SEND_SCHEDULE` (`schedule update` in the terminal), which netTask answers itself. The site
+shows the board's copy over its own (`dashboard/schedule.py`). Deploy the site first: an
+older site answers the boot post with 404, which only means retries.
+
+Before flashing, `schedule update` should report the board refusing it
+(`Dashboard command SEND_SCHEDULE is unknown`). Then `pio run`, flash, and confirm
+`Online (…) — Mira 3.0`.
+
+1. **Boot post:** Serial shows `Schedule sent to the dashboard.`, and `schedule check`
+   says `the board sent this copy` with the boot's time.
+2. **On request:** `schedule update` → `Schedule sent — dashboard` in the log, the terminal
+   says `the board sent its schedule.`, and `schedule check` shows the new time.
+3. **Same schedule:** `schedule` reads the same as before the flash (the site's copy and
+   `config.h` already agree; `tests/test_schedule.py` checks that).

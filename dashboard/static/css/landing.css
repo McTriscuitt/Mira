@@ -70,6 +70,7 @@ body {
 
 .rows .description { color: var(--muted); }
 .rows .tag { color: #6f6f6f; white-space: nowrap; }
+.rows .now { color: var(--bright); white-space: nowrap; }
 
 /* Admin only: live status, one line above the prompt, updated in place. */
 .status-line {

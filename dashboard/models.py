@@ -58,6 +58,15 @@ class Command(db.Model):
     status = db.Column(db.String(20), default='pending')  # pending, executed, cancelled, expired
 
 
+class BoardSchedule(db.Model):
+    """A single row (id 1): the schedule the board last posted, as JSON. The board
+    posts it at boot and when asked (`schedule check`)."""
+    __tablename__ = 'board_schedule'
+    id = db.Column(db.Integer, primary_key=True)
+    body = db.Column(db.Text, nullable=False)
+    received_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+
+
 class EventLog(db.Model):
     __tablename__ = 'event_log'
     id = db.Column(db.Integer, primary_key=True)

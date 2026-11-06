@@ -58,37 +58,30 @@ def test_stale_commands_expire_instead_of_firing(client, app):
         assert Command.query.first().status == 'expired'
 
 
-# --- Public view ---
+# --- Status: admin only ---
 
-def test_visitor_sees_status_without_memory_stats(client):
+def test_visitors_get_no_status(client):
     post_status(client)
-    body = client.get('/api/status/latest').get_json()
-    assert body['mode'] == 'ACTIVE' and body['online'] is True
-    assert body['timestamp']
-    assert 'telemetry' not in body and 'pending_command_id' not in body
+    assert client.get('/api/status/latest').status_code == 401
 
 
 def test_status_with_no_data_yet_is_null(client):
+    login(client)
     assert client.get('/api/status/latest').get_json() is None
 
 
-def test_visitor_status_is_cached(client):
-    post_status(client, bri=10.0)
-    assert client.get('/api/status/latest').get_json()['bri'] == 10.0
-    post_status(client, bri=20.0)
-    assert client.get('/api/status/latest').get_json()['bri'] == 10.0
-
-
 def test_admin_status_is_live_with_memory_stats(client):
-    post_status(client, bri=10.0)
-    client.get('/api/status/latest')
     login(client)
+    post_status(client, bri=10.0)
+    assert client.get('/api/status/latest').get_json()['bri'] == 10.0
     post_status(client, bri=20.0)
     body = client.get('/api/status/latest').get_json()
     assert body['bri'] == 20.0 and body['telemetry']['heap_free'] == 123456
+    assert body['mode'] == 'ACTIVE' and body['online'] is True and body['timestamp']
 
 
 def test_old_board_snapshot_reads_offline(client, app):
+    login(client)
     post_status(client)
     with app.app_context():
         StatusSnapshot.query.update({'timestamp': utcnow() - timedelta(minutes=5)})
@@ -97,6 +90,7 @@ def test_old_board_snapshot_reads_offline(client, app):
 
 
 def test_snapshot_from_before_this_change_maps_its_mode(client, app):
+    login(client)
     with app.app_context():
         db.session.add(StatusSnapshot(state='LOCKED_OUT'))
         db.session.commit()
@@ -291,7 +285,7 @@ def test_legacy_sends_visitors_home(client):
 
 
 def test_headers_on_every_page(client):
-    for path in ('/', '/mira', '/api/status/latest'):
+    for path in ('/', '/mira', '/api/schedule'):
         response = client.get(path)
         assert response.status_code == 200, path
         policy = response.headers['Content-Security-Policy']

@@ -23,6 +23,9 @@ from playwright.sync_api import expect, sync_playwright
 from werkzeug.security import generate_password_hash
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+import schedule  # noqa: E402  (the site's copy, which the fake board posts with one change)
+
 SHOTS = sys.argv[1] if len(sys.argv) > 1 else None
 PASSWORD = 'correct horse battery staple'
 SECRET = pyotp.random_base32()
@@ -102,6 +105,11 @@ class FakeBoard:
             self.log(f'{LIGHT_NAMES[value]} off for today — dashboard')
         elif action == 'LIGHT_ON':
             self.log(f'{LIGHT_NAMES[value]} on — dashboard')
+        elif action == 'SEND_SCHEDULE':
+            board_copy = json.loads(json.dumps(schedule.DEFAULT))
+            board_copy['periods'][1]['to'] = 90.0  # so the page can tell the board's copy apart
+            self._call('/api/schedule', board_copy)
+            self.log('Schedule sent — dashboard')
 
     def run(self):
         while not self.stop.is_set():
@@ -245,12 +253,23 @@ def visitor_checks(term, board, page, csp_errors):
     check('visitor commands reached nothing', len(board.received) == received_before)
 
     term.type('status')
-    term.expect_text('following the schedule')
-    term.expect_text('floor, dresser')
-    term.expect_text('out for today')
-    check('visitor sees no memory stats', 'memory' not in term.text())
-    term.shot('04-status-visitor')
+    term.expect_text('so it is admin only')
+    check('visitor sees no status', 'following the schedule' not in term.text())
     term.type('clear')
+
+    term.type('schedule')
+    term.expect_text('10:00–11:00 AM')
+    term.expect_text('fade 75→100%')
+    term.expect_text('lights-out')
+    term.expect_text('◀ now')
+    check('visitor schedule has no source line', "site's own copy" not in term.text())
+    term.shot('04-schedule-visitor')
+    term.type('clear')
+    for attempt in ('schedule check', 'schedule update'):
+        term.type(attempt)
+        term.expect_text(attempt + ' is admin only')
+        term.type('clear')
+    check('schedule update reached nothing', len(board.received) == received_before)
 
     term.type('log')
     term.expect_text('Boot')
@@ -341,7 +360,9 @@ def login_checks(term, page):
 def admin_checks(term, board, page):
     term.type('help')
     term.expect_text('what this site records')
-    check('admin help still hides logout', 'logout' not in term.text())
+    for name in ('logout', 'access', 'legacy', 'whoami', 'pwd', 'cd mira'):
+        check(f'admin root help lists {name}', name in term.text())
+    check('admin help leaves out login', 'login' not in term.text().replace('logins', ''))
     term.type('clear')
 
     term.type('access')
@@ -369,6 +390,19 @@ def admin_checks(term, board, page):
     check('control rows not clickable when logged in',
           page.locator('.rows .command', has_text='sleep').count() == 0)
     check('admin help has no admin-only tag', 'admin only' not in term.text())
+    for name in ('schedule check', 'schedule update', 'logout', 'access', 'legacy', 'pwd'):
+        check(f'admin mira help lists {name}', name in term.text())
+    term.type('clear')
+
+    term.type('schedule check')
+    term.expect_text("site's own copy")
+    term.type('schedule update')
+    term.expect_text('the board sent its schedule.')
+    term.type('clear')
+    term.type('schedule check')
+    term.expect_text('the board sent this copy')
+    term.type('schedule')
+    term.expect_text('fade 75→90%')
     term.type('clear')
 
     term.type('hold')
@@ -450,6 +484,7 @@ def admin_checks(term, board, page):
     term.type('status')
     term.expect_text('memory')
     term.expect_text('KB free')
+    term.expect_text('out for today')
     term.shot('11-status-admin')
 
     term.type('legacy')
@@ -558,9 +593,9 @@ def phone_checks(browser):
     term = Term(page)
     page.goto(BASE + '/mira')
     expect(page.locator('#prompt-label')).to_have_text('~/mira $')
-    page.locator('.command', has_text='status').first.tap()
-    term.expect_text('following the schedule')
-    term.shot('16-phone-status')
+    page.locator('.command', has_text='schedule').first.tap()
+    term.expect_text('lights-out')
+    term.shot('16-phone-schedule')
     page.locator('#command-input').fill('help')
     page.locator('#command-input').press('Enter')
     term.expect_text('admin only')

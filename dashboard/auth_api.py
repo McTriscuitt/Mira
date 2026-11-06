@@ -37,7 +37,7 @@ _login_mutex = threading.Lock()
 LOGGABLE = (
     r'^(?:help|about|projects|contact|resume|clear|privacy|ls|whoami|pwd|login|logout(?: all)?'
     r'|access(?: logins| visits| commands)?|legacy|mira|\./mira|open mira|cd(?: mira| \.\.| ~| /)?'
-    r'|back|exit|status|log(?: \d{1,3})?|normal|hold|wake|sleep|nap(?: \d{1,4})?'
+    r'|back|exit|status|schedule(?: check| update)?|log(?: \d{1,3})?|normal|hold|wake|sleep|nap(?: \d{1,4})?'
     r'|extend(?: \d{1,4}[mh]?)?|simulate|(?:floor|dresser|chest|ceiling)(?: on| off)?)$'
 )
 _LOGGABLE_RE = re.compile(LOGGABLE)

@@ -29,6 +29,8 @@ struct Period {
 };
 
 Period  periodAt(int32_t mds);              // the fixed profile (the wake overlay lives in the director)
+int     periodCount();                     // the driven day's periods, in order: for the dashboard's schedule
+Period  periodByIndex(int i);               // 0 .. periodCount()-1
 float   profileBri(int32_t mds);            // profile level at mds, interpolated inside fades
 int32_t holdEndAfter(int32_t mds);          // when a hold that starts at mds ends: the next fade, the dresser's off, or lights-out
 bool    roleScheduledOn(Role role, int32_t mds);  // does the schedule have this role on (after the wake)?

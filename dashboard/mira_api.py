@@ -1,22 +1,21 @@
-"""Mira's data for browsers. Status and logs are public; memory stats, the stream and
+"""Mira's data for browsers. The schedule and the log are public; status, the stream and
 everything that touches the lights need an admin session."""
 
 import json
 import threading
-import time
 from datetime import datetime, timedelta
 
 from flask import (Blueprint, Response, jsonify, request, stream_with_context)
 
 from board_api import COMMAND_LIFETIME
 from broadcast import broadcast
-from models import Command, EventLog, StatusSnapshot, db, iso, utcnow
+import schedule
+from models import BoardSchedule, Command, EventLog, StatusSnapshot, db, iso, utcnow
 from security import admin_required, current_token_hash, is_admin, rate_limited, session_row
 
 bp = Blueprint('mira_api', __name__)
 
 BOARD_OFFLINE_AFTER_S = 90    # the board posts status every 30 s
-PUBLIC_STATUS_CACHE_S = 30
 PUBLIC_LOG_MAX = 50
 ADMIN_LOG_MAX = 500
 MAX_MINUTES = 720
@@ -40,6 +39,7 @@ ALLOWED_COMMANDS = {
     'EXTEND': (1, MAX_MINUTES),
     'LIGHT_ON': (0, len(LIGHT_NAMES) - 1),
     'LIGHT_OFF': (0, len(LIGHT_NAMES) - 1),
+    'SEND_SCHEDULE': None,
 }
 VALUE_OPTIONAL = {'NAP'}
 
@@ -60,19 +60,12 @@ _IGNORED_PREFIX = {
     'WAKE': 'Wake ignored',
     'NAP': 'Nap ignored',
     'EXTEND': 'Extend ignored',
+    'SEND_SCHEDULE': 'Schedule not sent',
 }
-_APPLIED_LOG = {'EXTEND': 'extended'}
+_APPLIED_LOG = {'EXTEND': 'extended', 'SEND_SCHEDULE': 'Schedule sent'}
 _LIGHT_WORDS = {'LIGHT_ON': 'on', 'LIGHT_OFF': 'off'}
 _SETTLE = timedelta(seconds=2)    # the board acks slightly before it posts the new status
 _GIVE_UP = timedelta(seconds=30)
-
-_public_cache = {'at': 0.0, 'payload': None}
-_public_cache_lock = threading.Lock()
-
-
-def reset_caches():
-    with _public_cache_lock:
-        _public_cache.update(at=0.0, payload=None)
 
 
 # --- Status ---
@@ -88,7 +81,7 @@ def _pending_command():
             .order_by(Command.created_at).first())
 
 
-def _public_payload(snap):
+def _status_payload(snap):
     return {
         'state': snap.state,
         'mode': snap.mode or _LEGACY_MODES.get(snap.state, snap.state),
@@ -127,7 +120,7 @@ def admin_status_payload():
     if not snap:
         return None
     pending = _pending_command()
-    payload = _with_age(_public_payload(snap))
+    payload = _with_age(_status_payload(snap))
     payload['pending_command_id'] = pending.id if pending else None
     payload['telemetry'] = {
         'heap_free': snap.heap_free,
@@ -137,26 +130,23 @@ def admin_status_payload():
     return payload
 
 
-def public_status_payload():
-    """Cached so anyone hammering `status` costs one query per 30 s, not one each."""
-    now = time.monotonic()
-    with _public_cache_lock:
-        cached = _public_cache['payload']
-        if cached is not None and now - _public_cache['at'] < PUBLIC_STATUS_CACHE_S:
-            return _with_age(cached)
-    snap = _latest_snapshot()
-    if not snap:
-        return None
-    payload = _public_payload(snap)
-    with _public_cache_lock:
-        _public_cache.update(at=now, payload=payload)
-    return _with_age(payload)
-
-
 @bp.route('/api/status/latest')
+@admin_required
 @rate_limited('status', 60)
 def latest_status():
-    return jsonify(admin_status_payload() if is_admin() else public_status_payload())
+    return jsonify(admin_status_payload())
+
+
+# --- Schedule ---
+
+@bp.route('/api/schedule')
+@rate_limited('schedule', 60)
+def latest_schedule():
+    """The board's own copy when it has posted one, otherwise the site's."""
+    row = db.session.get(BoardSchedule, 1)
+    if row is None:
+        return jsonify({**schedule.DEFAULT, 'source': 'site', 'received_at': None})
+    return jsonify({**json.loads(row.body), 'source': 'board', 'received_at': iso(row.received_at)})
 
 
 @bp.route('/api/status/stream')
@@ -248,7 +238,7 @@ def send_command():
     db.session.commit()
     broadcast.bump_status()
     snap = _latest_snapshot()
-    online = bool(snap) and _with_age(_public_payload(snap))['online']
+    online = bool(snap) and _with_age(_status_payload(snap))['online']
     return jsonify({'ok': True, 'id': command.id, 'board_online': online})
 
 

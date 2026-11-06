@@ -7,8 +7,9 @@ from datetime import timedelta
 
 from flask import Blueprint, current_app, jsonify, request
 
+import schedule
 from broadcast import broadcast
-from models import Command, EventLog, StatusSnapshot, db, utcnow
+from models import BoardSchedule, Command, EventLog, StatusSnapshot, db, utcnow
 
 bp = Blueprint('board', __name__)
 
@@ -78,6 +79,27 @@ def ingest_log():
     db.session.add(EventLog(message=str(d.get('message', ''))))
     db.session.commit()
     broadcast.bump_log()
+    return jsonify({'ok': True})
+
+
+@bp.route('/api/schedule', methods=['POST'])
+def ingest_schedule():
+    """The board's own schedule, sent at boot and on SEND_SCHEDULE. It replaces the
+    site's copy (schedule.DEFAULT) wherever the two disagree."""
+    if not _board_authed():
+        return jsonify({'error': 'unauthorized'}), 401
+    if (request.content_length or 0) > schedule.MAX_BODY_BYTES:
+        return jsonify({'error': 'too large'}), 413
+    cleaned = schedule.clean(request.get_json(silent=True))
+    if cleaned is None:
+        return jsonify({'error': 'bad request'}), 400
+    row = db.session.get(BoardSchedule, 1)
+    if row is None:
+        row = BoardSchedule(id=1)
+        db.session.add(row)
+    row.body = schedule.dumps(cleaned)
+    row.received_at = utcnow()
+    db.session.commit()
     return jsonify({'ok': True})
 
 
