@@ -60,7 +60,7 @@ This session does all the site work: Flask, the terminal and the old dashboard.
 - The name of the simulation command, its WIP text and the `privacy` note's wording.
 - Whether `app.py` splits into blueprints, and whether Mira's commands go in their own JS file.
 - The `about` lines and tagline, which are still drafts.
-- Merging `mira-3` into `main`, which was agreed only for after the firmware is verified.
+- ~~Merging `mira-3` into `main`~~ — done Nov 5 at the user's request.
 
 ---
 
@@ -75,7 +75,8 @@ part of the redesign finished.
   - `dashboard/static/css/landing.css`
   - `dashboard/static/js/terminal.js`: behavior, with a `COMMANDS` table
   - `dashboard/static/js/portfolio-content.js`: the text and the project list
-- Railway settings: branch `mira-3`, root directory `/dashboard`.
+- Railway settings: root directory `/dashboard`, branch `mira-3`. Since the Nov 5 merge it should be
+  `main`: the user switches that in Railway, and `mira-3` stays in step with `main` until then.
 - `SQLAlchemy==2.0.55` is pinned because 2.1 defaults `postgresql://` to `psycopg`, which
   isn't installed. A fresh build without the pin crashes on boot with a 502.
 - Still open from phase 1:
@@ -271,6 +272,6 @@ user asked for, not conclusions, and the next session should look for more.
 - How are future projects plugged in, and does Mira's code live in its own file
   (`static/js/mira.js` or similar) from the start?
 - `app.py` is one file at 485+ lines. Is it time for Flask blueprints?
-- With Railway watching `mira-3`, any commit redeploys the site, including firmware-only ones.
-  **Watch Paths** set to `/dashboard/**` would stop that. `main` is still 2.x, so at some point
-  the branch question needs settling too.
+- Any commit on the deploy branch redeploys the site, including firmware-only ones.
+  **Watch Paths** set to `/dashboard/**` would stop that. The branch question was settled Nov 5:
+  `mira-3` merged into `main`, which is the branch to deploy from.

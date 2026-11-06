@@ -603,7 +603,7 @@ void test_power_lost_before_a_scheduled_on_stays_off() {
     assertPut(s.find(m, LIGHT_CEIL_1), true, 75.0f + 25.0f * (30.25f / 60.0f), FADE_MS, 0);
 }
 
-void test_power_back_during_a_hold_waits_for_the_hold() {
+void test_power_back_during_a_hold_fades_to_the_hold_level() {
     Sim s;
     s.boot(T(0, 11, 59), ALL);
     s.runTo(T(0, 12, 0));
@@ -612,8 +612,12 @@ void test_power_back_during_a_hold_waits_for_the_hold() {
     s.userBri(LIGHT_FLOOR, 50.0f);
     size_t m = s.mark();
     s.powerBack(LIGHT_CHEST, 80.0f);
-    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_CHEST));
+    TEST_ASSERT_EQUAL(1, s.count(m));  // only the chest, to your level
+    assertPut(s.find(m, LIGHT_CHEST), true, 50.0f, FADE_MS, 0);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
     s.command(Director::Cmd::Resume);
+    m = s.mark();
+    s.runTo(T(0, 12, 0, 22));  // the join lands, then it goes in line with the rest
     assertPut(s.find(m, LIGHT_CHEST), true, 100.0f, FADE_MS, 0);
 }
 
@@ -994,13 +998,109 @@ void test_light_commands_during_a_hold_switch_only_that_light() {
     s.command(Director::Cmd::LightOff, LIGHT_DRESSER);
     TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
     TEST_ASSERT_EQUAL(2, s.count(m));  // nothing else moves
-    assertPut(s.find(m, LIGHT_CHEST), true, 100.0f, FADE_MS, 0);
+    assertPut(s.find(m, LIGHT_CHEST), true, 50.0f, FADE_MS, 0);  // to the hold level, not in line
     assertPut(s.find(m, LIGHT_DRESSER), false, 0.0f, FADE_MS, 0);
     TEST_ASSERT_EQUAL((int)DRESSER, (int)s.d.outMask());
     s.runTo(T(0, 12, 1));
     m = s.mark();
     s.command(Director::Cmd::Resume);
     TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_DRESSER));  // still out after the hold
+    assertPut(s.find(m, LIGHT_CHEST), true, 100.0f, FADE_MS, 0);
+}
+
+// The Nov 5 report: the chest goes off on the schedule at 20:00, a command turns it
+// on and off again, and it showed as out for today. It was off on the schedule anyway.
+void test_off_after_its_scheduled_off_is_not_out_for_today() {
+    Sim s;
+    s.boot(T(0, 19, 59), FLOOR | DRESSER | CHEST);
+    s.runTo(T(0, 20, 30));
+    TEST_ASSERT_FALSE(s.env.on[LIGHT_CHEST]);
+    s.command(Director::Cmd::LightOn, LIGHT_CHEST);
+    s.runTo(T(0, 20, 30, 20));
+    TEST_ASSERT_TRUE(s.env.on[LIGHT_CHEST]);
+    size_t m = s.mark();
+    s.command(Director::Cmd::LightOff, LIGHT_CHEST);
+    assertPut(s.find(m, LIGHT_CHEST), false, 0.0f, FADE_MS, 0);
+    TEST_ASSERT_TRUE(s.logged("Chest off — dashboard (off on the schedule now)"));
+    TEST_ASSERT_FALSE(s.logged("Chest off for today"));
+    TEST_ASSERT_EQUAL(0, (int)s.d.outMask());
+    // The same from the Hue app.
+    s.runTo(T(0, 20, 31));
+    s.userOn(LIGHT_CHEST, 40.0f);
+    s.runTo(T(0, 20, 31, 30));
+    s.userOff(LIGHT_CHEST);
+    s.runTo(T(0, 20, 31, 35));  // past the grouping window
+    TEST_ASSERT_TRUE(s.logged("Chest off — off on the schedule now"));
+    TEST_ASSERT_EQUAL(0, (int)s.d.outMask());
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());
+    // The ceiling (off at 19:00) and, after 22:30, the dresser the same way.
+    s.command(Director::Cmd::LightOn, LIGHT_CEIL_1);
+    s.runTo(T(0, 20, 32));
+    s.command(Director::Cmd::LightOff, LIGHT_CEIL_1);
+    s.runTo(T(0, 22, 40));
+    s.command(Director::Cmd::LightOn, LIGHT_DRESSER);
+    s.runTo(T(0, 22, 41));
+    s.command(Director::Cmd::LightOff, LIGHT_DRESSER);
+    TEST_ASSERT_EQUAL(0, (int)s.d.outMask());
+}
+
+void test_out_for_today_ends_at_its_scheduled_off() {
+    Sim s;
+    s.boot(T(0, 11, 59), ALL);
+    s.runTo(T(0, 12, 0));
+    s.command(Director::Cmd::LightOff, LIGHT_CHEST);
+    s.runTo(T(0, 12, 0, 5));
+    s.userOff(LIGHT_CEIL_1);
+    s.runTo(T(0, 12, 0, 10));
+    TEST_ASSERT_EQUAL((int)(CHEST | CEIL), (int)s.d.outMask());
+    s.runTo(T(0, 19, 0, 1));  // the ceiling's off: done for today
+    TEST_ASSERT_EQUAL((int)CHEST, (int)s.d.outMask());
+    s.runTo(T(0, 20, 0, 1));  // the chest's
+    TEST_ASSERT_EQUAL(0, (int)s.d.outMask());
+}
+
+void test_asleep_clears_out_for_today() {
+    Sim s;
+    s.boot(T(0, 23, 0), FLOOR | CHEST);
+    s.command(Director::Cmd::LightOff, LIGHT_FLOOR);  // the floor is on until lights-out
+    TEST_ASSERT_EQUAL((int)FLOOR, (int)s.d.outMask());
+    s.runTo(T(1, 1, 0, 2));
+    TEST_ASSERT_EQUAL((int)Director::Mode::Asleep, (int)s.mode());
+    TEST_ASSERT_EQUAL(0, (int)s.d.outMask());
+}
+
+// A light turned on during a hold goes to the level you set, not the schedule's.
+void test_light_on_during_a_hold_joins_your_level() {
+    Sim s;
+    s.boot(T(0, 11, 59), ALL);
+    s.runTo(T(0, 12, 0));
+    s.userOff(LIGHT_CHEST);
+    s.runTo(T(0, 12, 0, 5));
+    s.userBri(LIGHT_FLOOR, 50.0f);
+    s.userBri(LIGHT_DRESSER, 70.0f);  // the latest change is the hold level
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+    size_t m = s.mark();
+    s.userOn(LIGHT_CHEST, 100.0f);  // the Hue app: the bulb's own level
+    TEST_ASSERT_EQUAL(1, s.count(m));
+    assertPut(s.find(m, LIGHT_CHEST), true, 70.0f, JOIN_SNAP_MS, 0);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Hold, (int)s.mode());
+    TEST_ASSERT_EQUAL(0, (int)s.d.outMask());
+    s.runTo(T(0, 12, 0, 30));
+    TEST_ASSERT_EQUAL(1, s.count(m));  // and the hold keeps it there
+    m = s.mark();
+    s.command(Director::Cmd::Resume);
+    assertPut(s.find(m, LIGHT_CHEST), true, 100.0f, FADE_MS, 0);
+}
+
+void test_light_on_during_a_dashboard_hold_joins_where_the_lights_froze() {
+    Sim s;
+    s.boot(T(0, 17, 29), FLOOR | DRESSER);
+    s.runTo(T(0, 17, 30));
+    s.command(Director::Cmd::Hold);  // mid-fade: the lights stop at 87.5%
+    size_t m = s.mark();
+    s.command(Director::Cmd::LightOn, LIGHT_CHEST);
+    TEST_ASSERT_EQUAL(1, s.count(m));
+    assertPut(s.find(m, LIGHT_CHEST), true, 87.5f, FADE_MS, 0);
 }
 
 void test_light_commands_while_asleep() {
@@ -1259,7 +1359,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_power_lost_is_out_for_today);
     RUN_TEST(test_power_back_fades_into_the_current_trajectory);
     RUN_TEST(test_power_lost_before_a_scheduled_on_stays_off);
-    RUN_TEST(test_power_back_during_a_hold_waits_for_the_hold);
+    RUN_TEST(test_power_back_during_a_hold_fades_to_the_hold_level);
     RUN_TEST(test_power_back_at_night_is_left_alone_and_in_the_morning_starts_the_wake);
     RUN_TEST(test_everything_off_before_9pm_is_a_nap);
     RUN_TEST(test_light_on_during_nap_ends_it_and_brings_the_rest);
@@ -1286,6 +1386,11 @@ int main(int argc, char** argv) {
     RUN_TEST(test_light_on_command_brings_it_back_in_line_mid_fade);
     RUN_TEST(test_light_on_command_during_a_nap_ends_it);
     RUN_TEST(test_light_commands_during_a_hold_switch_only_that_light);
+    RUN_TEST(test_off_after_its_scheduled_off_is_not_out_for_today);
+    RUN_TEST(test_out_for_today_ends_at_its_scheduled_off);
+    RUN_TEST(test_asleep_clears_out_for_today);
+    RUN_TEST(test_light_on_during_a_hold_joins_your_level);
+    RUN_TEST(test_light_on_during_a_dashboard_hold_joins_where_the_lights_froze);
     RUN_TEST(test_light_commands_while_asleep);
     RUN_TEST(test_light_on_command_asleep_in_the_day_starts_the_wake);
     RUN_TEST(test_failed_command_retries_with_backoff);

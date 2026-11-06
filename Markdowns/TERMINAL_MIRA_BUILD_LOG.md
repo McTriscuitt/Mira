@@ -132,7 +132,8 @@ Each of these was my call, and any can be changed.
 
 ### Not done, on purpose
 
-- **`mira-3` isn't merged into `main`.** That waits for the firmware to be verified.
+- **`mira-3` isn't merged into `main`.** That waits for the firmware to be verified. *(Merged
+  Nov 5 at the user's request.)*
 - **Nothing was pushed to `mira-3` overnight,** as you chose. You asked for the merge and push on
   Nov 3.
 - **The `/legacy/lux` page is unchanged apart from its move.** It still has the 2.x curve math, since

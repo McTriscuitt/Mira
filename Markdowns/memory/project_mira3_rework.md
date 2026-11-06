@@ -1,6 +1,6 @@
 ---
 name: mira-3-schedule-rework
-description: "Mira 3.0 (NOT 2.0) time-of-day rewrite — running on the board since Oct 14 2026; wall switches confirmed Nov 5; LIGHT_ON/LIGHT_OFF built Nov 5, not flashed; source of truth Markdowns/MIRA_3.md; read it before any firmware work"
+description: "Mira 3.0 (NOT 2.0) time-of-day rewrite — running on the board since Oct 14 2026; wall switches + power loss confirmed Nov 5; LIGHT_ON/LIGHT_OFF + out-for-today/hold-level rework flashed Nov 5, untested; merged into main Nov 5; source of truth Markdowns/MIRA_3.md; read it before any firmware work"
 metadata:
   node_type: memory
   type: project
@@ -14,7 +14,7 @@ long-duration PUTs (the bulbs do the fading); no state machine — per-light
 `Director::reconcile()` (sends only when plan ≠ last command → 24 commands/day).
 "2.0" was the unfinished "super reactive" N1/N2 line — never call this 2.0.
 
-**Status:** flashed Oct 14 2026 23:33 CT from `mira-3`; not merged to main until verified.
+**Status:** flashed Oct 14 2026 23:33 CT from `mira-3`; merged into `main` Nov 5.
 Board on **COM4**. Last lux build tagged `mira-2-final` (local tag).
 
 **Nov 2 session, flashed and pushed on `mira-3`, boot and behaviour not yet confirmed on the board:**
@@ -25,10 +25,16 @@ checklist" at the end of MIRA_3.md; wall-switch timing (hardware unknown #7) can
 measured at home. The dashboard overhaul for the portfolio comes after that.
 
 **Nov 5:** the user confirmed the wall-switch handling works on the real lights (checklist
-item 1 / unknown #7; no timings given). Built and pushed, **not flashed**: the dashboard
-light commands `LIGHT_ON`/`LIGHT_OFF` (terminal `dresser off`, `chest on`; MIRA_3.md §5).
-The board refuses them until it's reflashed, and the board build wasn't compiled in that
-cloud session (PlatformIO registry blocked), so `pio run` before flashing.
+item 1 / unknown #7; no timings given) and power-loss replay (item 3, "i believe functioned
+as expected"); items 2 and 4 are open. **Flashed Nov 5** (board away from home WiFi, so
+`Online` is unconfirmed): the dashboard light commands `LIGHT_ON`/`LIGHT_OFF` (terminal
+`dresser off`, `chest on`; MIRA_3.md §5), plus two user-requested reworks: out for today
+only before that light's scheduled off (it also clears at the scheduled off and at sleep),
+and any light turned on during a hold joins the hold level (your last brightness in it,
+`DirectorState.holdBri`, `STATE_MAGIC` …0302). Nov 5 reflash checklist in MIRA_3.md is open.
+
+**Branch:** `mira-3` merged into `main` Nov 5 (user's call); work on `main`. Railway still
+deploys from `mira-3` until the user switches it, so keep `mira-3` in step until then.
 
 **Facts that aren't in the code:** 18 days of logs (Oct 14–Nov 2) showed no panics or
 watchdog resets after 3.0, DST fine. The board isn't always online, so a telemetry gap

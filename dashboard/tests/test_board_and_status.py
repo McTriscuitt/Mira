@@ -239,6 +239,17 @@ def test_light_command_is_confirmed_by_its_own_line(client, app):
     assert outcome_of(app, on_id)[0] == 'applied'
 
 
+def test_light_off_past_its_scheduled_off_is_confirmed(client, app):
+    login(client)
+    command_id = send(client, 'LIGHT_OFF', 2).get_json()['id']
+    ack(client, command_id)
+    board_log(client, 'Chest off — off on the schedule now')  # the Hue app's wording, not ours
+    assert outcome_of(app, command_id)[0] == 'picked_up'
+    board_log(client, 'Chest off — dashboard (off on the schedule now)')
+    outcome, note = outcome_of(app, command_id)
+    assert outcome == 'applied' and 'for today' not in note
+
+
 def test_light_command_refused_by_the_board(client, app):
     login(client)
     command_id = send(client, 'LIGHT_ON', 2).get_json()['id']

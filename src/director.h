@@ -44,6 +44,7 @@ struct DirectorState {
     LightMask want;         // want on
     LightMask out;          // out for today
     float     wakeEndBri;   // where the wake fade lands (the profile level at its end)
+    float     holdBri;      // the hold level: your last brightness in this hold; a light turned on joins at it
     int64_t   wakeStartMs;  // 0: no wake since the last sleep
     int64_t   napUntilMs;   // 0: no nap
     int64_t   holdUntilMs;  // 0: no hold
@@ -90,10 +91,10 @@ public:
     // LightOn / LightOff: value is the roster index (lights.h).
     enum class Cmd  : uint8_t { Resume, Hold, Wake, Sleep, NapRemaining, Nap, Extend, LightOn, LightOff };
 
-    // 'M' 'I' · major 3 · DirectorState layout v1. Bump the last byte whenever
-    // DirectorState changes, so a soft reset across a firmware update infers
-    // from the bulbs instead of misreading the old layout.
-    static const uint32_t STATE_MAGIC = 0x4D490301UL;
+    // 'M' 'I' · major 3 · DirectorState layout v2 (v2: holdBri). Bump the last byte
+    // whenever DirectorState changes, so a soft reset across a firmware update
+    // infers from the bulbs instead of misreading the old layout.
+    static const uint32_t STATE_MAGIC = 0x4D490302UL;
     // 'M' 'I' 'F' · DayFacts layout v1. Bump the last byte whenever DayFacts changes.
     static const uint32_t FACTS_MAGIC = 0x4D494601UL;
 
@@ -160,6 +161,8 @@ private:
     void presetLight(const Now& now, int i, const Active& p);
     void send(const Now& now, int i, bool on, float bri, uint32_t durMs, bool join);
     void joinLight(const Now& now, int i, uint32_t durMs);
+    void joinHeld(const Now& now, int i, uint32_t durMs);  // a light turned on during a hold: to the hold level
+    bool outCounts(const Now& now, int i) const;           // would an off now be "out for today"?
     void backoff(const Now& now, int i);
 
     void startWake(const Now& now, int triggerIdx, const char* why);

@@ -7,8 +7,8 @@ then do the fading themselves. Lux is read for reporting only.
 
 **Naming:** 2.0 was meant to be the "super reactive" line (the N1 event core plus the
 N2 dashboard work). It was never finished. The last lux-reactive build is tagged
-**`mira-2-final`**. 3.0 lives on the **`mira-3`** branch until it's verified, then
-merges to `main`. Docs deleted in 3.0 (`LIGHTCURVE.md`, `SYSTEM.md`, `FIRMWARE.md`,
+**`mira-2-final`**. 3.0 was built on the **`mira-3`** branch and merged into `main` on
+Nov 5, 2026 (the user's call, with some checklist items still open). Docs deleted in 3.0 (`LIGHTCURVE.md`, `SYSTEM.md`, `FIRMWARE.md`,
 `System Explanation OLD.md`) are still there at that tag.
 
 **Source inputs (verbatim, user-written):** `V3 Migration Docs/`:
@@ -38,10 +38,10 @@ little 2.x code survives beyond what §8 lists as kept.
 | 3 | Hardware shell: clock (SNTP + Central TZ), bridge (commands, SSE classifier, cert pin), dashboard task, lux telemetry, RTC persistence | **DONE (Oct 14)** |
 | 4 | Compiles clean for the board + code review | **DONE (Oct 14).** `pio run`: 0 warnings, RAM 19.4%, flash 31.0%. Review found and fixed 5 issues (Decisions Log → "Found in build/review"). |
 | 5 | First flash + hardware-unknowns verification | **IN PROGRESS**: flashed Oct 14 23:33 (`4ba1a97`); first-night findings in `MIRA_3_FIRST_NIGHT.md`. Checklist at the end. |
-| 6 | Docs: delete lux-era docs, rewrite CLAUDE.md, merge `mira-3` → `main` | **PARTIAL.** Docs deleted and CLAUDE.md rewritten for 3.0. Merge waits for step 5. |
+| 6 | Docs: delete lux-era docs, rewrite CLAUDE.md, merge `mira-3` → `main` | **DONE Nov 5.** Docs deleted, CLAUDE.md rewritten for 3.0, and `mira-3` merged into `main` (fast-forward). |
 | 7 | Power-loss replay: save the day's facts to NVS, replay missed events at power-on | **FLASHED Nov 2, boot not yet confirmed**: §10. Native tests pass; NVS and a real outage are unverified on the board. |
 | 8 | False holds + wall switches: in-line filter, `zigbee_connectivity` | **Wall switches TESTED: the user confirmed them on the real lights, Nov 5** (unknown #7). False holds still unverified: §6 and §8. |
-| 9 | Dashboard light commands: `LIGHT_ON` / `LIGHT_OFF` (the terminal's `dresser off`, `chest on`) | **BUILT Nov 5, not flashed**: §5 and §8. 9 native tests pass. The board build wasn't compiled (that session couldn't reach the PlatformIO registry), so run `pio run` before flashing. Checklist at the end. |
+| 9 | Dashboard light commands: `LIGHT_ON` / `LIGHT_OFF` (the terminal's `dresser off`, `chest on`) | **FLASHED Nov 5**, twice, both while the board was away from home WiFi, so it's unconfirmed. The second build reworked two things: out for today only while the schedule still wants the light, and a light turned on during a hold joins the hold level (§5, §8 decisions). 74 native tests pass. Checklist at the end. |
 
 **DST note:** the board runs 2.x until step 5. DST ends Nov 1. If 3.0 isn't flashed
 by then, 2.x's fixed `UTC_OFFSET_SEC` puts its evening gates an hour off (stopgap on
@@ -55,7 +55,9 @@ The dashboard rework is a separate, later effort.
 
 Mira keeps two bits per light:
 - **want on.** Both you and the schedule write it, and the last writer wins.
-- **out for today.** While set, the schedule can't turn that light back on.
+- **out for today.** While set, the schedule can't turn that light back on. Only an off
+  while the schedule still has that light on, or will turn it on later today, sets it.
+  It clears at the light's scheduled off and when Mira goes to sleep (user, Nov 5).
 
 The timeline gives the brightness every light should be at right now: the **in-line
 level**. Mira has one job: lights that *want on* are on, at the in-line level.
@@ -164,9 +166,11 @@ native test `test_full_day_auto_wake_one_command_per_change` pins this exactly.
 | turn a light on | asleep, 06:00 or later | starts the wake |
 | turn a light on | in charge | sets *want on* and clears *out*. The light joins: snapped to the in-line level near-instantly (`JOIN_SNAP_MS`, ~0.3 s), then continues any fade |
 | turn a light on | nap | ends the nap early. The rest of the nap set comes back too (15 s fade-in) |
-| turn a light on | hold | records *want on*. Nothing moves until the hold ends |
-| turn **one** light off | awake | marks it **out for today** (until you turn it back on, or tomorrow's wake) |
-| cut a light at the wall | awake | same as turning it off: **out for today** |
+| turn a light on | hold | records *want on* and brings that light to the **hold level** (your last brightness in this hold) over 0.3 s. The other lights stay held (user, Nov 5) |
+| turn **one** light off | awake | marks it **out for today** (until you turn it back on, its scheduled off, or tomorrow's wake) |
+| turn **one** light off | after its scheduled off (ceiling 19:00, chest 20:00, dresser 22:30) | just off: it was off on the schedule anyway, so not out for today |
+| cut a light at the wall | awake | same as turning it off |
+| restore a light at the wall | hold | fades to the hold level over 15 s; the other lights stay held |
 | restore a light at the wall | in charge | it fades into line over 15 s (brightness and CT), then continues any fade |
 | turn **every** light off | before 21:00 | **nap** |
 | turn **every** light off | 21:00 or later | **asleep** |
@@ -184,10 +188,10 @@ the app does, except Mira sends the switch, so it takes effect in any mode:
 
 | You type… | When | Mira… |
 |---|---|---|
-| `<light> off` | awake (incl. wake, hold, nap) | sends the off (15 s fade) and marks it **out for today**. It never starts a nap, even on the last light on; from 21:00 the last light out still means asleep |
+| `<light> off` | awake (incl. wake, hold, nap) | sends the off (15 s fade) and marks it **out for today**, unless its scheduled off has passed (then it's just off). It never starts a nap, even on the last light on; from 21:00 the last light out still means asleep |
 | `<light> off` | asleep | sends the off if the light is on |
 | `<light> on` | in charge | sets *want on*, clears *out*, and fades it into line over 15 s |
-| `<light> on` | hold | the same, right away; the other lights stay held |
+| `<light> on` | hold | the same, right away, but to the **hold level** over 15 s; the other lights stay held |
 | `<light> on` | nap | ends the nap. The rest of the nap set comes back too |
 | `<light> on` | asleep, 06:00 to 21:00 | starts the wake, with this light riding it from the start |
 | `<light> on` | asleep, otherwise | refused: `Wake` starts the day |
@@ -593,7 +597,7 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
 
 **Scope and structure**
 - **Version 3.0**, not 2.0. 2.0 was the unfinished "super reactive" line. Tag
-  `mira-2-final`, branch `mira-3`.
+  `mira-2-final`, branch `mira-3` (merged into `main` Nov 5).
 - Time-of-day timeline replaces lux control. **Lux is reporting only** and is
   expected to be fully deprecated soon.
 - **No state machine.** Behavior is commands; a few remembered facts gate them.
@@ -623,6 +627,22 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
   - A nap still running at 21:00 becomes sleep.
 - **One light off → out for today.** Rejoins when you turn it back on, or at the
   next wake.
+- **Out for today only while the schedule still wants the light (user, Nov 5).** The
+  user turned the chest on and off from the terminal after its 20:00 off, and it showed
+  as out for today: "it is normally out at this time because of the schedule, therefore,
+  it should not show as out for the day." The rule (Claude's proposal, accepted): an off
+  counts only before that light's scheduled off (ceiling 19:00, chest 20:00, dresser
+  22:30, floor at lights-out), so a ceiling turned off at 9:30 still stays off at 10:00.
+  The bit also clears at the light's scheduled off and when Mira goes to sleep. Applies
+  to the terminal, the Hue app and wall switches alike.
+- **A light turned on during a hold joins the hold level (user, Nov 5).** The user
+  raised the brightness with the chest off, then turned the chest on, and expected it
+  to come up to the hold's level. Accepted from Claude's options: every turn-on (the
+  terminal over 15 s, the Hue app over 0.3 s, power back at the wall over 15 s), and the
+  hold level is your latest brightness in that hold. A hold from the dashboard's `hold`
+  uses the level the lights froze at. The level lives in `DirectorState.holdBri`
+  (`STATE_MAGIC` …0302) but not in `DayFacts`: after a power loss mid-hold, a light
+  turned on joins in line instead.
 - **Color/CT changes are not tracked** (user swapped the earlier "color change =
   remove light" idea for "light off = out for today").
 - **Scenes** need no special case. Their brightness change is a hold, and their CT
@@ -698,8 +718,8 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
 - **(Claude's calls, change any)**
   - Each command does what the same switch in the Hue app does (§5), so the rules stay the
     ones already agreed. Where the app has nothing to copy, the command acts now: a hold
-    protects your change, and this is your change. On during a hold lands at the in-line
-    level, with a 15 s fade-in like Mira's other turn-ons; off fades over 15 s like its
+    protects your change, and this is your change. On during a hold lands at the hold
+    level (changed Nov 5, see above; first built at the in-line level), with a 15 s fade-in like Mira's other turn-ons; off fades over 15 s like its
     other offs.
   - Off never starts a nap, even on the last light on: one named light isn't "everything
     off", and a nap would bring it back in an hour. `nap` does that.
@@ -812,7 +832,7 @@ confirm the dashboard log shows `Online (…) — Mira 3.0` and a `Boot — …`
    `Chest off — out for today`. Wait past a 10-min `SSE: stale` reconnect: it must stay
    out. Restore it: `Chest has power again`, then a 15 s PUT and no `you set` hold.
 2. **Quick flip:** off and on within a few seconds, and note what the log shows.
-3. **Power loss:** with lights on, unplug the board across a scheduled event, then plug
+3. **Done: the user tested it Nov 5 and believes it worked as expected.** **Power loss:** with lights on, unplug the board across a scheduled event, then plug
    it back in. Expect `Boot — power loss; caught up from …` and the missed offs.
 4. **False holds:** watch a morning wake for `reported N% — in line, no hold` where a
    `Hold` used to appear.
@@ -827,5 +847,12 @@ Before flashing, `dresser off` in the terminal should report the board refusing 
    `status` lists the dresser as out for today. The next scheduled event leaves it off.
 2. **On:** `dresser on` → `Dresser on — dashboard`, a 15 s fade into line, then one glide
    command if a fade is running. No `you set` hold.
-3. **During a hold:** `chest on` turns on only the chest; the held lights don't move.
+3. **During a hold:** `chest on` turns on only the chest, fading to the level you set
+   (not the schedule's); the held lights don't move. The same from the Hue app (0.3 s).
 4. **Last light:** `floor off` with only the floor on before 9 PM stays awake, with no nap.
+5. **After a scheduled off (the Nov 5 bug):** after 20:00, `chest on` then `chest off` →
+   `Chest off — dashboard (off on the schedule now)`, the terminal says `off.`, and
+   `status` doesn't list the chest as out for today. From the Hue app the line is
+   `Chest off — off on the schedule now`.
+6. **Out clears on its own:** a light that's out for today drops off the `status` list at
+   its scheduled off, and nothing is listed overnight.

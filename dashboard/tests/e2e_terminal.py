@@ -48,6 +48,7 @@ class FakeBoard:
         self.received = []
         self.stop = threading.Event()
         self.refuse = {}
+        self.past_scheduled_off = False  # LIGHT_OFF answers "off", not "off for today"
 
     def _call(self, path, body=None):
         data = None if body is None else json.dumps(body).encode()
@@ -95,6 +96,8 @@ class FakeBoard:
         elif action == 'WAKE':
             self.mode = 'WAKE'
             self.log('Wake — dashboard (25% → 75% over 15 min)')
+        elif action == 'LIGHT_OFF' and self.past_scheduled_off:
+            self.log(f'{LIGHT_NAMES[value]} off — dashboard (off on the schedule now)')
         elif action == 'LIGHT_OFF':
             self.log(f'{LIGHT_NAMES[value]} off for today — dashboard')
         elif action == 'LIGHT_ON':
@@ -413,6 +416,10 @@ def admin_checks(term, board, page):
     term.type('Chest ON')
     expect(page.locator('#output .line').last).to_have_text('on.', timeout=15000)
     check('chest on sends LIGHT_ON 2', board.received[-1] == ('LIGHT_ON', 2), board.received[-1:])
+    board.past_scheduled_off = True  # after 20:00 the chest is off on the schedule anyway
+    term.type('chest off')
+    expect(page.locator('#output .line').last).to_have_text('off.', timeout=15000)
+    board.past_scheduled_off = False
     term.shot('10b-light-commands')
     term.type('clear')
 

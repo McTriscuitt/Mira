@@ -123,6 +123,13 @@
     LIGHT_OFF: 'off for today.',
   };
 
+  // A light turned off after its scheduled off is just off, and the board's own line
+  // says which: "Chest off for today — dashboard" or "Chest off — dashboard (...)".
+  function doneText(action, note) {
+    if (action === 'LIGHT_OFF' && !/off for today/.test(note || '')) return 'off.';
+    return DONE_TEXT[action] || 'done.';
+  }
+
   function wait(ms) {
     return new Promise(function (resolve) { window.setTimeout(resolve, ms); });
   }
@@ -142,7 +149,7 @@
       if (outcome === 'picked_up') {
         line.textContent = 'the board picked it up...';
       } else if (outcome === 'applied') {
-        line.textContent = DONE_TEXT[action] || 'done.';
+        line.textContent = doneText(action, result.data.note);
         line.className = 'line';
         return;
       } else if (outcome === 'ignored') {

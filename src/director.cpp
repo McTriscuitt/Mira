@@ -430,6 +430,25 @@ void Director::joinLight(const Now& now, int i, uint32_t durMs) {
     send(now, i, true, target, durMs, true);
 }
 
+// During a hold the in-line level isn't what the room is at: a light turned on joins
+// the level you set (user, Nov 5). When the hold ends, reconcile takes it from there
+// with the rest. Without a known hold level (a hold restored after a power loss)
+// it joins in line instead.
+void Director::joinHeld(const Now& now, int i, uint32_t durMs) {
+    if (s_.holdBri <= 0.0f) {
+        joinLight(now, i, durMs);
+        return;
+    }
+    send(now, i, true, s_.holdBri, durMs, true);
+}
+
+// "Out for today" means the schedule would otherwise have this light on later today.
+// Once its scheduled off has passed (ceiling 19:00, chest 20:00, dresser 22:30, floor
+// at lights-out), an off is just an off (user, Nov 5).
+bool Director::outCounts(const Now& now, int i) const {
+    return !roleDoneForToday(roleOf(i), mdsNow(now));
+}
+
 void Director::backoff(const Now& now, int i) {
     s_.cmd[i].valid = 0;
     if (fails_[i] < 8) fails_[i]++;
@@ -445,6 +464,7 @@ void Director::startWake(const Now& now, int triggerIdx, const char* why) {
     s_.asleep      = 0;
     s_.napUntilMs  = 0;
     s_.holdUntilMs = 0;
+    s_.holdBri     = 0.0f;
     s_.out         = 0;  // yesterday's "out for today" lights rejoin
     pendingOff_    = 0;
     s_.wakeStartMs = now.ms;
@@ -477,9 +497,12 @@ void Director::scheduleRole(Role role, bool on) {
                 s_.want |= b;
                 note("%s on", lightName(i));
             }
-        } else if (s_.want & b) {
-            s_.want &= (LightMask)~b;
-            note("%s off", lightName(i));
+        } else {
+            if (s_.want & b) {
+                s_.want &= (LightMask)~b;
+                note("%s off", lightName(i));
+            }
+            s_.out &= (LightMask)~b;  // off on the schedule now too: nothing left to keep it out of today
         }
         dirty_ = true;
     }
@@ -506,6 +529,11 @@ void Director::startHold(const Now& now, int changedIdx, float userBri, uint16_t
         if (now.ms >= c.t0Ms + (int64_t)c.durMs) continue;  // not mid-fade
         send(now, i, true, currentBri(now, i), FREEZE_MS, false);
     }
+
+    // The hold level: your latest brightness. A hold from the dashboard, or from a
+    // change on a light we can't name, holds where the lights froze: in line.
+    if (changedIdx >= 0 && changedIdx < LIGHT_COUNT) s_.holdBri = userBri;
+    else if (fresh)                                  s_.holdBri = inLineBri(now);
 
     if (changedIdx >= 0 && changedIdx < LIGHT_COUNT) {
         Command& c = s_.cmd[changedIdx];
@@ -536,12 +564,14 @@ void Director::startHold(const Now& now, int changedIdx, float userBri, uint16_t
 void Director::endHold(const char* why) {
     if (!holdActive()) return;
     s_.holdUntilMs = 0;
+    s_.holdBri     = 0.0f;
     note("Hold over — %s", why);
     dirty_ = true;
 }
 
 void Director::startNap(const Now& now, LightMask group, uint32_t durMs) {
     s_.holdUntilMs = 0;
+    s_.holdBri     = 0.0f;
     s_.napUntilMs  = now.ms + (int64_t)durMs;
     s_.want       |= group;  // the lights you switched off come back when it ends
     char at[12];
@@ -633,12 +663,17 @@ void Director::commandLight(const Now& now, int32_t idx, bool on) {
         if (napActive()) {
             endNap("dashboard");  // as in the app: the rest of the nap set comes back too
         } else if (holdActive() && !(physOn_ & b)) {
-            joinLight(now, i, FADE_MS);  // the hold sends nothing else; this one is yours
+            joinHeld(now, i, FADE_MS);  // the hold sends nothing else; this one is yours
         }
     } else {
         s_.want &= (LightMask)~b;
-        s_.out  |= b;
-        note("%s off for today — dashboard", name);
+        if (outCounts(now, i)) {
+            s_.out |= b;
+            note("%s off for today — dashboard", name);
+        } else {
+            s_.out &= (LightMask)~b;
+            note("%s off — dashboard (off on the schedule now)", name);
+        }
         if (paused() && (physOn_ & b)) driveOff(now, i);  // reconcile sends nothing while held
     }
     dirty_ = true;
@@ -657,7 +692,9 @@ void Director::goToSleep(const char* why) {
     s_.napUntilMs  = 0;
     napOff_        = 0;
     s_.holdUntilMs = 0;
+    s_.holdBri     = 0.0f;
     s_.want        = 0;
+    s_.out         = 0;  // nothing is scheduled on overnight, so nothing is out of it
     s_.wakeStartMs = 0;
     s_.wakeFlags   = 0;
     pendingOff_    = 0;
@@ -688,9 +725,14 @@ void Director::resolveOffGroup(const Now& now) {
         else startNap(now, group);
         return;
     }
-    s_.out |= group;  // want was already cleared at the edge
-    for (int i = 0; i < LIGHT_COUNT; i++) {
-        if (group & lightBit(i)) note("%s off — out for today", lightName(i));
+    for (int i = 0; i < LIGHT_COUNT; i++) {  // want was already cleared at the edge
+        if (!(group & lightBit(i))) continue;
+        if (outCounts(now, i)) {
+            s_.out |= lightBit(i);
+            note("%s off — out for today", lightName(i));
+        } else {
+            note("%s off — off on the schedule now", lightName(i));
+        }
     }
     dirty_ = true;
 }
@@ -738,7 +780,8 @@ void Director::onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float b
             snprintf(why, sizeof(why), "%s turned on", lightName(idx));
             endNap(why);
         }
-        if (!holdActive()) joinDurMs_[idx] = joinMs;
+        if (holdActive()) joinHeld(now, idx, joinMs);  // app or wall: to the hold level, the rest stay held
+        else              joinDurMs_[idx] = joinMs;
     } else {
         if (s_.asleep) return;
         joinDurMs_[idx] = 0;

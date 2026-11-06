@@ -32,6 +32,7 @@ Period  periodAt(int32_t mds);              // the fixed profile (the wake overl
 float   profileBri(int32_t mds);            // profile level at mds, interpolated inside fades
 int32_t holdEndAfter(int32_t mds);          // when a hold that starts at mds ends: the next fade, the dresser's off, or lights-out
 bool    roleScheduledOn(Role role, int32_t mds);  // does the schedule have this role on (after the wake)?
+bool    roleDoneForToday(Role role, int32_t mds); // has this role's scheduled off passed? (an off then isn't "out for today")
 
 // Fixed timed events, in chronological Mira-day order. Same-time events fire in
 // table order.

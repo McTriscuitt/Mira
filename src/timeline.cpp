@@ -100,6 +100,19 @@ bool roleScheduledOn(Role role, int32_t mds) {
     return false;
 }
 
+// Each role is on for one stretch of the Mira-day, so once its scheduled off has
+// passed the schedule has nothing left to do with it until the next wake: turning
+// it off then is just off, and an "out for today" from earlier no longer matters.
+bool roleDoneForToday(Role role, int32_t mds) {
+    switch (role) {
+        case Role::Floor:   return mds >= MDS(LIGHTS_OUT_AT);
+        case Role::Dresser: return mds >= MDS(DRESSER_OFF_AT);
+        case Role::Chest:   return mds >= MDS(CHEST_OFF_AT);
+        case Role::Ceiling: return mds >= MDS(CEILING_OFF_AT);
+    }
+    return true;
+}
+
 bool crossedLocal(int32_t prevSec, int32_t nowSec, int32_t atSec) {
     if (nowSec == prevSec) return false;
     if (nowSec > prevSec) return atSec > prevSec && atSec <= nowSec;
