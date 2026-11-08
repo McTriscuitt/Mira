@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 0ef52c24-96bc-4dea-8b86-04940bb05db1
-  modified: 2026-11-05T00:00:00.000Z
+  modified: 2026-11-08T00:00:00.000Z
 ---
 
 Mira 3.0 replaces the lux-reactive system with a time-of-day timeline of single
@@ -32,6 +32,12 @@ as expected"); items 2 and 4 are open. **Flashed Nov 5** (board away from home W
 only before that light's scheduled off (it also clears at the scheduled off and at sleep),
 and any light turned on during a hold joins the hold level (your last brightness in it,
 `DirectorState.holdBri`, `STATE_MAGIC` …0302). Nov 5 reflash checklist in MIRA_3.md is open.
+
+**Nov 8 (storm night):** Zigbee dropouts (`connectivity_issue` → `connected`, 10–25 s, no
+one at a switch) were read as wall-switch ons and turned the dresser back on after its
+22:30 off. Fixed and flashed Nov 8 1:13 AM: on reconnect the bridge is asked, and still off
+= dropout, nothing changes (user chose this; the min-outage option for lights that are on
+was not chosen). `Bug Records/Nov8_Zigbee_Dropout_Turned_Dresser_On.md`.
 
 **Branch:** `mira-3` merged into `main` Nov 5 (user's call); work on `main`. Railway deploys
 from `main` (switched Nov 5), and the `mira-3` branch is deleted.

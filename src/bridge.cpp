@@ -427,29 +427,74 @@ static int idxByDevice(const char* id) {
     return -1;
 }
 
+// The bridge's own on/off for one light: 1 on, 0 off, -1 couldn't ask.
+static int bridgeSaysOn(int idx) {
+    WiFiClientSecure client;
+    client.setInsecure();  // HTTPClient transmits on connect — see peerMatchesPinned
+    HTTPClient http;
+    char url[160];
+    snprintf(url, sizeof(url), "%s/resource/light/%s", HUE_V2_BASE_URL, LIGHT_UUIDS[idx]);
+    http.begin(client, url);
+    http.setTimeout(4000);
+    http.addHeader("hue-application-key", HUE_API_KEY);
+    int code = http.GET();
+    if (code != 200) {
+        Serial.printf("light check: %s HTTP %d\n", lightName(idx), code);
+        http.end();
+        return -1;
+    }
+    String body = http.getString();
+    http.end();
+
+    JsonDocument filter;
+    filter["data"][0]["on"]["on"] = true;
+    JsonDocument doc;
+    if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) return -1;
+    JsonVariantConst on = doc["data"][0]["on"]["on"];
+    if (on.isNull()) return -1;
+    return on.as<bool>() ? 1 : 0;
+}
+
 // post=false at boot: the director hasn't started, and its first snapshot reads
 // the cache this sets.
+//
+// "connected" again isn't always your switch. A bulb that's powered but off can
+// drop off the Zigbee mesh for a few seconds (storms, interference) and come
+// back, and it's still off. A bulb restored at the wall comes on by itself, or
+// the bridge still has the on:true from before the cut. So ask the bridge: off
+// means a dropout, and nothing changes. (A bulb cut while off and restored may
+// report its on a moment later; with lostPower cleared, the classifier takes
+// that as your on.) If the bridge can't be asked, it counts as your on, as before.
 static void applyConnectivity(int idx, const char* status, bool post) {
     const bool lost = strcmp(status, "connectivity_issue") == 0 || strcmp(status, "disconnected") == 0;
     const bool back = strcmp(status, "connected") == 0;
     if (lost == lostPower[idx] || (!lost && !back)) return;
     lostPower[idx] = lost;
-    if (back) {
+    bool stillOff = false;
+    if (back && post) {
+        int says = bridgeSaysOn(idx);
+        if (says < 0) says = bridgeSaysOn(idx);
+        if (says < 0) Serial.printf("light check: %s unreadable — counting it as on\n", lightName(idx));
+        stillOff = says == 0;
+    }
+    const bool nowOn = back && !stillOff;
+    if (nowOn) {
         lastPowerBackMs[idx] = millis();
         lastOnEdgeMs[idx]    = millis();
     }
     portENTER_CRITICAL(&dataMux);
     bool  prevOn = lightCache[idx].on;
     float bri    = lightCache[idx].bri;
-    lightCache[idx].on = back;
+    lightCache[idx].on = nowOn;
     portEXIT_CRITICAL(&dataMux);
-    Serial.printf("SSE: %s connectivity %s\n", lightName(idx), status);
-    recordEvent(idx, true, back, false, 0.0f, prevOn, bri, Outcome::PowerChange);
+    Serial.printf("SSE: %s connectivity %s%s\n", lightName(idx), status,
+                  stillOff ? " — still off, a dropout" : "");
+    recordEvent(idx, true, nowOn, false, 0.0f, prevOn, bri, Outcome::PowerChange);
     if (!post) return;
     Event ev;
     ev.type  = EvType::LightPower;
     ev.a     = (uint8_t)idx;
-    ev.flags = back ? 1 : 0;
+    ev.flags = (uint8_t)((back ? 1 : 0) | (stillOff ? 2 : 0));
     ev.f     = bri;
     ev.tMs   = millis();
     postEvent(ev);

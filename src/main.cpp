@@ -368,7 +368,7 @@ static void dispatch(const Event& ev) {
             director.onStaleRevert(n, ev.a, (ev.flags & 1) != 0);
             break;
         case EvType::LightPower:
-            director.onPower(n, ev.a, (ev.flags & 1) != 0, ev.f);
+            director.onPower(n, ev.a, (ev.flags & 1) != 0, ev.f, (ev.flags & 2) != 0);
             break;
         case EvType::DashCmd:
             director.onCommand(n, (Director::Cmd)ev.a, ev.i);

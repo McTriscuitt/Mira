@@ -334,7 +334,7 @@ sensor, the clock).
 |---|---|
 | on/off flip on a live trajectory | Mira's echo → `LightEdge(byUser=false)` |
 | any other on/off flip | yours → `LightEdge(byUser=true)` |
-| `zigbee_connectivity` lost or back | your off or on at the wall → `LightPower` |
+| `zigbee_connectivity` lost or back | your off or on at the wall → `LightPower`. Back, the bridge is asked first: still off is a Zigbee dropout, logged and nothing else (Nov 8) |
 | brightness within 3 s of a turn-on, or 30 s of a bulb regaining power | part of the turn-on (ignored) |
 | brightness on a live trajectory (`echo.h`) | Mira's echo (ignored) |
 | brightness within 5% of the cache | no-op (ignored) |
@@ -349,6 +349,16 @@ keeps saying `on: true`. `zigbee_connectivity` is the signal, and it belongs to 
 device, so bootstrap maps `light.owner.rid` to the roster. While a bulb has no power,
 `lostPower` overrides the bridge's on/off everywhere, including the resync that runs
 after every 10-minute reconnect, which would otherwise read it as turned back on.
+
+**Dropouts (Nov 8).** A powered bulb can also drop off the mesh for a few seconds and come
+back (storms, interference); the bridge reports that the same way. So on "connected",
+`applyConnectivity` GETs that light first (`bridgeSaysOn`, one retry). Still off → a
+dropout: `lostPower` clears, nothing changes, and the log says `<light> back — still off, a
+dropout, not a switch`. On → your switch, as before. A bulb cut while off and restored may
+report its on a moment after "connected"; with `lostPower` cleared, the classifier reads that
+as your on. If the bridge can't be asked, it counts as your on. The "lost" half can't be
+told apart, so a dropout of a light that's *on* still reads as your off and then your on
+(out for today for ~10–25 s, then back in line).
 
 **Echo recognition** (`echo.h`) is time-aware, because 3.0's fades run up to an hour:
 - In the first `ECHO_EARLY_MS` (10 s) after a command, the whole start→target range
@@ -713,6 +723,13 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
   so the user considers it very unlikely.
 - A report within 5% of the in-line level isn't a hold (Claude's proposal, accepted).
 
+**Zigbee dropouts aren't your switch (user, Nov 8)**
+- During a storm, Nov 7–8, the bridge reported `connectivity_issue` → `connected` for the
+  chest, floor and dresser several times (10–25 s each) with no one at a switch. The dresser,
+  off since 22:30, came back on at 23:18 and again at 00:00. The user chose the fix: when a
+  bulb's connectivity comes back, ask the bridge; still off means a dropout and nothing
+  changes. Write-up: `Bug Records/Nov8_Zigbee_Dropout_Turned_Dresser_On.md`.
+
 **Dashboard light commands (user, Nov 5)**
 - The user asked for admins to type something like `dresser off` or `chest on` in Mira to
   "turn those lights on or off for the day". Off is *out for today*; on clears it.
@@ -790,6 +807,8 @@ All Oct 14, 2026, from the three `V3 Migration Docs/` inputs unless marked
    faster than the bridge notices sends no event, so an off-path report still holds.
    **Tested: the user confirmed the wall-switch handling works on the real lights, Nov 5.**
    No timings were reported, and the quick off-and-on (Nov 2 checklist item 2) is still open.
+   **Nov 8:** the bridge also reports a powered bulb that briefly drops off the mesh this
+   way; a light check on "connected" now tells the two apart (§8, "Dropouts").
 
 ## First-flash checklist (step 5)
 
@@ -880,3 +899,15 @@ Before flashing, `schedule update` should report the board refusing it
    says `the board sent its schedule.`, and `schedule check` shows the new time.
 3. **Same schedule:** `schedule` reads the same as before the flash (the site's copy and
    `config.h` already agree; `tests/test_schedule.py` checks that).
+
+## Nov 8 reflash checklist (Zigbee dropouts)
+
+Flashed Nov 8, 1:13 AM; `Online (sw-restart) — Mira 3.1` confirmed in the log.
+
+1. **A dropout of an off light:** the next `<light> lost power` on a light that's off should
+   be followed by `<light> back — still off, a dropout, not a switch`, and the light stays off.
+   Serial: `SSE: <light> connectivity connected — still off, a dropout`.
+2. **The wall switch still works:** with a light on, cut it at the wall, then restore it →
+   `has power again` and a 15 s fade into line (unchanged).
+3. **Unreadable bridge:** if Serial ever shows `light check: … unreadable — counting it as
+   on`, that reconnect behaved the old way.

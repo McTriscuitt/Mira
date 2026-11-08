@@ -11,7 +11,7 @@ enum class EvType : uint8_t {
     LightEdge,       // a light went on/off · flags: bit0 on, bit1 by you (not Mira's echo) · f: brightness
     UserBrightness,  // a brightness change Mira didn't make · f: brightness · i: CT
     StaleRevert,     // the bridge walked back a Mira command · flags bit0: on now
-    LightPower,      // a bulb lost or regained power (wall switch) · flags bit0: has power · f: brightness
+    LightPower,      // a bulb lost or regained power (wall switch) · flags bit0: has power, bit1: back but still off (a dropout) · f: brightness
     DashCmd          // a dashboard command · a: Director::Cmd · i: value
 };
 

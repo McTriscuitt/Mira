@@ -132,6 +132,14 @@ struct Sim {
         d.onPower(now(), (uint8_t)idx, true, b);
         deliver();
     }
+    void dropout(int idx) {  // off the Zigbee mesh for a moment: the bridge says lost, the bulb is untouched
+        d.onPower(now(), (uint8_t)idx, false, 0.0f);
+        deliver();
+    }
+    void dropoutBack(int idx) {  // back on the mesh, and the bridge still says off
+        d.onPower(now(), (uint8_t)idx, true, env.bri[idx], true);
+        deliver();
+    }
     bool logged(const char* text) const {
         for (size_t k = 0; k < env.logs.size(); k++)
             if (env.logs[k].find(text) != std::string::npos) return true;
@@ -652,6 +660,42 @@ void test_power_back_at_night_is_left_alone_and_in_the_morning_starts_the_wake()
     s.powerBack(LIGHT_CHEST, 80.0f);
     TEST_ASSERT_EQUAL((int)Director::Mode::Wake, (int)s.mode());
     assertPut(s.find(m, LIGHT_CHEST), true, 25.0f + 50.0f * (15.0f / 900.0f), FADE_MS, 0);
+}
+
+// Nov 8: the dresser, off since 10:30 PM, dropped off the mesh at midnight in a
+// storm. "Connected" again was read as your switch and Mira turned it back on.
+void test_dropout_of_an_off_light_never_turns_it_on() {
+    Sim s;
+    s.boot(T(0, 22, 0), FLOOR | DRESSER);
+    s.runTo(T(0, 22, 30, 5));
+    TEST_ASSERT_FALSE(s.env.on[LIGHT_DRESSER]);  // the scheduled off
+    s.runTo(T(1, 0, 0, 40));
+    size_t m = s.mark();
+    s.dropout(LIGHT_DRESSER);
+    s.runTo(T(1, 0, 0, 53));
+    s.dropoutBack(LIGHT_DRESSER);
+    TEST_ASSERT_TRUE(s.logged("Dresser back — still off, a dropout, not a switch"));
+    s.runTo(T(1, 0, 59));
+    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_DRESSER));
+    TEST_ASSERT_FALSE(s.env.on[LIGHT_DRESSER]);
+    TEST_ASSERT_EQUAL((int)Director::Mode::Active, (int)s.mode());  // the floor carries on
+}
+
+// A light you turned off in the day stays out for today through a dropout.
+void test_dropout_of_an_off_light_in_the_day_stays_off() {
+    Sim s;
+    s.boot(T(0, 13, 59), ALL);
+    s.runTo(T(0, 14, 0));
+    s.userOff(LIGHT_CHEST);
+    s.runTo(T(0, 14, 0, 5));
+    TEST_ASSERT_TRUE((s.d.outMask() & CHEST) != 0);
+    size_t m = s.mark();
+    s.dropout(LIGHT_CHEST);
+    s.runTo(T(0, 14, 0, 20));
+    s.dropoutBack(LIGHT_CHEST);
+    s.runTo(T(0, 17, 0, 5));  // through the next fade
+    TEST_ASSERT_EQUAL(0, s.countFor(m, LIGHT_CHEST));
+    TEST_ASSERT_TRUE((s.d.outMask() & CHEST) != 0);
 }
 
 void test_everything_off_before_9pm_is_a_nap() {
@@ -1378,6 +1422,8 @@ int main(int argc, char** argv) {
     RUN_TEST(test_power_lost_before_a_scheduled_on_stays_off);
     RUN_TEST(test_power_back_during_a_hold_fades_to_the_hold_level);
     RUN_TEST(test_power_back_at_night_is_left_alone_and_in_the_morning_starts_the_wake);
+    RUN_TEST(test_dropout_of_an_off_light_never_turns_it_on);
+    RUN_TEST(test_dropout_of_an_off_light_in_the_day_stays_off);
     RUN_TEST(test_everything_off_before_9pm_is_a_nap);
     RUN_TEST(test_light_on_during_nap_ends_it_and_brings_the_rest);
     RUN_TEST(test_nap_running_at_9pm_becomes_sleep);

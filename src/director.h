@@ -110,7 +110,9 @@ public:
     // joinMs: how a light you turned on comes into line.
     void onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float bri, uint32_t joinMs = JOIN_SNAP_MS);
     // A bulb lost or regained power (its wall switch): your off or on, fading into line on the way back.
-    void onPower(const Now& now, uint8_t idx, bool hasPower, float bri);
+    // stillOff: back on the network but the bridge says it's off, so it never lost power — a Zigbee
+    // dropout, not your switch. Logged, nothing else.
+    void onPower(const Now& now, uint8_t idx, bool hasPower, float bri, bool stillOff = false);
     void onUserBrightness(const Now& now, int idx, float bri, uint16_t ct);  // idx −1: unknown light
     void onStaleRevert(const Now& now, uint8_t idx, bool nowOn);
     void onCommand(const Now& now, Cmd cmd, int32_t value);

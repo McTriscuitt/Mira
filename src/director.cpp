@@ -792,8 +792,12 @@ void Director::onEdge(const Now& now, uint8_t idx, bool on, bool byUser, float b
     reconcile(now);
 }
 
-void Director::onPower(const Now& now, uint8_t idx, bool hasPower, float bri) {
+void Director::onPower(const Now& now, uint8_t idx, bool hasPower, float bri, bool stillOff) {
     if (idx >= LIGHT_COUNT) return;
+    if (hasPower && stillOff) {
+        note("%s back — still off, a dropout, not a switch", lightName(idx));
+        return;
+    }
     note(hasPower ? "%s has power again" : "%s lost power", lightName(idx));
     onEdge(now, idx, hasPower, true, bri, FADE_MS);
 }
