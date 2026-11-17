@@ -43,6 +43,8 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 - maybe add another secret page for dashboard error logs?
 
+- **(Nov 17) idea to add soon: AI-powered interactive resume** — a RAG chatbot recruiters can ask about experience/skills/projects. Saved as `Markdowns/IDEA_AI_INTERACTIVE_RESUME.md`; not yet developed.
+
 - **(July 15) wind-down lux gate needs re-tuning for sensor placement** — the ESP currently
   sits on the desk (laptop's there), not the windowsill, so lux readings don't reflect
   window light the way the curve/thresholds assume. Wind-down should be able to begin
