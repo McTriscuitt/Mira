@@ -139,6 +139,10 @@ and no internet.
 
 ## Hosting
 
+*The alternative, running the site on the hub too under `mcterminal.app`, is in
+[`IDEA_SELF_HOSTING_PI.md`](IDEA_SELF_HOSTING_PI.md) (added Nov 20). This section is
+one side of that choice.*
+
 No need to leave Railway. The limits hit so far (4-stream cap, `-w 1`) come from pushing
 live data through a synchronous Flask server, not from the host. With a broker doing the
 fan-out, Flask goes back to login, command authorization and history. The broker can be

@@ -46,6 +46,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 - maybe add another secret page for dashboard error logs?
 
 - **(Nov 20) idea for discussion: Mira owns its Zigbee network** — a Zigbee radio + Zigbee2MQTT on an always-on hub replaces the Hue Bridge, the brain (`mirad`, same core) moves to the hub, the Nano becomes a bedside dial, one message bus to the site. Saved as `Markdowns/IDEA_OWN_ZIGBEE_HUB.md` on branch `idea/own-zigbee-hub`; nothing decided, open questions listed there.
+  - **(Nov 20) hosting half: the site moves to the Pi too, as McTerminal at `mcterminal.app`** (domain not bought yet). Plan: buy at Cloudflare Registrar, point at Railway now, later serve from the Pi through a Cloudflare Tunnel with Railway kept as fallback. Saved as `Markdowns/IDEA_SELF_HOSTING_PI.md` on the same branch.
 
 - **(July 15) wind-down lux gate needs re-tuning for sensor placement** — the ESP currently
   sits on the desk (laptop's there), not the windowsill, so lux readings don't reflect
