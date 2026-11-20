@@ -8,6 +8,8 @@ Smart bedroom lighting firmware running on an **Arduino Nano ESP32-S3 (ABX00083)
 
 **Start every firmware session with `Markdowns/MIRA_3.md`.** It's the 3.0 spec, architecture, decisions log, and first-flash checklist; the user's verbatim inputs are in `V3 Migration Docs/`. The lux-reactive 2.x system is tagged `mira-2-final`. 3.0 was merged into `main` on Nov 5, 2026; work on `main`. Railway deploys from `main`, and the `mira-3` branch was deleted Nov 5.
 
+**Branch names say what the branch is for:** `<type>/<what-it-does>` in kebab-case, where type is `feature/`, `fix/`, `infra/`, `idea/` or `docs/` (e.g. `infra/self-hosting-pi`). Use one topic per branch, and rename random cloud-session names like `claude/happy-goodall-4zwhrm` before pushing. Details: `Markdowns/memory/feedback_branch_naming.md`.
+
 ## Project Memory
 
 Durable notes for every session, on any machine, live in `Markdowns/memory/`. The index is imported below; open a linked file when it's relevant. Save new memories there, not in the per-machine auto-memory folder, and commit them. This repo is public, so never put credentials or personal details in them.

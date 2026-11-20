@@ -8,6 +8,7 @@
 - [N1 Migration + N2 Progress](project_n1_migration.md) — 2.x history (behavior superseded by 3.0; N2 step 3 long-poll still a dashboard-side candidate). N1 DONE (all 5 stages flashed). N2 steps 1+2 SHIPPED July 24 (`3cee62a` burst polling, `2679fe9` Flask SSE stream; Procfile `-w 1 --threads 16`, `-w 1` load-bearing); live Railway verify pending; step 3 (netTask long-poll, reflash) open. Also open: Stage 5 final checks + cross-stage regression checklist; soak logger holds COM5 (kill before flashing); laptop can't reach bridge over HTTPS; app.py won't boot on SQLite
 - [Dashboard Design Preferences](project_dashboard_design.md) — clean, minimalistic, dark mode, low clutter; lux curve tuner as style baseline
 - [Wake Sequence Rework (April 24)](project_wake_rework_apr24.md) — 2.x history (3.0 replaced the wake): bri-to-bri interpolation, soft pause override fix, root cause of April 23 failures
+- [Branch naming](feedback_branch_naming.md) — `<type>/<what-it-does>` kebab-case (feature/ fix/ infra/ idea/ docs/), one topic per branch; rename random cloud-session names before pushing
 - [No co-author in commits](feedback_no_coauthor.md) — never add Co-Authored-By Claude lines; plain commit messages
 - [Logical fix over timer bump](feedback_prefer_logical_fix_over_timer_bump.md) — for race bugs, fix the bad check before widening a timeout; preserve SSE/architecture intent
 - [Comment vs Delete](feedback_comment_vs_delete.md) — comment out hardware-driven removals, don't delete; keeps code ready for re-activation
