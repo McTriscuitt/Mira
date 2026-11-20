@@ -45,6 +45,8 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 - maybe add another secret page for dashboard error logs?
 
+- **(Nov 20) idea for discussion: Mira owns its Zigbee network** — a Zigbee radio + Zigbee2MQTT on an always-on hub replaces the Hue Bridge, the brain (`mirad`, same core) moves to the hub, the Nano becomes a bedside dial, one message bus to the site. Saved as `Markdowns/IDEA_OWN_ZIGBEE_HUB.md` on branch `idea/own-zigbee-hub`; nothing decided, open questions listed there.
+
 - **(July 15) wind-down lux gate needs re-tuning for sensor placement** — the ESP currently
   sits on the desk (laptop's there), not the windowsill, so lux readings don't reflect
   window light the way the curve/thresholds assume. Wind-down should be able to begin
