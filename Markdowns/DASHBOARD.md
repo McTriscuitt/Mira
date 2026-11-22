@@ -85,6 +85,10 @@ Hidden commands are a convenience only. Anyone can read the JS; the server enfor
 
 - **Check:** password, then a six-digit code, then one `incorrect`. A whole try counts as one attempt.
   The code sends itself at the sixth digit, because an iPhone's number pad has no return key.
+  The password goes in its own `#secret-input`, made for that answer and removed after it. The
+  command input is never switched to `type="password"`: browsers remember a field that ever was
+  one, so every later command looked like a new password and the browser offered to update the
+  saved one (fixed Nov 22).
 - **Lockout:** 3 failures lock an address for 15 min (a whole /64 on IPv6). 30 failures across all
   addresses block login for an hour. Stored in Postgres.
 - **Codes** work once: `auth_state.last_totp_step` refuses a repeat.

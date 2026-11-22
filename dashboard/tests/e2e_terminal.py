@@ -314,12 +314,15 @@ def login_checks(term, page):
 
     term.type('login')
     expect(page.locator('#prompt-label')).to_have_text('password:')
-    check('password input is masked', box.get_attribute('type') == 'password')
+    secret = page.locator('#secret-input')
+    check('password input is masked', secret.get_attribute('type') == 'password')
+    check('password has its own input', box.is_hidden() and box.get_attribute('type') == 'text')
     term.shot('05-login-password')
-    box.fill('wrong password here')
-    box.press('Enter')
+    secret.fill('wrong password here')
+    secret.press('Enter')
     expect(page.locator('#prompt-label')).to_have_text('code:')
-    check('input is plain again for the code', box.get_attribute('type') == 'text')
+    check('password input is gone after', secret.count() == 0)
+    check('code goes in the command input', box.is_visible() and box.get_attribute('type') == 'text')
     box.press_sequentially('00000')
     check('five digits wait for the sixth', page.locator('#prompt-label').text_content() == 'code:')
     box.press_sequentially('0')
@@ -333,15 +336,16 @@ def login_checks(term, page):
 
     term.type('login')
     expect(page.locator('#prompt-label')).to_have_text('password:')
-    box.press('Escape')
+    secret.press('Escape')
     term.expect_text('cancelled')
     expect(page.locator('#prompt-label')).to_have_text('~ $')
-    check('cancel leaves a normal input', box.get_attribute('type') == 'text')
+    check('cancel leaves a normal input',
+          secret.count() == 0 and box.is_visible() and box.get_attribute('type') == 'text')
 
     term.type('login')
     expect(page.locator('#prompt-label')).to_have_text('password:')
-    box.fill(PASSWORD)
-    box.press('Enter')
+    secret.fill(PASSWORD)
+    secret.press('Enter')
     expect(page.locator('#prompt-label')).to_have_text('code:')
     now = pyotp.TOTP(SECRET).now()
     box.fill(now[:3] + ' ' + now[3:])  # the way an authenticator app copies it
@@ -556,9 +560,9 @@ def stream_ends_on_logout(browser):
     time.sleep(31)
     term.type('login')
     expect(page.locator('#prompt-label')).to_have_text('password:')
+    page.locator('#secret-input').fill(PASSWORD)
+    page.locator('#secret-input').press('Enter')
     box = page.locator('#command-input')
-    box.fill(PASSWORD)
-    box.press('Enter')
     expect(page.locator('#prompt-label')).to_have_text('code:')
     box.fill(pyotp.TOTP(SECRET).now())
     expect(page.locator('#prompt-label')).to_have_text('admin ~/mira $')
@@ -659,15 +663,6 @@ def phone_tap_checks(browser):
     check('a tap re-raises the keyboard when the input is already focused',
           focused() and after == before + 1, (before, after))
 
-    # A swipe is a scroll, not a tap.
-    page.evaluate('document.activeElement.blur()')
-    cdp = context.new_cdp_session(page)
-    cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': 200, 'y': 650}]})
-    cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': 200, 'y': 520}]})
-    cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
-    page.wait_for_timeout(100)
-    check('a swipe does not raise the keyboard', not focused())
-
     # A command tap runs the command and leaves the keyboard down, so the output stays in view.
     page.locator('.command', has_text='help').first.tap()
     term.expect_text('admin only')
@@ -680,6 +675,16 @@ def phone_tap_checks(browser):
     row = page.locator('#prompt-form').bounding_box()
     check('tapping the prompt line works after output moves it',
           tap(row['x'] + row['width'] - 40, row['y'] + row['height'] / 2), row)
+
+    # A swipe is a scroll, not a tap. Checked last: in headless Chromium a tap made after
+    # this CDP swipe produces no click, which would fail the command-tap checks above.
+    page.evaluate('document.activeElement.blur()')
+    cdp = context.new_cdp_session(page)
+    cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': 200, 'y': 650}]})
+    cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': 200, 'y': 520}]})
+    cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+    page.wait_for_timeout(100)
+    check('a swipe does not raise the keyboard', not focused())
     context.close()
 
 

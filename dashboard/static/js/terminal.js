@@ -46,6 +46,13 @@ const Terminal = (function () {
   let admin = terminal.dataset.admin === '1';
   let csrf = terminal.dataset.csrf || '';
 
+  // The input taking keystrokes: the command input, or while ask() wants a secret, a
+  // password input made for that one answer. The command input is never turned into a
+  // password input itself: browsers remember a field that was ever type="password"
+  // (for show-password toggles), so every command after a login looked like a new
+  // password and the browser offered to update the saved one.
+  let field = input;
+
   // --- Output ---
 
   // A segment is a string, { run: 'command' }, { href: 'url', label: 'text' } or
@@ -158,20 +165,49 @@ const Terminal = (function () {
       promptLabel.textContent = options.label;
       input.value = '';
       input.placeholder = '';
-      input.type = options.secret ? 'password' : 'text';
-      input.inputMode = options.numeric ? 'numeric' : 'text';
-      input.autocomplete = options.autocomplete || 'off';
+      if (options.secret) {
+        field = secretInput(options.autocomplete);
+        input.hidden = true;
+        input.after(field);
+        promptLabel.parentElement.htmlFor = field.id;
+      } else {
+        input.inputMode = options.numeric ? 'numeric' : 'text';
+        input.autocomplete = options.autocomplete || 'off';
+      }
       showPrompt(true);
-      input.focus({ preventScroll: true });
+      field.focus({ preventScroll: true });
       scrollToPrompt();
     });
+  }
+
+  function secretInput(autocomplete) {
+    const box = document.createElement('input');
+    box.id = 'secret-input';
+    box.className = 'command-input';
+    box.type = 'password';
+    box.autocomplete = autocomplete || 'current-password';
+    box.spellcheck = false;
+    box.setAttribute('autocapitalize', 'off');
+    box.setAttribute('enterkeyhint', 'go');
+    box.addEventListener('keydown', onKeydown);
+    box.addEventListener('input', onInput);
+    return box;
   }
 
   function finishAsk(answer) {
     const current = reader;
     reader = null;
+    if (field !== input) {
+      const secret = field;
+      field = input;
+      input.hidden = false;
+      promptLabel.parentElement.htmlFor = input.id;
+      // Focus moves before the password input goes, while still inside the keypress
+      // that answered, so a phone keeps its keyboard up for the next question.
+      if (document.activeElement === secret) input.focus({ preventScroll: true });
+      secret.remove();
+    }
     input.value = '';
-    input.type = 'text';
     input.inputMode = 'text';
     input.autocomplete = 'off';
     refreshPrompt();
@@ -642,7 +678,7 @@ const Terminal = (function () {
   function focusInput() {
     // On a phone, focusing raises the keyboard and hides the page, so wait until
     // the visitor taps the prompt themselves.
-    if (!touchScreen) input.focus({ preventScroll: true });
+    if (!touchScreen) field.focus({ preventScroll: true });
   }
 
   function recall(step) {
@@ -671,14 +707,18 @@ const Terminal = (function () {
     }
   }
 
-  input.addEventListener('keydown', function (event) {
+  function onKeydown(event) {
     if (reader) {
       const cancel = event.key === 'Escape'
         || (event.ctrlKey && event.key.toLowerCase() === 'c'
-            && input.selectionStart === input.selectionEnd);
+            && field.selectionStart === field.selectionEnd);
       if (cancel) {
         event.preventDefault();
         finishAsk(null);
+      } else if (event.key === 'Enter' && field !== input) {
+        // With two inputs in the form, Enter no longer submits it by itself.
+        event.preventDefault();
+        form.requestSubmit();
       } else if (event.key === 'Tab' || event.key === 'ArrowUp' || event.key === 'ArrowDown') {
         event.preventDefault();
       }
@@ -709,19 +749,22 @@ const Terminal = (function () {
       input.value = '';
       scrollToPrompt();
     }
-  });
+  }
 
   // A phone's number pad may have no Enter key, so a fixed-length answer sends itself.
   // Spaces are dropped because authenticator apps copy codes as "123 456".
-  input.addEventListener('input', function () {
+  function onInput() {
     if (!reader || !reader.submitAt) return;
-    const digits = input.value.replace(/[^0-9]/g, '');
+    const digits = field.value.replace(/[^0-9]/g, '');
     if (digits.length === reader.submitAt) finishAsk(digits);
-  });
+  }
+
+  input.addEventListener('keydown', onKeydown);
+  input.addEventListener('input', onInput);
 
   form.addEventListener('submit', function (event) {
     event.preventDefault();
-    if (reader) finishAsk(input.value);
+    if (reader) finishAsk(field.value);
     else submit(input.value);
   });
 
@@ -730,7 +773,7 @@ const Terminal = (function () {
   terminal.addEventListener('click', function (event) {
     if (event.target.closest('a, button')) return;
     if (String(window.getSelection())) return;
-    input.focus({ preventScroll: true });
+    field.focus({ preventScroll: true });
   });
 
   // On a phone, a tap anywhere but a link or button raises the keyboard at the prompt.
@@ -755,7 +798,7 @@ const Terminal = (function () {
     if (event.timeStamp - start.at > 500) return;
     if (Math.abs(touch.clientX - start.x) > 10 || Math.abs(touch.clientY - start.y) > 10) return;
 
-    if (form.hidden || event.target === input) return;   // the input handles its own taps
+    if (form.hidden || event.target === field) return;   // the input handles its own taps
     if (event.target.closest('a, button')) return;
     if (String(window.getSelection())) return;            // this tap clears a selection
     event.preventDefault();
@@ -767,8 +810,8 @@ const Terminal = (function () {
   // made outside a tap, like ask()'s after a request. Blurring first makes the focus new.
   // No preventScroll, so the browser keeps the prompt above the keyboard.
   function raiseKeyboard() {
-    if (document.activeElement === input && !keyboardUp()) input.blur();
-    input.focus();
+    if (document.activeElement === field && !keyboardUp()) field.blur();
+    field.focus();
   }
 
   // The keyboard shrinks the visible area without resizing the page. A best guess:
