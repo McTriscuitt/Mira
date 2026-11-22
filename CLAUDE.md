@@ -61,6 +61,7 @@ the system reflashes. make it commentable so that it can be ignored for testing.
 
 ## Recently completed
 
+- **Nov 22, 2026, pinned header pushed to `main`:** `clear` and Ctrl+L no longer remove the name and tagline. They live in `#site-header`, outside the output; the "Type mira…" hint is still ordinary output, shown on the first visit only (`Markdowns/DASHBOARD.md`, "Commands"). The e2e passes 99/99.
 - **Nov 22, 2026, password-manager prompt fix pushed to `main`, not yet confirmed in a real browser:** after `login`, the browser offered to update the saved password with each typed command, because the command input had been switched to `type="password"` and browsers remember that. The password now gets its own input, removed after the answer (`Markdowns/DASHBOARD.md`, "Login and security"). The e2e swipe check moved last, because in headless Chromium a tap after its CDP swipe produced no click. The e2e passes 96/96.
 
 - **Nov 8, 2026, Zigbee dropout fix flashed (`Online (sw-restart) — Mira 3.1` confirmed):** in a storm the bridge reported powered bulbs as `connectivity_issue` → `connected` for 10–25 s, which Mira read as a wall switch turned on, so the dresser came back on after its 10:30 PM off. Now a reconnect asks the bridge first, and a light that's still off is a dropout: logged, nothing changes. Write-up: `Bug Records/Nov8_Zigbee_Dropout_Turned_Dresser_On.md`; checklist: "Nov 8 reflash checklist" in `Markdowns/MIRA_3.md`.
