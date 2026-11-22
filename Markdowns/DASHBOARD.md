@@ -49,6 +49,10 @@ on a local Postgres; they drop every table, so `conftest.py` refuses any databas
 **Everywhere:** `help`, `clear`, `cd`, `back`, `exit`, `pwd`, and the hidden `login`, `logout [all]`,
 `access [logins|visits|commands]`, `legacy`.
 
+**The header stays.** The name and tagline sit in `#site-header`, outside the output, so
+`clear` and Ctrl+L leave them. The "Type mira…" hint under them is ordinary output, shown
+on the first visit only.
+
 **Admin help lists everything.** Logged in, `help` adds an "also yours, logged in" section with
 every hidden and secret command that works where you are (`login` excepted). The engine
 (`terminal.js` `printAdminHelp`) adds it after any directory's own help, so a new project gets it

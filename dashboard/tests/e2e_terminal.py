@@ -180,7 +180,9 @@ class Term:
 
 def visitor_checks(term, board, page, csp_errors):
     page.goto(BASE + '/')
-    term.expect_text('Tristan DeOrnellis')
+    header = page.locator('#site-header')
+    expect(header).to_contain_text('Tristan DeOrnellis')
+    term.expect_text('to see my lighting project')
     check('prompt starts at ~ $', term.prompt() == '~ $', term.prompt())
     term.shot('01-landing')
 
@@ -190,6 +192,16 @@ def visitor_checks(term, board, page, csp_errors):
     for secret in ('login', 'logout', 'access', 'legacy'):
         check(f'root help hides {secret}', secret not in help_text)
     term.type('clear')
+    expect(page.locator('#output')).to_be_empty()
+    check('clear keeps the name and tagline',
+          header.inner_text().splitlines() == ['Tristan DeOrnellis', 'software and embedded projects'],
+          header.inner_text())
+    check('clear drops the first-visit hint', 'to see my lighting project' not in term.text())
+    term.type('help')
+    term.expect_text('what this site records')
+    page.locator('#command-input').press('Control+l')
+    expect(page.locator('#output')).to_be_empty()
+    check('Ctrl+L keeps the header too', 'Tristan DeOrnellis' in header.inner_text())
 
     term.type('logi')
     term.expect_text('command not found: logi')
@@ -309,7 +321,7 @@ def visitor_checks(term, board, page, csp_errors):
 
 def login_checks(term, page):
     page.goto(BASE + '/')
-    term.expect_text('Tristan')
+    expect(page.locator('#site-header')).to_contain_text('Tristan')
     box = page.locator('#command-input')
 
     term.type('login')

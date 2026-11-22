@@ -21,6 +21,8 @@
 </head>
 <body>
   <main class="terminal" id="terminal" data-admin="{{ '1' if admin else '0' }}" data-csrf="{{ csrf }}" data-start-dir="{{ start_dir }}">
+    <header class="site-header" id="site-header"></header>
+
     <div class="output" id="output" role="log" aria-live="polite" aria-label="Terminal output"></div>
 
     <div class="status-line" id="status-line" hidden></div>
