@@ -817,11 +817,13 @@ const Terminal = (function () {
 
   // --- Start ---
 
+  // The name and tagline go in the header, which clear doesn't touch. The hint below
+  // them is ordinary output, there for the first visit only.
   function intro(startDir) {
+    const header = document.getElementById('site-header');
     const lines = [
-      print(SITE.name, 'title'),
-      print(SITE.tagline, 'muted'),
-      print(''),
+      header.appendChild(buildLine(SITE.name, 'title')),
+      header.appendChild(buildLine(SITE.tagline, 'muted')),
     ];
     if (!startDir) {
       lines.push(print(['Type ', { run: 'mira' }, ' to see my lighting project, or ', { run: 'help' }, ' for more.']));

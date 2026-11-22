@@ -46,6 +46,11 @@ body {
 
 /* --- Output --- */
 
+/* Name and tagline, outside the output so clear leaves them. The margin is the
+   blank line that used to follow them. */
+.site-header { margin-bottom: 1.6em; }
+.site-header:empty { display: none; }
+
 .output:empty { display: none; }
 
 .line {
